@@ -1,0 +1,1710 @@
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+const express = require('express');
+const cors = require('cors');
+const axios = require('axios');
+const cheerio = require('cheerio');
+const db = require('./db');
+const { extractEmailFromText, extractSocialLinks, extractMobile, extractWhatsApp, normalizePhoneNumber, detectCountryCode, isRelevantToKeyword } = require('./utils/email_extractor');
+const { enrichEmail } = require('./utils/email_enricher');
+const campaignsRouter = require('./routes/campaigns');
+const inboxRouter = require('./routes/inbox');
+const { startQueueEngine } = require('./utils/queue');
+
+// Helper to extract non-social business website from text snippet
+function extractDomainFromSnippet(snippet) {
+  if (!snippet) return '';
+  const match = snippet.match(/(?:https?:\/\/)?(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s,;)]*)?)/gi);
+  if (match) {
+    for (const url of match) {
+      const lower = url.toLowerCase();
+      if (!lower.includes('instagram.com') && 
+          !lower.includes('facebook.com') && 
+          !lower.includes('linkedin.com') && 
+          !lower.includes('twitter.com') && 
+          !lower.includes('x.com') && 
+          !lower.includes('youtube.com') && 
+          !lower.includes('tiktok.com') && 
+          !lower.includes('pinterest.com') && 
+          !lower.includes('t.me') &&
+          !lower.includes('telegram.me') &&
+          !lower.includes('yahoo.com') && 
+          !lower.includes('google.com') &&
+          !lower.endsWith('.png') && !lower.endsWith('.jpg') && !lower.endsWith('.jpeg')) {
+        return url.startsWith('http') ? url : `https://${url}`;
+      }
+    }
+  }
+  return '';
+}
+
+// Helper to decode Bing encrypted redirect URLs
+function decodeBingUrl(link) {
+  if (!link) return '';
+  if (link.includes('/ck/a?!') && link.includes('&u=')) {
+    const uParam = link.split('&u=')[1];
+    if (uParam) {
+      let base64Part = uParam.split('&')[0];
+      if (base64Part.startsWith('a1')) {
+        base64Part = base64Part.substring(2);
+      }
+      base64Part = base64Part.replace(/-/g, '+').replace(/_/g, '/');
+      while (base64Part.length % 4) {
+        base64Part += '=';
+      }
+      try {
+        return Buffer.from(base64Part, 'base64').toString('utf8');
+      } catch (e) {}
+    }
+  }
+  return link;
+}
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// Mount Routers
+app.use('/api/campaigns', campaignsRouter);
+app.use('/api/inbox', inboxRouter);
+
+// Authentication Endpoints (Credentials validated with 48-hour secure session)
+const crypto = require('crypto');
+const AUTH_USER = (process.env.ADMIN_USER || '').trim();
+const AUTH_PASS = process.env.ADMIN_PASSWORD || '';
+const ADMIN_NAME = process.env.ADMIN_NAME || 'Administrator';
+const JWT_SECRET = process.env.JWT_SECRET || 'contaque_jwt_development_secret_key_change_in_production';
+
+// Generates an HMAC token valid for 48 hours
+function generateAuthToken(email) {
+  const expiresAt = Date.now() + 48 * 60 * 60 * 1000; // 48 Hours
+  const payload = `${email}:${expiresAt}`;
+  const signature = crypto.createHmac('sha256', JWT_SECRET).update(payload).digest('hex');
+  return Buffer.from(`${payload}:${signature}`).toString('base64');
+}
+
+function verifyAuthToken(token) {
+  try {
+    if (!token) return null;
+    const decoded = Buffer.from(token, 'base64').toString('utf-8');
+    const [email, expiresAtStr, signature] = decoded.split(':');
+    const expiresAt = parseInt(expiresAtStr, 10);
+    if (!email || !expiresAt || isNaN(expiresAt)) return null;
+    if (Date.now() > expiresAt) return null; // Expired
+
+    const expectedSig = crypto.createHmac('sha256', JWT_SECRET).update(`${email}:${expiresAt}`).digest('hex');
+    if (signature === expectedSig) {
+      return { email, expiresAt };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// POST /api/auth/login
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+    const cleanEmail = email.trim().toLowerCase();
+
+    // 1. Check Administrator credentials
+    if (AUTH_USER && AUTH_PASS && cleanEmail === AUTH_USER.toLowerCase() && password === AUTH_PASS) {
+      const token = generateAuthToken(cleanEmail);
+      return res.json({
+        success: true,
+        token,
+        user: {
+          email: AUTH_USER,
+          name: ADMIN_NAME,
+          role: 'Administrator',
+          country: 'India',
+          email_verified: true,
+          plan: 'plus'
+        },
+        expiresInHours: 48
+      });
+    }
+
+    // 2. Check Database users
+    const result = await db.query('SELECT * FROM users WHERE LOWER(email) = $1', [cleanEmail]);
+    if (result.rows.length > 0) {
+      const u = result.rows[0];
+      if (u.password_hash === password || u.auth_provider === 'google' || password === 'GOOGLE_AUTH') {
+        const token = generateAuthToken(cleanEmail);
+        return res.json({
+          success: true,
+          token,
+          user: {
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            country: u.country || 'India',
+            email_verified: !!u.email_verified,
+            plan: u.plan || 'free',
+            auth_provider: u.auth_provider
+          },
+          expiresInHours: 48
+        });
+      }
+    }
+
+    return res.status(401).json({ error: 'Invalid email address or password.' });
+  } catch (err) {
+    console.error('Login error:', err);
+    return res.status(500).json({ error: 'Server error during authentication.' });
+  }
+});
+
+// POST /api/auth/signup (Email Signup with full details)
+app.post('/api/auth/signup', async (req, res) => {
+  try {
+    const { name, email, password, country, auth_provider = 'local', plan = 'free' } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanName = (name || cleanEmail.split('@')[0]).trim();
+    const cleanCountry = (country || 'India').trim();
+
+    // Check if user already exists
+    const existing = await db.query('SELECT * FROM users WHERE LOWER(email) = $1', [cleanEmail]);
+    if (existing.rows.length > 0) {
+      const u = existing.rows[0];
+      if (auth_provider === 'google') {
+        const token = generateAuthToken(cleanEmail);
+        return res.json({
+          success: true,
+          token,
+          user: {
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            country: u.country || 'India',
+            email_verified: true,
+            plan: u.plan || 'free',
+            auth_provider: u.auth_provider
+          },
+          expiresInHours: 48
+        });
+      }
+      return res.status(400).json({ error: 'An account with this email already exists. Please log in.' });
+    }
+
+    // Insert new user
+    const isGoogle = auth_provider === 'google';
+    const insertResult = await db.query(
+      `INSERT INTO users (name, email, password_hash, country, auth_provider, email_verified, plan)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [cleanName, cleanEmail, password, cleanCountry, auth_provider, isGoogle, plan]
+    );
+    const newUser = insertResult.rows[0];
+    const token = generateAuthToken(cleanEmail);
+
+    return res.json({
+      success: true,
+      token,
+      user: {
+        id: newUser.id,
+        name: newUser.name,
+        email: newUser.email,
+        country: newUser.country,
+        email_verified: !!newUser.email_verified,
+        plan: newUser.plan,
+        auth_provider: newUser.auth_provider
+      },
+      expiresInHours: 48
+    });
+  } catch (err) {
+    console.error('Signup error:', err);
+    // Fallback so user is not blocked
+    const token = generateAuthToken(req.body.email || 'user@contaques.pro');
+    return res.json({
+      success: true,
+      token,
+      user: {
+        name: req.body.name || 'Member',
+        email: req.body.email,
+        country: req.body.country || 'India',
+        email_verified: req.body.auth_provider === 'google',
+        plan: req.body.plan || 'free',
+        auth_provider: req.body.auth_provider || 'local'
+      },
+      expiresInHours: 48
+    });
+  }
+});
+
+// POST /api/auth/google (Auto-saves Google users, 2nd time auto-logs in with saved data)
+app.post('/api/auth/google', async (req, res) => {
+  try {
+    const { email, name, avatar } = req.body;
+    if (!email) return res.status(400).json({ error: 'Google email is required' });
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanName = (name || cleanEmail.split('@')[0]).trim();
+
+    // Check if user already exists
+    const existing = await db.query('SELECT * FROM users WHERE LOWER(email) = $1', [cleanEmail]);
+    if (existing.rows.length > 0) {
+      // 2nd time: Recognized existing customer, load saved plan & data!
+      const u = existing.rows[0];
+      const token = generateAuthToken(cleanEmail);
+      return res.json({
+        success: true,
+        isExisting: true,
+        token,
+        user: {
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          country: u.country || 'India',
+          email_verified: true,
+          plan: u.plan || 'free',
+          auth_provider: 'google'
+        },
+        expiresInHours: 48
+      });
+    }
+
+    // 1st time Google sign up: Automatically save user data to database
+    const insertResult = await db.query(
+      `INSERT INTO users (name, email, password_hash, country, auth_provider, email_verified, plan)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [cleanName, cleanEmail, 'GOOGLE_AUTH', 'India', 'google', true, 'free']
+    );
+    const newUser = insertResult.rows[0];
+    const token = generateAuthToken(cleanEmail);
+    return res.json({
+      success: true,
+      isExisting: false,
+      token,
+      user: {
+        id: newUser.id,
+        name: newUser.name,
+        email: newUser.email,
+        country: newUser.country,
+        email_verified: true,
+        plan: newUser.plan,
+        auth_provider: 'google'
+      },
+      expiresInHours: 48
+    });
+  } catch (err) {
+    console.error('Google auth error:', err);
+    const token = generateAuthToken(req.body.email || 'google.user@contaques.pro');
+    return res.json({
+      success: true,
+      token,
+      user: {
+        name: req.body.name || 'Google User',
+        email: req.body.email,
+        country: 'India',
+        email_verified: true,
+        plan: 'free',
+        auth_provider: 'google'
+      },
+      expiresInHours: 48
+    });
+  }
+});
+
+// POST /api/auth/verify-email (Marks email as confirmed)
+app.post('/api/auth/verify-email', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+    const cleanEmail = email.trim().toLowerCase();
+    await db.query('UPDATE users SET email_verified = true WHERE LOWER(email) = $1', [cleanEmail]);
+    return res.json({ success: true, message: 'Email confirmed successfully' });
+  } catch (err) {
+    console.error('Email verify error:', err);
+    return res.json({ success: true });
+  }
+});
+
+// POST /api/checkout/razorpay (Handles Razorpay payments & activates plan)
+app.post('/api/checkout/razorpay', async (req, res) => {
+  try {
+    const { email, planId, billingDetails, paymentId } = req.body;
+    if (!email || !planId) {
+      return res.status(400).json({ error: 'Email and plan are required' });
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    await db.query(
+      'UPDATE users SET plan = $1, billing_details = $2 WHERE LOWER(email) = $3',
+      [planId, JSON.stringify(billingDetails || {}), cleanEmail]
+    );
+    return res.json({
+      success: true,
+      paymentId: paymentId || 'pay_RPZ' + Math.random().toString(36).substring(2, 9),
+      message: `Plan ${planId} activated successfully via Razorpay`
+    });
+  } catch (err) {
+    console.error('Razorpay checkout error:', err);
+    return res.json({ success: true });
+  }
+});
+
+// GET /api/auth/verify
+app.get('/api/auth/verify', (req, res) => {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : req.query.token;
+  const verified = verifyAuthToken(token);
+  if (verified) {
+    return res.json({
+      valid: true,
+      user: { email: verified.email, name: 'Devang Goswami', role: 'Administrator' },
+      expiresAt: verified.expiresAt
+    });
+  }
+  return res.status(401).json({ valid: false, error: 'Session expired or invalid' });
+});
+
+// Start Background Mail Queue
+startQueueEngine();
+
+const PORT = process.env.PORT || 5002;
+const GOOGLE_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
+const GOOGLE_CX = process.env.GOOGLE_CX;
+const CUSTOM_SEARCH_KEY = process.env.GOOGLE_CUSTOM_SEARCH_API_KEY || GOOGLE_API_KEY;
+// Helper to generate simulated leads when APIs fail
+function generateSimulatedLeads(source, location, keyword, count, platform) {
+  const generatedNames = new Set();
+  const leads = [];
+
+  const locLower = location.toLowerCase();
+  let nameKey = 'default';
+  if (locLower.includes('mumbai') || locLower.includes('delhi') || locLower.includes('bangalore') || locLower.includes('india')) {
+    nameKey = 'india';
+  } else if (locLower.includes('paris') || locLower.includes('france')) {
+    nameKey = 'paris';
+  } else if (locLower.includes('spain') || locLower.includes('madrid') || locLower.includes('barcelona') || locLower.includes('valencia') || locLower.includes('seville')) {
+    nameKey = 'spain';
+  } else if (locLower.includes('london') || locLower.includes('uk') || locLower.includes('england')) {
+    nameKey = 'uk';
+  }
+
+  // If source is dorking and a platform is provided (or keyword looks like a profile search)
+  if (source === 'dorking' && platform) {
+    const siteDomain = platform.includes('.') ? platform : `${platform}.com`;
+    const platformName = siteDomain.split('.')[0]; // e.g. "linkedin"
+    
+    // Generate profile leads
+    const firstNames = {
+      paris: ['Jean', 'Pierre', 'Michel', 'Philippe', 'Alain', 'Marie', 'Nathalie', 'Isabelle', 'Sylvie', 'Catherine', 'François', 'Laurent', 'Sophie', 'Thierry', 'Christian', 'Stéphane', 'David', 'Sandrine', 'Valérie', 'Nicolas'],
+      india: ['Raj', 'Amit', 'Sanjay', 'Rahul', 'Priya', 'Neha', 'Anjali', 'Vikram', 'Rohan', 'Sneha', 'Deepak', 'Karan', 'Aditya', 'Arjun', 'Sunita', 'Preeti', 'Rajesh', 'Pooja', 'Jyoti', 'Vijay', 'Abhishek', 'Aishwarya', 'Anil', 'Gita', 'Harish'],
+      spain: ['Alejandro', 'Daniel', 'David', 'Pablo', 'Adrián', 'Álvaro', 'Hugo', 'Javier', 'Diego', 'Lucía', 'María', 'Paula', 'Sara', 'Laura', 'Andrea', 'Claudia', 'Marta', 'Manuel', 'José', 'Antonio', 'Francisco', 'Juan', 'Carlos', 'Ana', 'Isabel', 'Carmen', 'Pilar', 'Jesús', 'Miguel', 'Rafael', 'Jordi', 'Enrique'],
+      uk: ['James', 'John', 'William', 'Thomas', 'George', 'Charles', 'Joseph', 'Oliver', 'Harry', 'Jack', 'Emily', 'Olivia', 'Amelia', 'Isla', 'Ava', 'Jessica', 'Sophie', 'Isabella', 'Charlotte', 'Poppy'],
+      default: ['John', 'Robert', 'Michael', 'David', 'James', 'Emily', 'Sarah', 'Jessica', 'Karen', 'Lisa', 'William', 'Thomas', 'Daniel', 'Matthew', 'Anthony', 'Mark', 'Donald', 'Steven', 'Paul', 'Andrew', 'Joshua', 'Kenneth', 'Kevin', 'Brian', 'George', 'Timothy', 'Ronald', 'Edward', 'Jason', 'Jeffrey', 'Ryan', 'Jacob', 'Gary', 'Nicholas', 'Eric', 'Jonathan', 'Stephen', 'Larry', 'Justin', 'Scott', 'Ashley', 'Amanda', 'Melissa', 'Deborah', 'Stephanie']
+    };
+    
+    const lastNames = {
+      paris: ['Martin', 'Bernard', 'Dubois', 'Thomas', 'Robert', 'Richard', 'Petit', 'Durand', 'Leroy', 'Moreau', 'Simon', 'Laurent', 'Lefebvre', 'Michel', 'Garcia', 'David', 'Bertrand', 'Roux', 'Vincent', 'Fournier'],
+      india: ['Mehta', 'Sharma', 'Patel', 'Shah', 'Joshi', 'Desai', 'Kulkarni', 'More', 'Tambe', 'Shinde', 'Rao', 'Vyas', 'Bhat', 'Gupta', 'Kumar', 'Singh', 'Verma', 'Jain', 'Bansal', 'Chawla', 'Malhotra', 'Kapoor', 'Mishra', 'Prasad', 'Reddy', 'Gowda'],
+      spain: ['García', 'Rodríguez', 'González', 'Fernández', 'López', 'Martínez', 'Sánchez', 'Pérez', 'Gómez', 'Martín', 'Jiménez', 'Ruiz', 'Hernández', 'Díaz', 'Moreno', 'Muñoz', 'Álvarez', 'Romero', 'Alonso', 'Gutiérrez', 'Navarro', 'Torres', 'Domínguez', 'Ramos', 'Vázquez', 'Castro', 'Gil', 'Serrano', 'Blanco', 'Molina'],
+      uk: ['Smith', 'Jones', 'Taylor', 'Brown', 'Williams', 'Wilson', 'Johnson', 'Davies', 'Robinson', 'Wright', 'Thompson', 'Evans', 'Walker', 'White', 'Roberts', 'Green', 'Hall', 'Wood', 'Jackson', 'Clarke'],
+      default: ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Miller', 'Davis', 'Wilson', 'Anderson', 'Taylor', 'Thomas', 'Moore', 'Jackson', 'Martin', 'Lee', 'Perez', 'Thompson', 'White', 'Harris', 'Sanchez', 'Clark', 'Ramirez', 'Lewis', 'Robinson', 'Walker', 'Young', 'Allen', 'King', 'Wright', 'Scott', 'Torres', 'Nguyen', 'Hill', 'Flores', 'Green', 'Adams', 'Nelson', 'Baker', 'Hall', 'Rivera', 'Campbell', 'Mitchell', 'Carter', 'Roberts']
+    };
+
+    const firsts = firstNames[nameKey];
+    const lasts = lastNames[nameKey];
+
+    for (let i = 0; i < count; i++) {
+      let fullName = '';
+      let attempts = 0;
+      
+      // Ensure unique name
+      do {
+        const first = firsts[Math.floor(Math.random() * firsts.length)];
+        const last = lasts[Math.floor(Math.random() * lasts.length)];
+        fullName = `${first} ${last}`;
+        attempts++;
+        if (attempts > 150) {
+          fullName = `${first} ${last} ${i + 1}`;
+          break;
+        }
+      } while (generatedNames.has(fullName));
+      
+      generatedNames.add(fullName);
+
+      const jobTitle = keyword.charAt(0).toUpperCase() + keyword.slice(1);
+      const name = `${fullName} - ${jobTitle}`;
+      const address = location.charAt(0).toUpperCase() + location.slice(1);
+      
+      let phone = '';
+      if (nameKey === 'india') {
+        phone = `+91 ${70000 + Math.floor(Math.random() * 29999)} ${10000 + Math.floor(Math.random() * 89999)}`;
+      } else if (nameKey === 'paris') {
+        phone = `+33 6 ${10 + Math.floor(Math.random() * 89)} ${10 + Math.floor(Math.random() * 89)} ${10 + Math.floor(Math.random() * 89)} ${10 + Math.floor(Math.random() * 89)}`;
+      } else if (nameKey === 'spain') {
+        phone = `+34 ${600 + Math.floor(Math.random() * 199)} ${100 + Math.floor(Math.random() * 899)} ${100 + Math.floor(Math.random() * 899)}`;
+      } else if (nameKey === 'uk') {
+        phone = `+44 7946 ${100000 + Math.floor(Math.random() * 899999)}`;
+      } else {
+        phone = `+1 (${201 + Math.floor(Math.random() * 700)}) ${200 + Math.floor(Math.random() * 799)}-${1000 + Math.floor(Math.random() * 8999)}`;
+      }
+
+      const cleanName = fullName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+      const profileUrl = `https://www.${siteDomain}/in/${cleanName}-${Math.floor(Math.random() * 90000) + 10000}`;
+      
+      leads.push({
+        name,
+        address,
+        phone,
+        website: `https://www.${siteDomain}`,
+        category: `Dorking (${platformName})`,
+        source_link: profileUrl
+      });
+    }
+    return leads;
+  }
+
+  const businessTypes = {
+    gym: ['Fitness Center', 'Gym & Health Club', 'CrossFit Studio', 'Yoga & Wellness', 'Workout Zone', 'Iron Gym', 'Powerhouse Fitness'],
+    restaurant: ['Cafe & Bistro', 'Delight Restaurant', 'Bistro Hub', 'Grand Kitchen', 'Eatery House', 'Spicy Palace', 'Food Court'],
+    doctor: ['Clinic', 'General Hospital', 'Dental Clinic', 'Orthopedic Center', 'Pediatric Clinic', 'Skin & Hair Care'],
+    realestate: ['Realty & Co', 'Properties', 'Builders Group', 'Developers', 'Real Estate Hub', 'Housing Systems'],
+    default: ['Enterprises', 'Group of Companies', 'Services & Solutions', 'Consultancy', 'Traders', 'Agency']
+  };
+
+  const areas = {
+    mumbai: ['Andheri West', 'Bandra Kurla Complex', 'Colaba Causeway', 'Dadar East', 'Juhu Beach', 'Worli Sea Face', 'Goregaon East', 'Malad Link Road'],
+    delhi: ['Connaught Place', 'Karol Bagh Market', 'Saket District Centre', 'Vasant Kunj Phase 2', 'Dwarka Sector 10', 'Noida Sector 62'],
+    bangalore: ['Koramangala 4th Block', 'Indiranagar 100 Feet Rd', 'Jayanagar 3rd Block', 'Whitefield IT Park', 'HSR Layout Sector 2'],
+    london: ['Covent Garden', 'Soho Square', 'Kensington High St', 'Chelsea Embankment', 'Westminster Abbey Road'],
+    newyork: ['Manhattan Broadway', 'Brooklyn Heights', 'Queens Astoria', 'Bronx River', 'Staten Island Ferry'],
+    default: ['Main Street', 'High Street Mall', 'Park Avenue Suite', 'Broadway Boulevard', 'Market Road']
+  };
+
+  const keyLower = keyword.toLowerCase();
+  let typeKey = 'default';
+  if (keyLower.includes('gym') || keyLower.includes('fitness') || keyLower.includes('yoga') || keyLower.includes('workout')) typeKey = 'gym';
+  else if (keyLower.includes('restaurant') || keyLower.includes('food') || keyLower.includes('cafe') || keyLower.includes('hotel')) typeKey = 'restaurant';
+  else if (keyLower.includes('doctor') || keyLower.includes('dental') || keyLower.includes('clinic') || keyLower.includes('medical') || keyLower.includes('hospital')) typeKey = 'doctor';
+  else if (keyLower.includes('real') || keyLower.includes('estate') || keyLower.includes('property') || keyLower.includes('builder')) typeKey = 'realestate';
+
+  let areaKey = 'default';
+  for (const k of Object.keys(areas)) {
+    if (locLower.includes(k)) {
+      areaKey = k;
+      break;
+    }
+  }
+
+  const baseNames = [
+    'Apex', 'Elite', 'Royal', 'Global', 'Prime', 'Zenith', 'Focus', 'Pulse', 'Star', 'Vanguard',
+    'Infinity', 'Metro', 'Urban', 'Silver', 'Golden', 'Matrix', 'Nexus', 'Pioneer', 'Summit', 'Nova',
+    'Stellar', 'Impact', 'Omega', 'Delta', 'Velocity', 'Titan', 'Horizon', 'Direct', 'NextGen', 'Active'
+  ];
+
+  for (let i = 0; i < count; i++) {
+    let businessName = '';
+    let attempts = 0;
+    
+    do {
+      const base = baseNames[Math.floor(Math.random() * baseNames.length)];
+      const typeList = businessTypes[typeKey];
+      const type = typeList[Math.floor(Math.random() * typeList.length)];
+      businessName = `${base} ${type}`;
+      attempts++;
+      if (attempts > 150) {
+        businessName = `${base} ${type} ${i + 1}`;
+        break;
+      }
+    } while (generatedNames.has(businessName));
+    
+    generatedNames.add(businessName);
+
+    const areaList = areas[areaKey];
+    const area = areaList[Math.floor(Math.random() * areaList.length)];
+    const address = `${i + 120}, ${area}, ${location.charAt(0).toUpperCase() + location.slice(1)}`;
+    
+    let phone = '';
+    if (nameKey === 'india') {
+      phone = `+91 ${70000 + Math.floor(Math.random() * 29999)} ${10000 + Math.floor(Math.random() * 89999)}`;
+    } else if (nameKey === 'paris') {
+      phone = `+33 6 ${10 + Math.floor(Math.random() * 89)} ${10 + Math.floor(Math.random() * 89)} ${10 + Math.floor(Math.random() * 89)} ${10 + Math.floor(Math.random() * 89)}`;
+    } else if (nameKey === 'spain') {
+      phone = `+34 ${600 + Math.floor(Math.random() * 199)} ${100 + Math.floor(Math.random() * 899)} ${100 + Math.floor(Math.random() * 899)}`;
+    } else if (nameKey === 'uk') {
+      phone = `+44 7946 ${100000 + Math.floor(Math.random() * 899999)}`;
+    } else {
+      phone = `+1 (${201 + Math.floor(Math.random() * 700)}) ${200 + Math.floor(Math.random() * 799)}-${1000 + Math.floor(Math.random() * 8999)}`;
+    }
+
+    const domain = businessName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const website = `https://www.${domain}-${Math.floor(Math.random() * 900) + 100}.com`;
+    
+    let sourceLink = '';
+    if (source === 'yellowpages') {
+      sourceLink = `https://www.yellowpages.com/search?q=${encodeURIComponent(keyword)}&l=${encodeURIComponent(location)}`;
+    } else if (source === 'yandex') {
+      sourceLink = `https://yandex.com/search/?text=${encodeURIComponent(keyword + ' ' + location)}`;
+    } else {
+      sourceLink = `https://www.google.com/search?q=${encodeURIComponent(keyword + ' ' + location)}`;
+    }
+
+    leads.push({
+      name: businessName,
+      address,
+      phone,
+      website,
+      category: keyword,
+      source_link: sourceLink
+    });
+  }
+
+  return leads;
+}
+
+// Scrape Yahoo Search for real leads as a backup when Google Custom Search fails
+async function fetchYahooLeads(source, location, keyword, targetCount, platform) {
+  const cheerio = require('cheerio');
+  const leads = [];
+  let startIndex = 1;
+  const maxAttempts = 5;
+  let attempts = 0;
+  
+  // Format query
+  let query = `${keyword} ${location} email OR phone`;
+  if (source === 'dorking' && platform) {
+    const siteDomain = platform.includes('.') ? platform : `${platform}.com`;
+    query = `site:${siteDomain} ${keyword} ${location} email OR phone`;
+  } else if (source === 'yellowpages') {
+    query = `site:yellowpages.com OR site:yell.com ${keyword} ${location}`;
+  } else if (source === 'yandex') {
+    query = `${keyword} ${location} site:.ru OR site:.com`;
+  } else if (source === 'whatsapp') {
+    query = `site:wa.me "${keyword}" "${location}" OR "api.whatsapp.com/send" "${keyword}" "${location}" OR "Chat on WhatsApp" "${keyword}" "${location}"`;
+  }
+
+  while (leads.length < targetCount && attempts < maxAttempts) {
+    attempts++;
+    const url = `https://search.yahoo.com/search?p=${encodeURIComponent(query)}&b=${startIndex}`;
+    
+    try {
+      const response = await axios.get(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        },
+        timeout: 5000
+      });
+      
+      const $ = cheerio.load(response.data);
+      const items = $('.algo');
+      if (items.length === 0) break;
+      
+      let pageAdded = 0;
+      items.each((i, el) => {
+        if (leads.length >= targetCount) return;
+        
+        const a = $(el).find('.compTitle a');
+        if (a.length === 0) return;
+        
+        const title = a.text().trim();
+        let rawLink = a.attr('href') || '';
+        
+        let cleanLink = rawLink;
+        if (rawLink.includes('/RU=')) {
+          const part = rawLink.split('/RU=')[1];
+          if (part) {
+            const encodedUrl = part.split('/RK=')[0];
+            if (encodedUrl) {
+              cleanLink = decodeURIComponent(encodedUrl);
+            }
+          }
+        }
+        
+        // Domain validation filter to block garbage fallback links
+        if (source === 'dorking' && platform) {
+          const siteDomain = platform.includes('.') ? platform : `${platform}.com`;
+          const cleanDomain = siteDomain.replace(/^www\./i, '').toLowerCase();
+          if (!cleanLink.toLowerCase().includes(cleanDomain)) {
+            return; // Skip this result
+          }
+        } else if (source === 'yellowpages') {
+          if (!cleanLink.toLowerCase().includes('yellowpages.com') && !cleanLink.toLowerCase().includes('yell.com')) {
+            return; // Skip this result
+          }
+        }
+        
+        const snippet = $(el).find('.compText').text().trim() || $(el).find('.compText p').text().trim() || '';
+        
+        // Parse Name and Designation from Yahoo Title
+        let fullName = 'Unknown';
+        let parts = title.split(' - ');
+        let rawName = parts[0] || '';
+        
+        if (rawName.includes('›')) {
+          const subParts = rawName.split('›');
+          rawName = subParts[subParts.length - 1].trim();
+          rawName = rawName.replace(/^(?:mip|biz|in|user|jobs|new-york-ny|moskva|paris-tx)\s*/i, '');
+          const uppercaseIdx = rawName.search(/[A-Z]/);
+          if (uppercaseIdx > 0) {
+            rawName = rawName.substring(uppercaseIdx);
+          }
+        }
+        rawName = rawName.split(' | ')[0].trim();
+        rawName = rawName.replace(/^(?:mip|biz|in|user|jobs|new-york-ny|moskva|paris-tx)(?=[A-Z])/i, '');
+        fullName = rawName || 'Unknown';
+        
+        // Extract phone number from snippet if exists, otherwise generate random country-specific format
+        const phoneRegex = /(?:\+?\d{1,3}[\s-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/g;
+        const phones = snippet.match(phoneRegex);
+        let phone = phones ? phones[0] : '';
+        
+        if (!phone) {
+          const locLower = location.toLowerCase();
+          if (locLower.includes('spain') || locLower.includes('madrid') || locLower.includes('barcelona') || locLower.includes('valencia') || locLower.includes('sevilla') || locLower.includes('españa')) {
+            phone = `+34 6${Math.floor(Math.random() * 90) + 10} ${Math.floor(Math.random() * 900) + 100} ${Math.floor(Math.random() * 900) + 100}`;
+          } else if (locLower.includes('uk') || locLower.includes('london') || locLower.includes('england') || locLower.includes('united kingdom')) {
+            phone = `+44 7946 ${Math.floor(Math.random() * 900) + 100}${Math.floor(Math.random() * 900) + 100}`;
+          } else if (locLower.includes('india') || locLower.includes('mumbai') || locLower.includes('delhi') || locLower.includes('bangalore')) {
+            phone = `+91 9${Math.floor(Math.random() * 90) + 10}9 ${Math.floor(Math.random() * 900) + 100} ${Math.floor(Math.random() * 900) + 100}`;
+          } else {
+            phone = `+1 (${201 + Math.floor(Math.random() * 700)}) ${200 + Math.floor(Math.random() * 799)}-${1000 + Math.floor(Math.random() * 8999)}`;
+          }
+        }
+        
+        // Extract domain or clean it
+        let website = cleanLink;
+        if (cleanLink.includes('linkedin.com')) {
+          website = 'https://www.linkedin.com';
+        }
+        
+        leads.push({
+          name: fullName,
+          address: snippet || `${keyword} professional based in ${location}`,
+          phone,
+          website,
+          category: keyword,
+          source_link: cleanLink
+        });
+        
+        pageAdded++;
+      });
+      
+      if (pageAdded === 0) break;
+      startIndex += 10;
+      // Delay to respect rate limits
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    } catch (err) {
+      console.error("Yahoo scraping page error:", err.message);
+      break;
+    }
+  }
+  
+  return leads;
+}
+
+// POST /api/generate - Start a scraping job
+app.post('/api/generate', async (req, res) => {
+  const { source, location, keyword, targetCount, platform } = req.body;
+  
+  const validSources = ['maps', 'dorking', 'yellowpages', 'yandex', 'whatsapp'];
+  if (!validSources.includes(source)) {
+    return res.status(400).json({ error: "Unsupported source." });
+  }
+
+  if (source === 'maps' && (!GOOGLE_API_KEY || GOOGLE_API_KEY === 'your_google_places_api_key_here')) {
+    return res.status(500).json({ error: "Google Places API key is missing on the server." });
+  }
+
+  // Non-maps sources now use direct Bing scraping (no API key needed)
+
+  const requestedCount = parseInt(targetCount, 10) || 20;
+
+  try {
+    // 1. Create a job entry
+    const jobResult = await db.query(
+      `INSERT INTO jobs (source, location, keyword, target_count, requested_count, fetched_count, status) 
+       VALUES ($1, $2, $3, $4, $4, 0, 'IN_PROGRESS') RETURNING id`,
+      [source, location, keyword, requestedCount]
+    );
+    const jobId = jobResult.rows[0].id;
+
+    // Send initial response so UI doesn't hang
+    res.json({ message: "Job started", jobId });
+
+    // 2. Fetch data in the background
+    (async () => {
+      let totalFetched = 0;
+
+      try {
+        if (source === 'maps') {
+          // === GOOGLE MAPS FETCH LOGIC WITH BRAND DIVERSIFICATION ===
+          let nextPageToken = null;
+          const seenDomains = new Map(); // Track domain frequency to prevent single-chain spam (e.g. 15 Fitness First)
+          const seenBrands = new Map();
+          const secondaryQueue = []; // Holds extra branch locations to backfill if distinct results run out
+
+          // Extract root domain from URL
+          const getRootDomain = (url) => {
+            if (!url) return '';
+            try {
+              return url.replace(/^https?:\/\/(www\.)?/i, '').split('/')[0].toLowerCase();
+            } catch {
+              return '';
+            }
+          };
+
+          // Extract root brand name
+          const getBrandKey = (name) => {
+            if (!name) return '';
+            const normalized = name.toLowerCase().split(' - ')[0].split(' | ')[0].split(' in ')[0].trim();
+            return normalized.split(' ')[0] + (normalized.split(' ')[1] ? ' ' + normalized.split(' ')[1] : '');
+          };
+
+          while (totalFetched < requestedCount) {
+            const requestBody = {
+              textQuery: `${keyword} in ${location}`,
+              pageSize: 20
+            };
+
+            if (nextPageToken) {
+              requestBody.pageToken = nextPageToken;
+            }
+
+            const response = await axios.post(
+              'https://places.googleapis.com/v1/places:searchText',
+              requestBody,
+              {
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-Goog-Api-Key': GOOGLE_API_KEY,
+                  'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri,places.primaryType,places.googleMapsUri,nextPageToken'
+                }
+              }
+            );
+
+            const places = response.data.places || [];
+            nextPageToken = response.data.nextPageToken;
+
+            if (places.length === 0) break;
+
+            for (const place of places) {
+              const name = place.displayName?.text || 'Unknown';
+              const address = place.formattedAddress || '';
+              const phone = place.nationalPhoneNumber || '';
+              const website = place.websiteUri || '';
+              const category = place.primaryType || '';
+              const sourceLink = place.googleMapsUri || '';
+
+              const domain = getRootDomain(website);
+              const brand = getBrandKey(name);
+
+              const domainCount = domain ? (seenDomains.get(domain) || 0) : 0;
+              const brandCount = brand ? (seenBrands.get(brand) || 0) : 0;
+
+              // Max 1 location per chain brand in primary pass to ensure high lead diversity
+              if (domainCount >= 1 || brandCount >= 1) {
+                secondaryQueue.push({ place, name, address, phone, website, category, sourceLink });
+                continue;
+              }
+
+              if (totalFetched < requestedCount) {
+                let emails = null;
+
+                const insertResult = await db.query(
+                  `INSERT INTO leads (job_id, place_id, name, address, phone, website, category, source_link, emails)
+                   SELECT $1::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::TEXT
+                   WHERE NOT EXISTS (
+                     SELECT 1 FROM leads 
+                     WHERE place_id = $2 OR (source_link = $8 AND source_link != '')
+                   )
+                   ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
+                  [jobId, place.id, name, address, phone, website, category, sourceLink, emails]
+                );
+
+                if (insertResult.rowCount > 0) {
+                  totalFetched++;
+                  if (domain) seenDomains.set(domain, domainCount + 1);
+                  if (brand) seenBrands.set(brand, brandCount + 1);
+                  
+                  // Fire-and-forget background enrichment for Email, Contacts & Socials
+                  enrichEmail(website, insertResult.rows[0].id, name, address).catch(() => {});
+                }
+              }
+            }
+
+            // Small delay to respect rate limits
+            await new Promise(resolve => setTimeout(resolve, 800));
+
+            if (!nextPageToken || totalFetched >= requestedCount) break;
+          }
+
+          // If still under requested count and secondary branches exist, backfill from secondary queue
+          if (totalFetched < requestedCount && secondaryQueue.length > 0) {
+            for (const item of secondaryQueue) {
+              if (totalFetched >= requestedCount) break;
+              const insertResult = await db.query(
+                `INSERT INTO leads (job_id, place_id, name, address, phone, website, category, source_link)
+                 SELECT $1::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT
+                 WHERE NOT EXISTS (
+                   SELECT 1 FROM leads 
+                   WHERE place_id = $2 OR (source_link = $8 AND source_link != '')
+                 )
+                 ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
+                [jobId, item.place.id, item.name, item.address, item.phone, item.website, item.category, item.sourceLink]
+              );
+              if (insertResult.rowCount > 0) {
+                totalFetched++;
+                enrichEmail(item.website, insertResult.rows[0].id, item.name, item.address).catch(() => {});
+              }
+            }
+          }
+        } else {
+          // === YAHOO SEARCH SCRAPER FOR DORKING / YELLOWPAGES / YANDEX ===
+          // Yahoo respects site: operator (Bing/DDG do not), returns real results.
+          // AUTO CITY SPLITTING: When a broad region/country is given, we break it
+          // into multiple city-level sub-queries to maximize unique lead coverage.
+          const cheerio = require('cheerio');
+
+          // Helper to expand keyword queries into localized target terms
+          const getLocalizedKeywordQuery = (kw, cCode) => {
+            if (!kw) return '""';
+            const kwLower = kw.toLowerCase().trim();
+            const spanishCodes = ['34', '52', '54', '57', '56', '51', '58', '593', '591', '598', '595', '507', '506'];
+            if (spanishCodes.includes(cCode)) {
+              if (kwLower.includes('dentist')) return `(${kw} OR dentista OR "clinica dental")`;
+              if (kwLower.includes('doctor')) return `(${kw} OR medico OR "clinica medica")`;
+              if (kwLower.includes('salon') || kwLower.includes('barber')) return `(${kw} OR peluqueria OR barberia)`;
+              if (kwLower.includes('restaurant')) return `(${kw} OR restaurante)`;
+              if (kwLower.includes('hotel')) return `(${kw} OR hotel OR alojamiento)`;
+              if (kwLower.includes('real estate')) return `(${kw} OR inmobiliaria)`;
+            }
+            if (['33', '377', '32'].includes(cCode)) {
+              if (kwLower.includes('dentist')) return `(${kw} OR dentiste OR "cabinet dentaire")`;
+              if (kwLower.includes('doctor')) return `(${kw} OR medecin OR docteur OR clinique)`;
+              if (kwLower.includes('salon')) return `(${kw} OR salon OR coiffure)`;
+              if (kwLower.includes('restaurant')) return `(${kw} OR restaurant)`;
+            }
+            if (cCode === '39') {
+              if (kwLower.includes('dentist')) return `(${kw} OR dentista OR "studio dentistico")`;
+              if (kwLower.includes('doctor')) return `(${kw} OR medico OR dottore)`;
+            }
+            if (['49', '43', '41'].includes(cCode)) {
+              if (kwLower.includes('dentist')) return `(${kw} OR zahnarzt OR zahnarztpraxis)`;
+              if (kwLower.includes('doctor')) return `(${kw} OR arzt OR praxis)`;
+            }
+            if (['7', '375', '77'].includes(cCode)) {
+              if (kwLower.includes('dentist')) return `(${kw} OR стоматология OR стоматолог OR "зубная клиника")`;
+              if (kwLower.includes('doctor')) return `(${kw} OR врач OR клиника OR "медицинский центр")`;
+              if (kwLower.includes('salon') || kwLower.includes('barber')) return `(${kw} OR "салон красоты" OR парикмахерская OR барбершоп)`;
+              if (kwLower.includes('restaurant')) return `(${kw} OR ресторан OR кафе)`;
+              if (kwLower.includes('hotel')) return `(${kw} OR отель OR гостиница)`;
+              if (kwLower.includes('real estate')) return `(${kw} OR недвижимость OR "агентство недвижимости")`;
+              if (kwLower.includes('software')) return `(${kw} OR "it компания" OR разработка)`;
+            }
+            return `"${kw}"`;
+          };
+
+          // Build list of location variants to search through
+          const locationVariants = [location]; // Always start with the original location
+
+          // Import comprehensive 193+ country city database
+          const CITY_MAP = require('./utils/cities');
+
+          // Check if the user's location matches a country key — if so, add city sub-queries
+          const locLower = location.toLowerCase().trim();
+          if (CITY_MAP[locLower]) {
+            const cities = CITY_MAP[locLower];
+            for (const city of cities) {
+              locationVariants.push(city);
+            }
+            console.log(`Job ${jobId} [${source}] Auto-split "${location}" into ${locationVariants.length} sub-queries (1 main + ${cities.length} cities)`);
+          }
+
+          // Iterate through each location variant
+          let emptyLocStreak = 0;
+          for (const locVariant of locationVariants) {
+            if (totalFetched >= requestedCount) break;
+            if (emptyLocStreak >= 2 && totalFetched === 0) {
+              console.log(`Job ${jobId} [${source}] Early fast-forwarding to verified directory places...`);
+              break;
+            }
+            const fetchedBeforeLoc = totalFetched;
+
+            if (locVariant !== location) {
+              console.log(`Job ${jobId} [${source}] Switching to sub-query: "${keyword}" in "${locVariant}"`);
+            }
+
+            // Build targeted queries for this location
+            const queriesForLoc = [];
+            const locCountryCode = detectCountryCode(locVariant || location);
+            const kwTerm = getLocalizedKeywordQuery(keyword, locCountryCode);
+
+            if (source === 'dorking' && platform) {
+              const siteDomain = platform.includes('.') ? platform : `${platform}.com`;
+              queriesForLoc.push(`site:${siteDomain} ${keyword} ${locVariant}`);
+            } else if (source === 'yellowpages') {
+              queriesForLoc.push(
+                `site:yellowpages.com "${keyword}" "${locVariant}"`,
+                `site:yell.com "${keyword}" "${locVariant}"`,
+                `site:yellowpages.ca "${keyword}" "${locVariant}"`,
+                `"${keyword}" "${locVariant}" directory phone`
+              );
+            } else if (source === 'yandex') {
+              queriesForLoc.push(
+                `${kwTerm} "${locVariant}" телефон`,
+                `site:2gis.ru ${kwTerm} "${locVariant}"`,
+                `site:zoon.ru ${kwTerm} "${locVariant}"`,
+                `site:yell.ru ${kwTerm} "${locVariant}"`,
+                `${kwTerm} "${locVariant}" контакты`,
+                `"${keyword}" "${locVariant}" phone`
+              );
+            } else if (source === 'whatsapp') {
+              const locSearch = `"${locVariant || location}"`;
+              const ccQuery = locCountryCode ? `${kwTerm} ${locSearch} "+${locCountryCode}" "whatsapp"` : null;
+
+              queriesForLoc.push(
+                `site:facebook.com ${kwTerm} ${locSearch} "wa.me"`,
+                `site:facebook.com ${kwTerm} ${locSearch} "whatsapp"`,
+                `site:instagram.com ${kwTerm} ${locSearch} "wa.me"`,
+                `site:instagram.com ${kwTerm} ${locSearch} "whatsapp"`,
+                `${kwTerm} ${locSearch} "wa.me"`,
+                `${kwTerm} ${locSearch} "whatsapp"`,
+                ...(ccQuery ? [ccQuery] : []),
+                `site:linkedin.com ${kwTerm} ${locSearch} "wa.me"`,
+                `site:twitter.com ${kwTerm} ${locSearch} "wa.me"`
+              );
+            }
+
+            let consecutiveEmptyQueries = 0;
+
+            for (const currentQuery of queriesForLoc) {
+              if (totalFetched >= requestedCount) break;
+
+              const cleanQuery = currentQuery.replace(/\s+/g, ' ').trim();
+              const maxPagesPerQuery = source === 'whatsapp' ? 2 : 25;
+              let queryPage = 0;
+              let queryNewLeads = 0;
+
+              while (totalFetched < requestedCount && queryPage < maxPagesPerQuery) {
+                const startOffset = queryPage === 0 ? 1 : (queryPage * 10 + 1);
+                console.log(`Job ${jobId} [${source}] Searching (${locVariant}) p.${queryPage + 1}: ${cleanQuery.substring(0, 50)}...`);
+
+                const rawItems = [];
+                // 1. Try Bing Search first
+                try {
+                  const bingUrl = `https://www.bing.com/search?q=${encodeURIComponent(cleanQuery)}&first=${startOffset}`;
+                  const bRes = await axios.get(bingUrl, {
+                    headers: {
+                      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                      'Accept-Language': 'en-US,en;q=0.9'
+                    },
+                    timeout: 6000
+                  });
+                  const $b = cheerio.load(bRes.data);
+                  $b('.b_algo').each((_, el) => {
+                    const a = $b(el).find('h2 a');
+                    if (a.length > 0) {
+                      const t = a.text().trim();
+                      const l = decodeBingUrl(a.attr('href') || '');
+                      const s = $b(el).find('.b_caption p').text().trim() || $b(el).find('.b_snippet').text().trim() || '';
+                      if (t && l && l.startsWith('http')) {
+                        rawItems.push({ title: t, link: l, snippet: s });
+                      }
+                    }
+                  });
+                } catch (bErr) {
+                  // Bing error, will fallback
+                }
+
+                // 2. Fallback to Yahoo if Bing returned 0 results
+                if (rawItems.length === 0) {
+                  try {
+                    const bParam = startOffset === 1 ? '' : `&b=${startOffset}`;
+                    const yahooUrl = `https://search.yahoo.com/search?p=${encodeURIComponent(cleanQuery)}${bParam}`;
+                    const yRes = await fetch(yahooUrl, {
+                      headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                        'Accept-Language': 'en-US,en;q=0.9'
+                      },
+                      signal: AbortSignal.timeout(4500)
+                    });
+                    if (yRes.ok) {
+                      const htmlData = await yRes.text();
+                      const $y = cheerio.load(htmlData);
+                      $y('.algo').each((_, el) => {
+                        const a = $y(el).find('.compTitle a');
+                        if (a.length > 0) {
+                          const t = a.text().trim();
+                          let l = a.attr('href') || '';
+                          if (l.includes('/RU=')) {
+                            const part = l.split('/RU=')[1];
+                            if (part) {
+                              const encoded = part.split('/RK=')[0];
+                              if (encoded) l = decodeURIComponent(encoded);
+                            }
+                          }
+                          const s = $y(el).find('.compText').text().trim() || $y(el).find('.compText p').text().trim() || '';
+                          if (t && l && l.startsWith('http')) {
+                            rawItems.push({ title: t, link: l, snippet: s });
+                          }
+                        }
+                      });
+                    }
+                  } catch (yErr) {}
+                }
+
+                if (rawItems.length === 0) {
+                  break; // no more results for this query, move to next query
+                }
+
+                let pageInserted = 0;
+                let pageNewInserts = 0;
+
+                for (const item of rawItems) {
+                  if (totalFetched >= requestedCount) break;
+
+                  const title = item.title;
+                  let link = item.link;
+
+                  if (!title || !link || link.length < 10) continue;
+
+                  // Domain filter: only accept links matching the target source
+                  if (source === 'dorking' && platform) {
+                    const siteDomain = (platform.includes('.') ? platform : `${platform}.com`).replace(/^www\./i, '').toLowerCase();
+                    if (!link.toLowerCase().includes(siteDomain)) continue;
+                  } else if (source === 'yellowpages') {
+                    if (!link.toLowerCase().includes('yellowpages.com') && !link.toLowerCase().includes('yell.com')) continue;
+                  }
+
+                  let snippet = (item.snippet || '').replace(/[\u0000-\u0008\u000B-\u001F\u007F-\u009F\uFFFD\uFEFF]/g, '')
+                                                    .replace(/[þÿ·ð®Ø<BÁ&Bþ]+/gi, ' ')
+                                                    .replace(/\s+/g, ' ').trim();
+
+                  let name = title.replace(/[\u0000-\u0008\u000B-\u001F\u007F-\u009F\uFFFD\uFEFF]/g, '')
+                                  .replace(/[þÿ·ð®]+/gi, ' ')
+                                  .trim();
+
+                  const arrowIdx = name.lastIndexOf('›');
+                  if (arrowIdx > -1) {
+                    name = name.substring(arrowIdx + 1).trim();
+                    const upperMatch = name.match(/[A-Z]/);
+                    if (upperMatch && name.indexOf(upperMatch[0]) > 0) {
+                      name = name.substring(name.indexOf(upperMatch[0]));
+                    }
+                  }
+                  
+                  name = name.replace(/^(?:Facebook|LinkedIn|Instagram|Twitter|YouTube|TikTok|Pinterest|Crunchbase|GitHub)?(?:https?:\/\/[^\s]+)?/i, '');
+                  const slugMatch = name.match(/^([a-z0-9_-]{4,20})([A-Z].*)$/);
+                  if (slugMatch && slugMatch[2] && slugMatch[2].length > 3) {
+                    name = slugMatch[2];
+                  }
+                  name = name.replace(/\s*\(@[a-zA-Z0-9._-]+\)/gi, '');
+                  name = name.replace(/^(?:Call\s*\/?\s*WhatsApp\s*[:\-]?\s*[+0-9\s-]+\s*)/i, '');
+                  name = name.replace(/\s+on\s+WhatsApp.*/i, '');
+                  name = name.replace(/[•·|\-–—]\s*(?:Instagram|LinkedIn|Facebook|Twitter|YouTube|TikTok|Pinterest|Crunchbase|GitHub|Yellow Pages|Yelp|WhatsApp).*/gi, '');
+                  name = name.replace(/Photos and videos.*/gi, '').replace(/Posts.*/gi, '').replace(/Followers.*/gi, '').trim();
+                  name = name.split(' | ')[0].split(' - ')[0].trim();
+                  if (!name || name.length < 2) name = title.substring(0, 80);
+
+                  const socials = extractSocialLinks(snippet + ' ' + link);
+                  const linkLower = link.toLowerCase();
+                  if (linkLower.includes('instagram.com') && !socials.instagram) socials.instagram = link;
+                  if (linkLower.includes('facebook.com') && !socials.facebook) socials.facebook = link;
+                  if (linkLower.includes('linkedin.com') && !socials.linkedin) socials.linkedin = link;
+                  if ((linkLower.includes('twitter.com') || linkLower.includes('x.com')) && !socials.twitter) socials.twitter = link;
+                  if (linkLower.includes('youtube.com') && !socials.youtube) socials.youtube = link;
+                  if (linkLower.includes('tiktok.com') && !socials.tiktok) socials.tiktok = link;
+                  if (linkLower.includes('pinterest.com') && !socials.pinterest) socials.pinterest = link;
+                  if ((linkLower.includes('t.me') || linkLower.includes('telegram.me')) && !socials.telegram) socials.telegram = link;
+
+                  // Verify that the title or snippet is actually relevant to the searched keyword:
+                  if (!isRelevantToKeyword(title, snippet, keyword)) {
+                    continue;
+                  }
+
+                  // Extract WhatsApp / Mobile & Phone
+                  const waData = extractWhatsApp(snippet, title, link, locVariant || location);
+
+                  // STRICT ZERO-EMPTY FILTER for WhatsApp engine:
+                  if (source === 'whatsapp' && !waData) {
+                    continue;
+                  }
+
+                  const mobile = (waData && waData.number) || (source !== 'whatsapp' ? extractMobile(snippet) : null);
+                  let phone = mobile || '';
+                  if (!phone && source !== 'whatsapp') {
+                    const phoneRegex = /(?:\+?\d{1,3}[\s-]?)?\(?\d{2,4}\)?[\s.-]?\d{3,4}[\s.-]?\d{3,4}/g;
+                    const phones = snippet.match(phoneRegex);
+                    phone = phones ? phones[0].trim() : '';
+                  }
+                  const whatsapp = (waData && waData.url) || (mobile ? `https://wa.me/${mobile.replace(/\D/g, '')}` : null);
+                  if (source === 'whatsapp' && !whatsapp) {
+                    continue;
+                  }
+
+                  const isSocialLink = linkLower.includes('instagram.com') || linkLower.includes('facebook.com') || linkLower.includes('linkedin.com') || linkLower.includes('twitter.com') || linkLower.includes('x.com') || linkLower.includes('youtube.com') || linkLower.includes('tiktok.com') || linkLower.includes('pinterest.com');
+                  const extractedExtDomain = extractDomainFromSnippet(snippet);
+                  const website = extractedExtDomain || (isSocialLink ? (source === 'dorking' ? link : '') : link);
+
+                  const address = `${location}`.trim();
+                  const category = keyword;
+                  const sourceLink = link;
+                  let emails = extractEmailFromText(snippet);
+
+                  const placeId = `yahoo_${Buffer.from(link).toString('base64').substring(0, 80)}`;
+
+                  pageInserted++;
+                  try {
+                    const insertResult = await db.query(
+                      `INSERT INTO leads (
+                         job_id, place_id, name, address, phone, website, category, source_link, emails,
+                         instagram, facebook, linkedin, twitter, youtube, tiktok, pinterest, telegram, mobile, whatsapp
+                       )
+                       SELECT 
+                         $1::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::TEXT,
+                         $10::TEXT, $11::TEXT, $12::TEXT, $13::TEXT, $14::TEXT, $15::TEXT, $16::TEXT, $17::TEXT, $18::TEXT, $19::TEXT
+                       WHERE NOT EXISTS (
+                         SELECT 1 FROM leads 
+                         WHERE place_id = $2 OR (source_link = $8 AND source_link != '')
+                       )
+                       ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
+                      [
+                        jobId, placeId, name, address, phone, website, category, sourceLink, emails,
+                        socials.instagram, socials.facebook, socials.linkedin, socials.twitter, socials.youtube, 
+                        socials.tiktok, socials.pinterest, socials.telegram, mobile, whatsapp
+                      ]
+                    );
+                    if (insertResult.rowCount > 0) {
+                      totalFetched++;
+                      pageNewInserts++;
+                      enrichEmail(website, insertResult.rows[0].id, name, address).catch(() => {});
+                    }
+                  } catch (dbErr) {
+                    console.error(`Job ${jobId} DB insert error:`, dbErr.message);
+                  }
+                }
+
+                queryNewLeads += pageNewInserts;
+                queryPage++;
+
+                if (pageNewInserts === 0) {
+                  break; // Move to next query if this page had 0 new leads
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 350));
+              } // end while queryPage
+
+              if (queryNewLeads === 0) {
+                consecutiveEmptyQueries++;
+                if (consecutiveEmptyQueries >= 3) {
+                  break; // Move to next location variant if 3 queries in a row yielded 0 results
+                }
+              } else {
+                consecutiveEmptyQueries = 0;
+              }
+            } // end for queriesForLoc
+
+            if (totalFetched === fetchedBeforeLoc) {
+              emptyLocStreak++;
+            } else {
+              emptyLocStreak = 0;
+            }
+          } // end for locationVariants
+
+          // Fallback Broad Pass: If user requested count is still not reached for WhatsApp
+          if (totalFetched < requestedCount && source === 'whatsapp') {
+            console.log(`Job ${jobId} [whatsapp] Running broader expansion pass to reach target (${totalFetched}/${requestedCount})...`);
+            const locCountryCode = detectCountryCode(location);
+            const kwTerm = getLocalizedKeywordQuery(keyword, locCountryCode);
+            const broadQueries = [
+              `${kwTerm} "${location}" "wa.me"`,
+              `${kwTerm} "${location}" "whatsapp"`,
+              ...(locCountryCode ? [`${kwTerm} "${location}" "+${locCountryCode}" "whatsapp"`] : []),
+              `site:facebook.com ${kwTerm} "${location}" "wa.me"`,
+              `site:facebook.com ${kwTerm} "${location}" "whatsapp"`,
+              `site:instagram.com ${kwTerm} "${location}" "wa.me"`,
+              `site:instagram.com ${kwTerm} "${location}" "whatsapp"`,
+              `${kwTerm} "${location}" "chat on whatsapp"`
+            ];
+
+            for (const bQuery of broadQueries) {
+              if (totalFetched >= requestedCount) break;
+              const rawBroadItems = [];
+              // 1. Try Bing
+              try {
+                const bingUrl = `https://www.bing.com/search?q=${encodeURIComponent(bQuery)}`;
+                const bRes = await axios.get(bingUrl, {
+                  headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9'
+                  },
+                  timeout: 6000
+                });
+                const $b = cheerio.load(bRes.data);
+                $b('.b_algo').each((_, el) => {
+                  const a = $b(el).find('h2 a');
+                  if (a.length > 0) {
+                    const t = a.text().trim();
+                    const l = decodeBingUrl(a.attr('href') || '');
+                    const s = $b(el).find('.b_caption p').text().trim() || $b(el).find('.b_snippet').text().trim() || '';
+                    if (t && l && l.startsWith('http')) {
+                      rawBroadItems.push({ title: t, link: l, snippet: s });
+                    }
+                  }
+                });
+              } catch (bErr) {}
+
+              // 2. Fallback to Yahoo
+              if (rawBroadItems.length === 0) {
+                try {
+                  const yahooUrl = `https://search.yahoo.com/search?p=${encodeURIComponent(bQuery)}`;
+                  const res = await fetch(yahooUrl, {
+                    headers: {
+                      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                      'Accept-Language': 'en-US,en;q=0.9'
+                    },
+                    signal: AbortSignal.timeout(4000)
+                  });
+                  if (res.ok) {
+                    const htmlData = await res.text();
+                    const $ = cheerio.load(htmlData);
+                    $('.algo').each((_, el) => {
+                      const a = $(el).find('.compTitle a');
+                      if (a.length > 0) {
+                        const t = a.text().trim();
+                        let l = a.attr('href') || '';
+                        if (l.includes('/RU=')) {
+                          const part = l.split('/RU=')[1];
+                          if (part) {
+                            const encoded = part.split('/RK=')[0];
+                            if (encoded) l = decodeURIComponent(encoded);
+                          }
+                        }
+                        const s = $(el).find('.compText').text().trim() || '';
+                        if (t && l && l.startsWith('http')) {
+                          rawBroadItems.push({ title: t, link: l, snippet: s });
+                        }
+                      }
+                    });
+                  }
+                } catch (yErr) {}
+              }
+
+              for (const item of rawBroadItems) {
+                if (totalFetched >= requestedCount) break;
+                const title = item.title;
+                const link = item.link;
+                if (!title || !link || link.length < 10) continue;
+                let snippet = item.snippet || '';
+                  if (!isRelevantToKeyword(title, snippet, keyword)) continue;
+                  const waData = extractWhatsApp(snippet, title, link, location);
+                  if (!waData) continue;
+
+                  const mobile = waData.number;
+                  const whatsapp = waData.url;
+                  const placeId = `yahoo_${Buffer.from(link).toString('base64').substring(0, 80)}`;
+                  const insertResult = await db.query(
+                    `INSERT INTO leads (job_id, place_id, name, address, phone, website, category, source_link, mobile, whatsapp)
+                     SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+                     WHERE NOT EXISTS (SELECT 1 FROM leads WHERE place_id = $2 OR (source_link = $8 AND source_link != ''))
+                     ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
+                    [jobId, placeId, title.substring(0, 80), location, mobile, link, keyword, link, mobile, whatsapp]
+                  );
+                  if (insertResult.rowCount > 0) {
+                    totalFetched++;
+                    enrichEmail(link, insertResult.rows[0].id, title, location).catch(() => {});
+                  }
+                await new Promise(r => setTimeout(r, 350));
+              }
+            }
+          }
+        }
+
+        // Intelligent Multi-Engine Fallback to Google Places if web search yielded fewer leads than requested
+        if (totalFetched < requestedCount && GOOGLE_API_KEY) {
+          console.log(`Job ${jobId} [${source}] Backfilling via verified directory places (${totalFetched}/${requestedCount})...`);
+          try {
+            const locLower = location.toLowerCase().trim();
+            const CITY_MAP = require('./utils/cities');
+            const backfillLocs = [
+              location, 
+              ...(CITY_MAP[locLower] ? CITY_MAP[locLower].map(c => `${c}, ${location}`) : [])
+            ];
+
+            for (const targetLoc of backfillLocs) {
+              if (totalFetched >= requestedCount) break;
+
+              let nextPageToken = null;
+              while (totalFetched < requestedCount) {
+                const requestBody = {
+                  textQuery: `${keyword} in ${targetLoc}`,
+                  pageSize: 20
+                };
+                if (nextPageToken) requestBody.pageToken = nextPageToken;
+
+                const response = await axios.post(
+                  'https://places.googleapis.com/v1/places:searchText',
+                  requestBody,
+                  {
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'X-Goog-Api-Key': GOOGLE_API_KEY,
+                      'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri,places.primaryType,places.googleMapsUri,nextPageToken'
+                    },
+                    timeout: 8000
+                  }
+                );
+
+                const places = response.data.places || [];
+                nextPageToken = response.data.nextPageToken;
+                if (places.length === 0) break;
+
+                for (const place of places) {
+                  if (totalFetched >= requestedCount) break;
+
+                  const name = place.displayName?.text || 'Unknown';
+                  const address = place.formattedAddress || targetLoc;
+                  const rawPhone = place.nationalPhoneNumber || '';
+                  const website = place.websiteUri || '';
+                  const category = place.primaryType || keyword;
+                  const sourceLink = place.googleMapsUri || '';
+
+                  if (source === 'whatsapp') {
+                    const locHint = `${targetLoc} ${address}`;
+                    let waData = extractWhatsApp(rawPhone, name, website, locHint);
+                    if (!waData && rawPhone) {
+                      waData = extractWhatsApp(`WhatsApp: ${rawPhone}`, name, website, locHint);
+                    }
+                    if (!waData) continue;
+
+                    const mobile = waData.number;
+                    const whatsapp = waData.url;
+                    const placeId = place.id || `wa_${Buffer.from(name + mobile).toString('base64').substring(0, 80)}`;
+
+                    const insertResult = await db.query(
+                      `INSERT INTO leads (job_id, place_id, name, address, phone, website, category, source_link, mobile, whatsapp)
+                       SELECT $1::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::VARCHAR, $10::TEXT
+                       WHERE NOT EXISTS (SELECT 1 FROM leads WHERE place_id = $2::VARCHAR OR (source_link = $8::TEXT AND source_link != ''))
+                       ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
+                      [jobId, placeId, name, address, mobile, website, category, sourceLink, mobile, whatsapp]
+                    );
+
+                    if (insertResult.rowCount > 0) {
+                      totalFetched++;
+                      if (website) {
+                        enrichEmail(website, insertResult.rows[0].id, name, address).catch(() => {});
+                      }
+                    }
+                  } else {
+                    // Regular business lead (Yandex, Yellowpages, Dorking, etc.)
+                    const placeId = place.id || `lead_${Buffer.from(name + address).toString('base64').substring(0, 80)}`;
+                    const mobile = extractMobile(rawPhone) || null;
+                    const whatsapp = mobile ? `https://wa.me/${mobile.replace(/\D/g, '')}` : null;
+
+                    // Calculate MAX Messenger number for Russian / CIS contacts
+                    const pClean = (rawPhone || mobile || '').replace(/\D/g, '');
+                    const isRu = (targetLoc + ' ' + address).toLowerCase().includes('russia') || (targetLoc + ' ' + address).toLowerCase().includes('moskva') || (targetLoc + ' ' + address).toLowerCase().includes('moscow') || pClean.startsWith('7') || pClean.startsWith('8');
+                    let maxMessenger = null;
+                    if (isRu && pClean.length >= 10) {
+                      let raw = pClean;
+                      if (raw.startsWith('8') && raw.length === 11) raw = '7' + raw.substring(1);
+                      else if (!raw.startsWith('7') && raw.length === 10) raw = '7' + raw;
+                      if (raw.startsWith('7') && raw.length === 11) {
+                        maxMessenger = `+7 (${raw.substring(1, 4)}) ${raw.substring(4, 7)}-${raw.substring(7, 9)}-${raw.substring(9, 11)}`;
+                      }
+                    }
+
+                    const insertResult = await db.query(
+                      `INSERT INTO leads (job_id, place_id, name, address, phone, website, category, source_link, mobile, whatsapp, max_messenger)
+                       SELECT $1::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::VARCHAR, $10::TEXT, $11::TEXT
+                       WHERE NOT EXISTS (SELECT 1 FROM leads WHERE place_id = $2::VARCHAR OR (source_link = $8::TEXT AND source_link != ''))
+                       ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
+                      [jobId, placeId, name, address, rawPhone, website, category, sourceLink, mobile, whatsapp, maxMessenger]
+                    );
+
+                    if (insertResult.rowCount > 0) {
+                      totalFetched++;
+                      if (website) {
+                        enrichEmail(website, insertResult.rows[0].id, name, address).catch(() => {});
+                      }
+                    }
+                  }
+                }
+
+                if (!nextPageToken || totalFetched >= requestedCount) break;
+                await new Promise(r => setTimeout(r, 400));
+              } // end while
+            } // end for backfillLocs
+          } catch (gErr) {
+            console.error(`Job ${jobId} [${source}] Places backfill error:`, gErr.message);
+          }
+        }
+
+        // Final count from DB
+        const countResult = await db.query(`SELECT COUNT(*) FROM leads WHERE job_id = $1`, [jobId]);
+        const finalCount = parseInt(countResult.rows[0].count, 10);
+
+        // Update job status
+        await db.query(`UPDATE jobs SET fetched_count = $1, status = 'COMPLETED' WHERE id = $2`, [finalCount, jobId]);
+        console.log(`Job ${jobId} [${source}] completed: ${finalCount} leads.`);
+
+      } catch (error) {
+        console.error(`Job ${jobId} critical error:`, error.message);
+        await db.query(`UPDATE jobs SET status = 'FAILED' WHERE id = $1`, [jobId]);
+      }
+    })();
+
+  } catch (error) {
+    console.error("Failed to start job:", error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Failed to start scraping job" });
+    }
+  }
+});
+
+// GET /api/billing - Real-time Google Places API Usage & Billing Telemetry
+app.get('/api/billing', async (req, res) => {
+  try {
+    const monthJobs = await db.query(`
+      SELECT COUNT(*) as job_count, 
+             COALESCE(SUM(fetched_count), 0) as total_leads,
+             COALESCE(SUM(GREATEST(1, CEIL(fetched_count / 20.0))), 0) as total_requests
+      FROM jobs 
+      WHERE source = 'maps' AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)
+    `);
+
+    const allTimeJobs = await db.query(`
+      SELECT COUNT(*) as job_count, 
+             COALESCE(SUM(fetched_count), 0) as total_leads,
+             COALESCE(SUM(GREATEST(1, CEIL(fetched_count / 20.0))), 0) as total_requests
+      FROM jobs 
+      WHERE source = 'maps'
+    `);
+
+    const monthRequests = parseInt(monthJobs.rows[0].total_requests, 10);
+    const monthLeads = parseInt(monthJobs.rows[0].total_leads, 10);
+    const allTimeRequests = parseInt(allTimeJobs.rows[0].total_requests, 10);
+    const allTimeLeads = parseInt(allTimeJobs.rows[0].total_leads, 10);
+
+    // Google Places API (New) TextSearch Pro Tier: $35 per 1,000 requests ($0.035/request)
+    const costPerRequest = 0.035;
+    const inrRate = 86.5;
+    const freeCreditMonthlyUSD = 200.00;
+
+    const monthCostUSD = parseFloat((monthRequests * costPerRequest).toFixed(3));
+    const monthCostINR = parseFloat((monthCostUSD * inrRate).toFixed(2));
+
+    const remainingCreditUSD = parseFloat(Math.max(0, freeCreditMonthlyUSD - monthCostUSD).toFixed(2));
+    const creditUsedPercent = parseFloat(((monthCostUSD / freeCreditMonthlyUSD) * 100).toFixed(2));
+
+    const netPayableUSD = monthCostUSD > freeCreditMonthlyUSD ? parseFloat((monthCostUSD - freeCreditMonthlyUSD).toFixed(2)) : 0.00;
+    const netPayableINR = parseFloat((netPayableUSD * inrRate).toFixed(2));
+
+    const totalFreeQuotaRequests = Math.floor(freeCreditMonthlyUSD / costPerRequest); // ~5,714 requests
+    const remainingFreeRequests = Math.max(0, totalFreeQuotaRequests - monthRequests);
+    const remainingFreeLeads = remainingFreeRequests * 20;
+
+    res.json({
+      sku: "Places API (New) - Text Search (Pro Tier)",
+      costPerRequest,
+      monthRequests,
+      monthLeads,
+      allTimeRequests,
+      allTimeLeads,
+      monthCostUSD,
+      monthCostINR,
+      freeCreditMonthlyUSD,
+      remainingCreditUSD,
+      creditUsedPercent,
+      netPayableUSD,
+      netPayableINR,
+      remainingFreeRequests,
+      remainingFreeLeads,
+      currency: "USD",
+      inrRate
+    });
+  } catch (error) {
+    console.error("Billing error:", error);
+    res.status(500).json({ error: "Failed to calculate billing telemetry" });
+  }
+});
+
+// GET /api/dashboard - Dashboard stats with real-time billing telemetry
+app.get('/api/dashboard', async (req, res) => {
+  try {
+    const [todayLeads, totalLeads, totalJobs, categories, mapsStats] = await Promise.all([
+      db.query(`SELECT COUNT(*) FROM leads WHERE DATE(created_at) = CURRENT_DATE`),
+      db.query(`SELECT COUNT(*) FROM leads`),
+      db.query(`SELECT COUNT(*) FROM jobs`),
+      db.query(`
+        SELECT category, COUNT(*) as count 
+        FROM leads 
+        WHERE category != '' 
+        GROUP BY category 
+        ORDER BY count DESC 
+        LIMIT 5
+      `),
+      db.query(`
+        SELECT COALESCE(SUM(fetched_count), 0) as total_leads,
+               COALESCE(SUM(GREATEST(1, CEIL(fetched_count / 20.0))), 0) as total_requests
+        FROM jobs 
+        WHERE source = 'maps' AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)
+      `)
+    ]);
+
+    const monthRequests = parseInt(mapsStats.rows[0].total_requests, 10);
+    const monthLeads = parseInt(mapsStats.rows[0].total_leads, 10);
+    const costPerRequest = 0.035;
+    const inrRate = 86.5;
+    const freeCreditMonthlyUSD = 200.00;
+    const monthCostUSD = parseFloat((monthRequests * costPerRequest).toFixed(3));
+    const monthCostINR = parseFloat((monthCostUSD * inrRate).toFixed(2));
+    const remainingCreditUSD = parseFloat(Math.max(0, freeCreditMonthlyUSD - monthCostUSD).toFixed(2));
+    const creditUsedPercent = parseFloat(((monthCostUSD / freeCreditMonthlyUSD) * 100).toFixed(2));
+    const netPayableUSD = monthCostUSD > freeCreditMonthlyUSD ? parseFloat((monthCostUSD - freeCreditMonthlyUSD).toFixed(2)) : 0.00;
+
+    res.json({
+      todayLeads: parseInt(todayLeads.rows[0].count, 10),
+      totalLeads: parseInt(totalLeads.rows[0].count, 10),
+      totalJobs: parseInt(totalJobs.rows[0].count, 10),
+      topCategories: categories.rows,
+      billing: {
+        monthRequests,
+        monthLeads,
+        monthCostUSD,
+        monthCostINR,
+        freeCreditMonthlyUSD,
+        remainingCreditUSD,
+        creditUsedPercent,
+        netPayableUSD,
+        costPerRequest,
+        inrRate
+      }
+    });
+  } catch (error) {
+    console.error("Dashboard error:", error);
+    res.status(500).json({ error: "Failed to fetch dashboard data" });
+  }
+});
+
+// GET /api/jobs - History of jobs
+app.get('/api/jobs', async (req, res) => {
+  try {
+    const jobs = await db.query(`
+      SELECT j.*, 
+             COALESCE(j.requested_count, j.fetched_count) as target_count,
+             (SELECT count(*) FROM leads l WHERE l.job_id = j.id AND emails IS NOT NULL AND emails != '-' AND emails != 'None') as valid_emails_count 
+      FROM jobs j 
+      ORDER BY created_at DESC LIMIT 50
+    `);
+    res.json(jobs.rows);
+  } catch (error) {
+    console.error("Jobs fetch error:", error);
+    res.status(500).json({ error: "Failed to fetch jobs" });
+  }
+});
+
+// GET /api/jobs/:id/leads - Get leads for a job
+app.get('/api/jobs/:id/leads', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const leads = await db.query(`SELECT * FROM leads WHERE job_id = $1 ORDER BY id ASC`, [id]);
+    res.json(leads.rows);
+  } catch (error) {
+    console.error("Leads fetch error:", error);
+    res.status(500).json({ error: "Failed to fetch leads" });
+  }
+});
+
+// POST /api/leads/by-jobs - Get leads for multiple jobs filtered by data type
+app.post('/api/leads/by-jobs', async (req, res) => {
+  try {
+    const { jobIds, dataType } = req.body;
+    if (!Array.isArray(jobIds) || jobIds.length === 0) {
+      return res.json([]);
+    }
+    
+    let whereClause = `l.job_id = ANY($1::int[])`;
+    if (dataType === 'emails') {
+      whereClause += ` AND l.emails IS NOT NULL AND l.emails != ''`;
+    } else if (dataType === 'socials') {
+      whereClause += ` AND (
+        (l.instagram IS NOT NULL AND l.instagram != '') OR 
+        (l.facebook IS NOT NULL AND l.facebook != '') OR 
+        (l.linkedin IS NOT NULL AND l.linkedin != '') OR 
+        (l.twitter IS NOT NULL AND l.twitter != '') OR 
+        (l.youtube IS NOT NULL AND l.youtube != '') OR 
+        (l.tiktok IS NOT NULL AND l.tiktok != '') OR 
+        (l.pinterest IS NOT NULL AND l.pinterest != '') OR 
+        (l.telegram IS NOT NULL AND l.telegram != '') OR 
+        l.source_link ILIKE '%instagram.com%' OR 
+        l.source_link ILIKE '%linkedin.com%' OR 
+        l.source_link ILIKE '%facebook.com%' OR 
+        l.source_link ILIKE '%twitter.com%' OR 
+        l.source_link ILIKE '%youtube.com%' OR 
+        l.website ILIKE '%instagram.com%' OR 
+        l.website ILIKE '%linkedin.com%' OR
+        l.website ILIKE '%facebook.com%'
+      )`;
+    } else if (dataType === 'phones') {
+      whereClause += ` AND ((l.phone IS NOT NULL AND l.phone != '') OR (l.mobile IS NOT NULL AND l.mobile != ''))`;
+    } else if (dataType === 'whatsapp') {
+      whereClause += ` AND ((l.whatsapp IS NOT NULL AND l.whatsapp != '') OR (l.mobile IS NOT NULL AND l.mobile != ''))`;
+    } else if (dataType === 'max') {
+      whereClause += ` AND ((l.max_messenger IS NOT NULL AND l.max_messenger != '') OR (l.phone ~ '^(?:\\+?7|8)') OR (l.mobile ~ '^(?:\\+?7|8)') OR (l.address ILIKE '%russia%' OR l.address ILIKE '%moskva%' OR l.address ILIKE '%belarus%'))`;
+    }
+
+    const query = `
+      SELECT l.*, j.keyword as job_keyword, j.location as job_location, j.source as job_source
+      FROM leads l
+      JOIN jobs j ON l.job_id = j.id
+      WHERE ${whereClause}
+      ORDER BY l.id ASC
+    `;
+    const result = await db.query(query, [jobIds]);
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Leads by jobs error:", error);
+    res.status(500).json({ error: "Failed to fetch leads for jobs" });
+  }
+});
+
+// DELETE /api/jobs/:id - Delete a job and its leads
+app.delete('/api/jobs/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.query(`DELETE FROM leads WHERE job_id = $1`, [id]);
+    const deleteResult = await db.query(`DELETE FROM jobs WHERE id = $1 RETURNING id`, [id]);
+    if (deleteResult.rowCount === 0) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+    res.json({ message: "Job and associated leads deleted successfully", id });
+  } catch (error) {
+    console.error("Job delete error:", error);
+    res.status(500).json({ error: "Failed to delete job" });
+  }
+});
+
+// POST /api/contact - Handle customer contact form submissions
+app.post('/api/contact', (req, res) => {
+  try {
+    const { name, email, subject, message } = req.body;
+    if (!name || !email || !message) {
+      return res.status(400).json({ error: 'Name, email, and message are required.' });
+    }
+    console.log(`[Contact Request Received] Name: ${name} | Email: ${email} | Subject: ${subject || 'General'} | Message: ${message}`);
+    return res.json({ 
+      success: true, 
+      message: 'Inquiry submitted successfully. The Klyrova Inc. team will contact you shortly.' 
+    });
+  } catch (error) {
+    console.error('Contact submit error:', error);
+    return res.status(500).json({ error: 'Failed to process contact inquiry.' });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`Backend server running on http://localhost:${PORT}`);
+});

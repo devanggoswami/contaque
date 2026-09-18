@@ -1,0 +1,328 @@
+/* ==========================================================================
+   Contaques Checkout Modal Styles (Elite Dark SaaS Aesthetic)
+   ========================================================================== */
+
+.checkout-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 7, 13, 0.82);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+  animation: modalBackdropFadeIn 0.25s ease-out;
+}
+
+@keyframes modalBackdropFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.checkout-modal-card {
+  position: relative;
+  background: #0d121f;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(99, 102, 241, 0.2);
+  border-radius: 24px;
+  width: 100%;
+  max-width: 580px;
+  max-height: 90vh;
+  overflow-y: auto;
+  color: #f8fafc;
+  padding: 32px 30px;
+  animation: modalPopUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: inherit;
+}
+
+@keyframes modalPopUp {
+  from { opacity: 0; transform: scale(0.95) translateY(12px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.checkout-close-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #94a3b8;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.checkout-close-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  transform: rotate(90deg);
+}
+
+.checkout-header-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  color: #34d399;
+  margin-bottom: 12px;
+}
+
+.checkout-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.checkout-title-row h2 {
+  font-size: 24px;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0;
+}
+
+.checkout-price-pill {
+  font-size: 22px;
+  font-weight: 900;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  padding: 4px 12px;
+  border-radius: 10px;
+}
+
+.checkout-plan-desc {
+  font-size: 13px;
+  color: #94a3b8;
+  margin: 0 0 20px 0;
+}
+
+/* Plan Features Pillbox */
+.checkout-highlights-box {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.checkout-feat-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: #e2e8f0;
+}
+
+.checkout-feat-item .check-icon {
+  color: #34d399;
+  flex-shrink: 0;
+}
+
+/* Payment Method Tabs */
+.checkout-tabs-wrap {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 4px;
+  border-radius: 12px;
+}
+
+.checkout-tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.checkout-tab-btn.active {
+  background: rgba(99, 102, 241, 0.25);
+  color: #ffffff;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* Form Groups */
+.checkout-form-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.checkout-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.checkout-input-group label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.checkout-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-size: 13.5px;
+  color: #ffffff;
+  font-family: inherit;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.checkout-input:focus {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: #6366f1;
+  box-shadow: 0 0 14px rgba(99, 102, 241, 0.3);
+}
+
+.checkout-row-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* QR Code Display in UPI Tab */
+.upi-qr-card {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(56, 189, 248, 0.3);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.mock-qr-code {
+  width: 88px;
+  height: 88px;
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mock-qr-code svg {
+  width: 100%;
+  height: 100%;
+}
+
+.upi-details-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.upi-id-badge {
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.1);
+  padding: 3px 8px;
+  border-radius: 6px;
+  display: inline-block;
+  width: fit-content;
+}
+
+/* Order Summary Box */
+.checkout-summary-box {
+  background: rgba(11, 15, 23, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12.5px;
+  color: #94a3b8;
+}
+
+.summary-row.total {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 8px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+/* Submit Button */
+.checkout-submit-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  border: none;
+  padding: 14px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+  font-family: inherit;
+}
+
+.checkout-submit-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(16, 185, 129, 0.6);
+}
+
+.checkout-submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.checkout-security-notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 14px;
+  text-align: center;
+}

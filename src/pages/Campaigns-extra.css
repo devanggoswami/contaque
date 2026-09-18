@@ -1,0 +1,17 @@
+/* Add to end of file */
+.studio-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+
+.studio-column {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 1024px) {
+  .studio-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,474 @@
+/* ==========================================================================
+   Contaques Signup Screen Styles (Elite SaaS Aesthetic)
+   Matches the user reference layout in Contaques dark theme
+   ========================================================================== */
+
+.signup-screen-container {
+  min-height: 100vh;
+  background-color: #0b0f17;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  padding: 40px 20px;
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+}
+
+.signup-visual-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.signup-glow-1 {
+  position: absolute;
+  top: 15%;
+  left: 20%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.22) 0%, rgba(79, 70, 229, 0.08) 50%, transparent 75%);
+  filter: blur(130px);
+  border-radius: 50%;
+}
+
+.signup-glow-2 {
+  position: absolute;
+  bottom: 10%;
+  right: 20%;
+  width: 550px;
+  height: 550px;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.18) 0%, rgba(236, 72, 153, 0.06) 50%, transparent 75%);
+  filter: blur(140px);
+  border-radius: 50%;
+}
+
+.signup-card-wrapper {
+  position: relative;
+  z-index: 1;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), 0 0 35px rgba(99, 102, 241, 0.15);
+  border-radius: 24px;
+  width: 100%;
+  max-width: 460px;
+  padding: 38px 36px;
+  backdrop-filter: blur(20px);
+  animation: signupFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes signupFadeIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Brand Header */
+.signup-brand-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  cursor: pointer;
+}
+
+.signup-brand-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+}
+
+.signup-brand-text h2 {
+  font-size: 20px;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.signup-pro-tag {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  color: #818cf8;
+  display: block;
+}
+
+/* Title */
+.signup-heading-box {
+  text-align: center;
+  margin-bottom: 26px;
+}
+
+.signup-heading-box h3 {
+  font-size: 22px;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 0 6px 0;
+}
+
+.signup-heading-box p {
+  font-size: 13px;
+  color: #94a3b8;
+  margin: 0;
+}
+
+/* Error message */
+.signup-alert-box {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Inputs styled like reference */
+.signup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.signup-input-field-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.signup-input-field-wrap .field-icon-left {
+  position: absolute;
+  left: 16px;
+  color: #64748b;
+  pointer-events: none;
+}
+
+.signup-clean-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 9999px;
+  padding: 14px 20px 14px 44px;
+  font-size: 14px;
+  color: #ffffff;
+  outline: none;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.signup-clean-input::placeholder {
+  color: #64748b;
+}
+
+.signup-clean-input:focus {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: #6366f1;
+  box-shadow: 0 0 16px rgba(99, 102, 241, 0.35);
+}
+
+.signup-pwd-toggle {
+  position: absolute;
+  right: 16px;
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: color 0.2s ease;
+}
+
+.signup-pwd-toggle:hover {
+  color: #cbd5e1;
+}
+
+/* Big Create Account Button */
+.signup-submit-btn {
+  width: 100%;
+  margin-top: 6px;
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #7c3aed 100%);
+  color: #ffffff;
+  border: none;
+  padding: 14px 20px;
+  border-radius: 9999px;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 22px rgba(79, 70, 229, 0.4);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: inherit;
+}
+
+.signup-submit-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 26px rgba(79, 70, 229, 0.6);
+}
+
+.signup-submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Sublink */
+.signup-sublink-btn {
+  background: none;
+  border: none;
+  color: #a5b4fc;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 4px;
+  text-align: center;
+  transition: color 0.2s ease;
+  font-family: inherit;
+}
+
+.signup-sublink-btn:hover {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+/* Divider */
+.signup-divider-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 18px 0 16px 0;
+}
+
+.signup-divider-line {
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.signup-divider-text {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+/* Full-width Google Button */
+.signup-google-bar-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  padding: 13px 20px;
+  border-radius: 9999px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.signup-google-bar-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.28);
+  transform: translateY(-1px);
+}
+
+.signup-select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 18px center;
+  padding-right: 42px;
+}
+
+.signup-select option {
+  background-color: #0b0f17;
+  color: #ffffff;
+}
+
+/* Google Dialog Simulation */
+.google-auth-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.google-auth-dialog-card {
+  background: #ffffff;
+  color: #1f2937;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 420px;
+  padding: 28px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+  animation: modalPopUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.google-dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.google-dialog-header h4 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+}
+
+.google-sim-input {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13.5px;
+  color: #111827;
+  outline: none;
+  font-family: inherit;
+}
+
+.google-sim-input:focus {
+  border-color: #4285f4;
+  box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.2);
+}
+
+.google-cancel-btn {
+  flex: 1;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  color: #4b5563;
+  padding: 10px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.google-continue-btn {
+  flex: 1.5;
+  background: #1a73e8;
+  border: none;
+  color: #ffffff;
+  padding: 10px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(26, 115, 232, 0.3);
+}
+
+.google-continue-btn:hover {
+  background: #1557b0;
+}
+
+/* Bottom switch to Sign In */
+.signup-bottom-switch {
+  text-align: center;
+  margin-top: 24px;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.signup-signin-link {
+  color: #818cf8;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  margin-left: 4px;
+  transition: color 0.2s ease;
+}
+
+.signup-signin-link:hover {
+  color: #c7d2fe;
+  text-decoration: underline;
+}
+
+/* --------------------------------------------------------------------------
+   Step 2: Plan Selection Popup Modal
+   -------------------------------------------------------------------------- */
+.plan-popup-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 7, 13, 0.88);
+  backdrop-filter: blur(14px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: modalBackdropFadeIn 0.25s ease-out;
+}
+
+.plan-popup-container {
+  background: #0d121f;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 24px;
+  max-width: 1040px;
+  width: 100%;
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: 32px 28px;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.7);
+  position: relative;
+  animation: modalPopUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.plan-popup-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.plan-popup-header h2 {
+  font-size: 26px;
+  font-weight: 900;
+  color: #ffffff;
+  margin: 0 0 6px 0;
+}
+
+.plan-popup-header p {
+  font-size: 13.5px;
+  color: #94a3b8;
+  margin: 0 0 16px 0;
+}
+
+/* Grid of 3 plans */
+.plan-popup-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+@media (max-width: 900px) {
+  .plan-popup-grid {
+    grid-template-columns: 1fr;
+  }
+}
