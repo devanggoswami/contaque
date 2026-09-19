@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Mail, RefreshCw, Send, Search, User, Clock, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { API_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
+import LockedFeatureGate from '../components/LockedFeatureGate';
 import './Inbox.css';
 
 function Inbox() {
-  const { authFetch } = useAuth();
+  const { authFetch, userPlan, user } = useAuth();
+  const hasAccess = userPlan === 'plus' || user?.role === 'Administrator';
   const [threads, setThreads] = useState([]);
   const [activeThread, setActiveThread] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -99,8 +101,9 @@ function Inbox() {
   };
 
   useEffect(() => {
+    if (!hasAccess) return;
     fetchThreads();
-  }, []);
+  }, [hasAccess, fetchThreads]);
 
   const scrollToBottom = () => {
     setTimeout(() => {
@@ -130,7 +133,18 @@ function Inbox() {
   });
 
   return (
-    <div className="inbox-wrapper animate-slide-up">
+    <LockedFeatureGate
+      featureTitle="Unified Smart Inbox"
+      featureTagline="Two-Way Cold Email Inbox & Reply Tracker"
+      featureIcon={Mail}
+      bullets={[
+        "Unified view of replies across all rotated Gmail sending accounts",
+        "Instant one-click direct response composer inside Contaques",
+        "Real-time lead status updates and automated reply detection",
+        "Priority customer inquiry tagging and conversation history"
+      ]}
+    >
+      <div className="inbox-wrapper animate-slide-up">
       <div className="inbox-header-compact">
         <div>
           <h1>Inbox <span className="beta-badge">BETA</span></h1>
@@ -277,6 +291,7 @@ function Inbox() {
         </div>
       </div>
     </div>
+    </LockedFeatureGate>
   );
 }
 

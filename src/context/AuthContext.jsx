@@ -43,6 +43,24 @@ export const AuthProvider = ({ children }) => {
           rates: data.rates || {},
           allTiers: data.allTiers || {}
         });
+
+        // Always sync user object plan with server wallet plan
+        setUser(prev => {
+          if (!prev) return prev;
+          if (data.plan && prev.plan !== data.plan) {
+            const upd = { ...prev, plan: data.plan };
+            try {
+              const s = localStorage.getItem(STORAGE_KEY);
+              if (s) {
+                const parsed = JSON.parse(s);
+                parsed.user = upd;
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+              }
+            } catch {}
+            return upd;
+          }
+          return prev;
+        });
       }
     } catch {
       // Quiet fallback for local execution
@@ -107,16 +125,12 @@ export const AuthProvider = ({ children }) => {
                 setToken(session.token);
                 refreshWallet(session.token);
 
-                // Sliding Window: If active and more than 12h elapsed, automatically extend 48 hours
-                const timeRemaining = session.expiresAt - Date.now();
-                if (timeRemaining < 36 * 60 * 60 * 1000) {
-                  const updatedSession = {
-                    ...session,
-                    user: activeUser,
-                    expiresAt: Date.now() + 48 * 60 * 60 * 1000
-                  };
-                  localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSession));
-                }
+                const updatedSession = {
+                  ...session,
+                  user: activeUser,
+                  expiresAt: timeRemaining < 36 * 60 * 60 * 1000 ? (Date.now() + 48 * 60 * 60 * 1000) : session.expiresAt
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSession));
                 return;
               } else {
                 // Token rejected by server

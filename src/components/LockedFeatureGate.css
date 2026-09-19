@@ -1,0 +1,397 @@
+/* ==============================================================================
+   LOCKED FEATURE GATE - BLURRED PREVIEW & DYNAMIC SWINGING LOCK STYLES
+   ============================================================================== */
+
+.locked-gate-wrapper {
+  position: relative;
+  width: 100%;
+  min-height: calc(100vh - 40px);
+  overflow: hidden;
+}
+
+/* Blurred background preview of the active page */
+.locked-gate-blurred-preview {
+  filter: blur(6px) saturate(70%) brightness(96%);
+  opacity: 0.38;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: filter 0.4s ease, opacity 0.4s ease;
+  transform: scale(0.995);
+  max-height: calc(100vh - 50px);
+  overflow: hidden;
+}
+
+/* Paywall Overlay */
+.locked-gate-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  background: radial-gradient(circle at 50% 35%, rgba(248, 250, 252, 0.55) 0%, rgba(241, 245, 249, 0.85) 100%);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 50;
+  animation: fadeInGate 0.35s ease-out forwards;
+}
+
+@keyframes fadeInGate {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Glassmorphic Paywall Card */
+.locked-gate-card {
+  position: relative;
+  max-width: 580px;
+  width: 100%;
+  background: #ffffff;
+  border-radius: 28px;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 
+    0 25px 60px -15px rgba(15, 23, 42, 0.18),
+    0 10px 25px -5px rgba(15, 23, 42, 0.08),
+    0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+  padding: 44px 36px 36px 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  overflow: hidden;
+}
+
+/* Top decorative subtle gradient highlight */
+.locked-gate-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: linear-gradient(90deg, #f59e0b, #d97706, #fbbf24, #f59e0b);
+  background-size: 200% 100%;
+  animation: shimmerBorder 4s linear infinite;
+}
+
+@keyframes shimmerBorder {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+/* Pendulum Hanging & Swinging Lock Animation */
+.pendulum-anchor {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 20px;
+  perspective: 600px;
+}
+
+.pendulum-string {
+  width: 2px;
+  height: 18px;
+  background: linear-gradient(to bottom, rgba(203, 213, 225, 0.6), rgba(245, 158, 11, 0.7));
+  margin-bottom: -2px;
+}
+
+/* Keyframe for pendulum sway (swings side to side naturally) */
+@keyframes lockPendulumSwing {
+  0% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(18deg) translateY(-2px);
+  }
+  40% {
+    transform: rotate(-15deg) translateY(-1px);
+  }
+  60% {
+    transform: rotate(10deg) translateY(-1px);
+  }
+  80% {
+    transform: rotate(-6deg) translateY(0);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes lockGlowPulse {
+  0%, 100% {
+    box-shadow: 
+      0 0 25px rgba(245, 158, 11, 0.35), 
+      0 10px 25px rgba(217, 119, 6, 0.15),
+      inset 0 0 15px rgba(245, 158, 11, 0.2);
+  }
+  50% {
+    box-shadow: 
+      0 0 45px rgba(245, 158, 11, 0.65), 
+      0 16px 35px rgba(217, 119, 6, 0.28),
+      inset 0 0 25px rgba(245, 158, 11, 0.4);
+  }
+}
+
+.swinging-lock-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 50%, #fde68a 100%);
+  border: 2.5px solid #f59e0b;
+  color: #d97706;
+  transform-origin: top center;
+  animation: 
+    lockPendulumSwing 3.4s cubic-bezier(0.445, 0.05, 0.55, 0.95) infinite,
+    lockGlowPulse 2.8s ease-in-out infinite;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.swinging-lock-badge:hover {
+  filter: brightness(1.08);
+}
+
+.lock-svg {
+  filter: drop-shadow(0 2px 5px rgba(217, 119, 6, 0.3));
+}
+
+/* Tier Pill */
+.locked-tier-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 100px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #b45309;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin-bottom: 14px;
+  text-transform: uppercase;
+}
+
+.pill-icon {
+  color: #d97706;
+}
+
+/* Titles */
+.locked-gate-title {
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.02em;
+}
+
+.locked-gate-subtitle {
+  font-size: 0.94rem;
+  color: #475569;
+  line-height: 1.5;
+  margin: 0 0 24px 0;
+  max-width: 480px;
+}
+
+/* Bullets List */
+.locked-bullets-list {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  width: 100%;
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+  border-radius: 18px;
+  padding: 18px 20px;
+  margin-bottom: 24px;
+  text-align: left;
+}
+
+.locked-bullet-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.88rem;
+  color: #334155;
+  font-weight: 500;
+}
+
+.bullet-check-circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ecfdf5;
+  color: #10b981;
+  flex-shrink: 0;
+}
+
+/* Pricing Strip */
+.locked-pricing-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border: 1px solid #fde68a;
+  border-radius: 16px;
+  margin-bottom: 24px;
+}
+
+.pricing-left {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.price-tag {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #92400e;
+  letter-spacing: -0.02em;
+}
+
+.price-period {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #b45309;
+}
+
+.pricing-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.pricing-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #d97706;
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.pricing-sub {
+  font-size: 0.78rem;
+  color: #92400e;
+  font-weight: 500;
+}
+
+/* CTA Group */
+.locked-cta-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 18px;
+}
+
+.locked-upgrade-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 24px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  border: none;
+  color: #ffffff;
+  font-size: 1.02rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 24px -4px rgba(37, 99, 235, 0.4);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.locked-upgrade-btn:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+  box-shadow: 0 12px 30px -4px rgba(37, 99, 235, 0.55);
+}
+
+.locked-upgrade-btn:active {
+  transform: translateY(0);
+}
+
+.locked-learn-btn {
+  background: transparent;
+  border: none;
+  color: #475569;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 8px;
+  transition: color 0.15s ease;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.locked-learn-btn:hover {
+  color: #0f172a;
+}
+
+/* Trust Note */
+.locked-trust-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* Responsive styles */
+@media (max-width: 640px) {
+  .locked-gate-card {
+    padding: 32px 20px 24px 20px;
+    border-radius: 22px;
+  }
+
+  .locked-gate-title {
+    font-size: 1.35rem;
+  }
+
+  .locked-gate-subtitle {
+    font-size: 0.88rem;
+  }
+
+  .locked-pricing-strip {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .pricing-right {
+    align-items: flex-start;
+  }
+
+  .swinging-lock-badge {
+    width: 64px;
+    height: 64px;
+  }
+}

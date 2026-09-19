@@ -10,6 +10,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { API_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
+import LockedFeatureGate from '../components/LockedFeatureGate';
 import './Campaigns.css';
 
 // DD/MM/YYYY hh:mm AM/PM Formatter
@@ -32,7 +33,8 @@ const formatDateTime = (dateStr) => {
 };
 
 function Campaigns() {
-  const { authFetch } = useAuth();
+  const { authFetch, userPlan, user } = useAuth();
+  const hasAccess = userPlan === 'plus' || user?.role === 'Administrator';
   const [activeTab, setActiveTab] = useState('STUDIO'); // STUDIO, DASHBOARD, ACCOUNTS
   
   // Data
@@ -67,10 +69,11 @@ function Campaigns() {
   }, [authFetch]);
 
   useEffect(() => {
+    if (!hasAccess) return;
     fetchData();
     const int = setInterval(fetchData, 10000);
     return () => clearInterval(int);
-  }, []);
+  }, [hasAccess, fetchData]);
 
   // Robust Text Sanitizer to eliminate crashed / mojibake characters and unwanted domain slugs
   const sanitizeText = (text) => {
@@ -255,7 +258,18 @@ function Campaigns() {
   };
 
   return (
-    <div className="page-content animate-slide-up">
+    <LockedFeatureGate
+      featureTitle="Campaign Studio"
+      featureTagline="Automated Cold Email Outreach Engine"
+      featureIcon={Mail}
+      bullets={[
+        "Multi-account Gmail & Google Workspace rotating sender engine",
+        "Smart anti-spam rate limiting & automated background queue",
+        "Rich personalized template editor with dynamic lead data merge",
+        "Lowest extraction rates across all data mining engines"
+      ]}
+    >
+      <div className="page-content animate-slide-up">
       <div className="campaigns-header">
         <div className="campaigns-title-group">
           <h1>Campaign Studio</h1>
@@ -758,6 +772,7 @@ function Campaigns() {
         </div>
       )}
     </div>
+    </LockedFeatureGate>
   );
 }
 
