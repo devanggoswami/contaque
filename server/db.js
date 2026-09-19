@@ -146,6 +146,41 @@ const initDb = async () => {
       ALTER TABLE leads ADD COLUMN IF NOT EXISTS whatsapp TEXT;
       ALTER TABLE leads ADD COLUMN IF NOT EXISTS max_messenger TEXT;
 
+      -- Prepaid Wallet & Billing Schema
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_balance NUMERIC(12, 2) DEFAULT 0.00;
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_wallet_balance_positive') THEN
+          ALTER TABLE users ADD CONSTRAINT chk_wallet_balance_positive CHECK (wallet_balance >= 0);
+        END IF;
+      END $$;
+
+      CREATE TABLE IF NOT EXISTS wallet_ledger (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        amount NUMERIC(12, 2) NOT NULL,
+        balance_after NUMERIC(12, 2) NOT NULL,
+        type VARCHAR(20) NOT NULL CHECK (type IN ('CREDIT', 'DEBIT', 'REFUND')),
+        reason VARCHAR(255) NOT NULL,
+        reference_id VARCHAR(255),
+        metadata JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS idempotency_keys (
+        key VARCHAR(255) PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        action VARCHAR(50) NOT NULL,
+        response_data JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      ALTER TABLE jobs ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+      ALTER TABLE jobs ADD COLUMN IF NOT EXISTS rate_per_lead NUMERIC(10, 2);
+      ALTER TABLE jobs ADD COLUMN IF NOT EXISTS estimated_cost NUMERIC(12, 2) DEFAULT 0.00;
+      ALTER TABLE jobs ADD COLUMN IF NOT EXISTS actual_cost NUMERIC(12, 2) DEFAULT 0.00;
+      ALTER TABLE jobs ADD COLUMN IF NOT EXISTS refunded_amount NUMERIC(12, 2) DEFAULT 0.00;
+      ALTER TABLE jobs ADD COLUMN IF NOT EXISTS billing_status VARCHAR(50) DEFAULT 'SETTLED';
+
       CREATE INDEX IF NOT EXISTS idx_leads_job_id ON leads(job_id);
       CREATE INDEX IF NOT EXISTS idx_leads_place_id ON leads(place_id);
       CREATE INDEX IF NOT EXISTS idx_leads_source_link ON leads(source_link);
@@ -153,6 +188,11 @@ const initDb = async () => {
       CREATE INDEX IF NOT EXISTS idx_leads_category ON leads(category);
       CREATE INDEX IF NOT EXISTS idx_leads_whatsapp ON leads(whatsapp);
       CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_jobs_user_id ON jobs(user_id);
+      CREATE INDEX IF NOT EXISTS idx_wallet_ledger_user ON wallet_ledger(user_id);
+      CREATE INDEX IF NOT EXISTS idx_wallet_ledger_created ON wallet_ledger(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_wallet_ledger_type ON wallet_ledger(type);
+      CREATE INDEX IF NOT EXISTS idx_wallet_ledger_ref ON wallet_ledger(reference_id);
       CREATE INDEX IF NOT EXISTS idx_queue_status ON email_queue(status);
       CREATE INDEX IF NOT EXISTS idx_email_queue_campaign_status ON email_queue(campaign_id, status);
       CREATE INDEX IF NOT EXISTS idx_inbox_threads_account ON inbox_threads(account_id);

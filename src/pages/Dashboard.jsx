@@ -4,11 +4,36 @@ import {
   Users, Briefcase, BarChart3, Database, Activity, MapPin, 
   ArrowUpRight, RefreshCw, Zap, Sparkles, Globe, Search, 
   CheckCircle2, Clock, AlertCircle, Layers, CreditCard, 
-  DollarSign, ShieldCheck, HelpCircle, Info, ChevronRight, X, Mail
+  DollarSign, ShieldCheck, HelpCircle, Info, ChevronRight, X, Mail,
+  Wallet, PlusCircle, ArrowDownLeft, Crown, ArrowRight
 } from 'lucide-react';
 import { API_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
+import WalletRechargeModal from '../components/WalletRechargeModal';
+import RazorpayCheckoutModal from '../components/RazorpayCheckoutModal';
+import UserProfileModal from '../components/UserProfileModal';
 import './Dashboard.css';
+
+const UPGRADE_PLANS = {
+  pack: {
+    id: 'pack',
+    name: 'Value Pack',
+    icon: '🚀',
+    badge: 'MOST POPULAR',
+    price: { INR: '₹299', USD: '$3.12' },
+    period: '/month',
+    tagline: 'Lower rates + priority features'
+  },
+  plus: {
+    id: 'plus',
+    name: 'Value Plus',
+    icon: '⚡',
+    badge: 'ALL-IN-ONE POWERHOUSE',
+    price: { INR: '₹499', USD: '$5.20' },
+    period: '/month',
+    tagline: 'Lowest rates + full cold outreach suite'
+  }
+};
 
 function AnimatedNumber({ value, duration = 650 }) {
   const [display, setDisplay] = useState(0);
@@ -38,9 +63,12 @@ function AnimatedNumber({ value, duration = 650 }) {
 
 function Dashboard() {
   const navigate = useNavigate();
-  const { user, verifyEmail } = useAuth();
+  const { user, verifyEmail, walletBalance, refreshWallet, userPlan, updateUserPlan, authFetch } = useAuth();
   const [emailConfirmed, setEmailConfirmed] = useState(false);
   const [verifyingEmail, setVerifyingEmail] = useState(false);
+  const [showUpgradeCheckout, setShowUpgradeCheckout] = useState(false);
+  const [selectedUpgradePlan, setSelectedUpgradePlan] = useState(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   const handleConfirmEmailClick = async () => {
     setVerifyingEmail(true);
@@ -79,6 +107,10 @@ function Dashboard() {
   const [error, setError] = useState(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [showPricingModal, setShowPricingModal] = useState(false);
+  const [showRechargeModal, setShowRechargeModal] = useState(false);
+  const [dashboardTab, setDashboardTab] = useState('JOBS'); // 'JOBS' | 'LEDGER'
+  const [ledgerData, setLedgerData] = useState([]);
+  const [billingSummary, setBillingSummary] = useState(null);
   
   // Dynamic UI States
   const [timeRange, setTimeRange] = useState('ALL'); // 'ALL' | 'TODAY' | '7D' | '30D'
@@ -89,8 +121,8 @@ function Dashboard() {
     if (manual) setIsRefreshing(true);
     try {
       const [statsRes, jobsRes] = await Promise.all([
-        fetch(`${API_URL}/api/dashboard`),
-        fetch(`${API_URL}/api/jobs`)
+        authFetch(`${API_URL}/api/dashboard`),
+        authFetch(`${API_URL}/api/jobs`)
       ]);
       
       if (!statsRes.ok || !jobsRes.ok) {
@@ -102,6 +134,24 @@ function Dashboard() {
       
       setStats(statsData);
       setAllRecentJobs(jobsData.slice(0, 20)); // Latest 20 jobs
+
+      // Fetch live wallet & billing ledger
+      try {
+        const [ledgerRes, summaryRes] = await Promise.all([
+          authFetch(`${API_URL}/api/wallet/transactions?limit=25`),
+          authFetch(`${API_URL}/api/wallet/billing-summary`)
+        ]);
+        if (ledgerRes.ok) {
+          const lData = await ledgerRes.json();
+          setLedgerData(lData.transactions || []);
+        }
+        if (summaryRes.ok) {
+          const sData = await summaryRes.json();
+          setBillingSummary(sData);
+        }
+      } catch {
+        // quiet fallback
+      }
 
       // Calculate source breakdown dynamically from jobsData
       const counts = { maps: 0, dorking: 0, yellowpages: 0, yandex: 0 };
@@ -118,7 +168,7 @@ function Dashboard() {
       setLoading(false);
       if (manual) setTimeout(() => setIsRefreshing(false), 500);
     }
-  }, []);
+  }, [authFetch]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -251,12 +301,69 @@ function Dashboard() {
 
       {/* Top Header Bar */}
       <div className="dashboard-header-bar">
-        <div>
-          <div className="dashboard-greeting">
-            <span className="live-dot"></span>
-            <span>LIVE TELEMETRY HUB</span>
+        <div className="dashboard-title-group">
+          {/* Current Plan Highlight Bar (Replaces LIVE TELEMETRY HUB) */}
+          <div className="dashboard-plan-highlight">
+            {userPlan === 'plus' ? (
+              <div 
+                className="plan-pill plus interactive" 
+                onClick={() => setShowProfileModal(true)} 
+                title="Click to view full plan features & rates"
+              >
+                <Crown size={14} className="crown-icon" />
+                <span className="plan-name-text">Value Plus Active</span>
+                <span className="plan-badge-tag">PRO INTELLIGENCE</span>
+              </div>
+            ) : userPlan === 'pack' ? (
+              <div className="plan-pill-group">
+                <div 
+                  className="plan-pill pack interactive" 
+                  onClick={() => setShowProfileModal(true)} 
+                  title="Click to view full plan features & rates"
+                >
+                  <Sparkles size={14} />
+                  <span className="plan-name-text">Value Pack Active</span>
+                </div>
+                <button 
+                  type="button" 
+                  className="plan-upgrade-cta-btn"
+                  onClick={() => {
+                    setSelectedUpgradePlan(UPGRADE_PLANS.plus);
+                    setShowUpgradeCheckout(true);
+                  }}
+                  title="Upgrade to Value Plus for lowest rates & cold email suite"
+                >
+                  <Crown size={13} />
+                  <span>Upgrade to Value Plus (₹499/mo)</span>
+                  <ArrowRight size={13} />
+                </button>
+              </div>
+            ) : (
+              <div className="plan-pill-group">
+                <div 
+                  className="plan-pill free interactive" 
+                  onClick={() => setShowProfileModal(true)} 
+                  title="Click to view full plan features & rates"
+                >
+                  <span className="free-status-dot"></span>
+                  <span className="plan-name-text">Free Starter Plan</span>
+                </div>
+                <button 
+                  type="button" 
+                  className="plan-upgrade-cta-btn primary"
+                  onClick={() => {
+                    setSelectedUpgradePlan(UPGRADE_PLANS.plus);
+                    setShowUpgradeCheckout(true);
+                  }}
+                  title="Upgrade with Razorpay Payment (Save up to 40% per lead)"
+                >
+                  <Crown size={14} />
+                  <span>Upgrade Plan (Save up to 40%)</span>
+                  <ArrowRight size={13} />
+                </button>
+              </div>
+            )}
           </div>
-          <h1 className="dashboard-title">Contaques Intelligence</h1>
         </div>
 
         <div className="dashboard-header-actions">
@@ -293,27 +400,7 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Live Discovery Stream Ticker */}
-      <div className="dashboard-live-ticker">
-        <div className="ticker-badge">
-          <span className="live-pulse-dot"></span>
-          <span className="ticker-title">LIVE FEED</span>
-        </div>
-        <div className="ticker-content-track">
-          <div className="ticker-message animate-fade-in" key={tickerIndex}>
-            <span className={`ticker-tag ${currentAlert.source}`}>
-              {currentAlert.source === 'maps' ? 'GOOGLE MAPS' :
-               currentAlert.source === 'yandex' ? 'YANDEX + MAX' :
-               currentAlert.source === 'dorking' ? 'BUSINESS INDEX' : 'YELLOW PAGES'}
-            </span>
-            <span className="ticker-text">{currentAlert.text}</span>
-          </div>
-        </div>
-        <div className="ticker-telemetry-status">
-          <span className="telemetry-spark">⚡</span>
-          <span>4 Engines Online</span>
-        </div>
-      </div>
+
 
       {error && (
         <div className="telemetry-error-banner animate-fade-in">
@@ -378,24 +465,32 @@ function Dashboard() {
           </div>
         </div>
 
-        <div className="metric-card interactive-hover" onClick={() => navigate('/database')}>
+        {/* 4. Prepaid Wallet Balance Metric Card (Replaced Google Places Card) */}
+        <div className="metric-card interactive-hover" onClick={() => setDashboardTab('LEDGER')}>
           <div className="metric-header">
-            <div className="metric-icon-box amber">
-              <Activity size={22} />
+            <div className="metric-icon-box green">
+              <Wallet size={22} />
             </div>
-            {activeJobsCount > 0 ? (
-              <span className="metric-badge live-pulse">{activeJobsCount} Active</span>
-            ) : (
-              <span className="metric-badge neutral">Idle</span>
-            )}
+            <button 
+              type="button" 
+              className="metric-card-topup-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowRechargeModal(true);
+              }}
+              title="Add Prepaid Balance"
+            >
+              <PlusCircle size={13} />
+              <span>+ Top Up</span>
+            </button>
           </div>
           <div className="metric-body">
-            <span className="metric-label">Active Background Scrapers</span>
+            <span className="metric-label">Prepaid Wallet Balance</span>
             <h2 className="metric-value">
-              <AnimatedNumber value={activeJobsCount} />
+              ₹<AnimatedNumber value={walletBalance !== undefined && walletBalance !== null ? walletBalance : (billingSummary ? billingSummary.balance : 482)} />
             </h2>
             <div className="metric-footer">
-              <span>{activeJobsCount > 0 ? 'Worker threads processing' : 'Engines ready to launch'}</span>
+              <span>Available for ~{Math.floor(Number(walletBalance !== undefined && walletBalance !== null ? walletBalance : (billingSummary ? billingSummary.balance : 482)) / 1.10)} leads</span>
             </div>
           </div>
         </div>
@@ -507,70 +602,194 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Live Activity Stream with Engine Filter */}
+        {/* Live Activity Stream & Ledger Toggle Card */}
         <div className="surface-card">
           <div className="card-header-row">
-            <div className="title-with-icon">
-              <Activity size={18} />
-              <h3>Recent Scraper Jobs {selectedEngine !== 'ALL' && <span className="active-filter-sublabel">({selectedEngine.toUpperCase()})</span>}</h3>
+            <div className="tab-pill-switcher">
+              <button 
+                type="button"
+                className={`tab-pill-btn ${dashboardTab === 'JOBS' ? 'active' : ''}`}
+                onClick={() => setDashboardTab('JOBS')}
+              >
+                Recent Scraper Jobs
+              </button>
+              <button 
+                type="button"
+                className={`tab-pill-btn ${dashboardTab === 'LEDGER' ? 'active' : ''}`}
+                onClick={() => setDashboardTab('LEDGER')}
+              >
+                Wallet Ledger ({ledgerData.length})
+              </button>
             </div>
-            <button className="view-all-link" onClick={() => navigate('/database')}>
-              <span>View All</span>
-              <ArrowUpRight size={15} />
-            </button>
+
+            {dashboardTab === 'JOBS' ? (
+              <button className="view-all-link" onClick={() => navigate('/database')}>
+                <span>View All</span>
+                <ArrowUpRight size={15} />
+              </button>
+            ) : (
+              <button className="view-all-link" onClick={() => setShowRechargeModal(true)}>
+                <span>+ Recharge</span>
+                <PlusCircle size={15} />
+              </button>
+            )}
           </div>
 
           <div className="card-body-content">
-            {filteredJobs.length > 0 ? (
-              <div className="live-job-stream">
-                {filteredJobs.map((job) => {
-                  const isRunning = job.status === 'IN_PROGRESS';
-                  const pct = job.target_count ? Math.min(100, Math.round((job.fetched_count / job.target_count) * 100)) : 0;
-                  return (
-                    <div className="job-stream-item interactive-job" key={job.id} onClick={() => navigate('/database')}>
-                      <div className="job-stream-left">
-                        <div className={`status-orb ${job.status}`}>
-                          {job.status === 'COMPLETED' ? <CheckCircle2 size={14} /> :
-                           isRunning ? <Clock size={14} /> : <AlertCircle size={14} />}
-                        </div>
-                        <div className="job-stream-details">
-                          <div className="job-title-row">
-                            <h4>{job.keyword}</h4>
-                            <span className={`source-micro-tag ${job.source}`}>
-                              {job.source === 'maps' ? 'Google Data' : 
-                               job.source === 'dorking' ? 'Business Index' :
-                               job.source === 'yellowpages' ? 'Yellow Pages' : 'Yandex (MAX)'}
-                            </span>
+            {dashboardTab === 'JOBS' ? (
+              filteredJobs.length > 0 ? (
+                <div className="live-job-stream">
+                  {filteredJobs.map((job) => {
+                    const isRunning = job.status === 'IN_PROGRESS';
+                    const pct = job.target_count ? Math.min(100, Math.round((job.fetched_count / job.target_count) * 100)) : 0;
+                    return (
+                      <div className="job-stream-item interactive-job" key={job.id} onClick={() => navigate('/database')}>
+                        <div className="job-stream-left">
+                          <div className={`status-orb ${job.status}`}>
+                            {job.status === 'COMPLETED' ? <CheckCircle2 size={14} /> :
+                             isRunning ? <Clock size={14} /> : <AlertCircle size={14} />}
                           </div>
-                          <p className="job-meta-line">
-                            <MapPin size={12} />
-                            <span>{job.location}</span>
-                            <span className="dot-sep">•</span>
-                            <span>{job.fetched_count} / {job.target_count} leads</span>
-                          </p>
+                          <div className="job-stream-details">
+                            <div className="job-title-row">
+                              <h4>{job.keyword}</h4>
+                              <span className={`source-micro-tag ${job.source}`}>
+                                {job.source === 'maps' ? 'Google Data' : 
+                                 job.source === 'dorking' ? 'Business Index' :
+                                 job.source === 'yellowpages' ? 'Yellow Pages' : 'Yandex (MAX)'}
+                              </span>
+                            </div>
+                            <p className="job-meta-line">
+                              <MapPin size={12} />
+                              <span>{job.location}</span>
+                              <span className="dot-sep">•</span>
+                              <span>{job.fetched_count} / {job.target_count} leads</span>
+                            </p>
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="job-stream-right">
-                        <div className="mini-progress-pill">
-                          <div className="mini-progress-bar" style={{ width: `${pct}%` }}></div>
-                          <span>{pct}%</span>
+                        <div className="job-stream-right">
+                          <div className="mini-progress-pill">
+                            <div className="mini-progress-bar" style={{ width: `${pct}%` }}></div>
+                            <span>{pct}%</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="empty-panel">
+                  <Database size={32} />
+                  <p>No jobs found for this engine filter.</p>
+                  <button className="text-link-btn" onClick={() => setSelectedEngine('ALL')}>Reset Filter</button>
+                </div>
+              )
             ) : (
-              <div className="empty-panel">
-                <Database size={32} />
-                <p>No jobs found for this engine filter.</p>
-                <button className="text-link-btn" onClick={() => setSelectedEngine('ALL')}>Reset Filter</button>
+              /* Wallet Ledger Tab Content */
+              <div>
+                {billingSummary && (
+                  <div className="ledger-summary-strip">
+                    <div className="ledger-stat-mini green">
+                      <span>Total Recharged</span>
+                      <strong>₹{billingSummary.totalCredited.toFixed(2)}</strong>
+                    </div>
+                    <div className="ledger-stat-mini">
+                      <span>Spent on Leads</span>
+                      <strong>₹{billingSummary.netSpent.toFixed(2)}</strong>
+                    </div>
+                    <div className="ledger-stat-mini purple">
+                      <span>Refunded / Reversal</span>
+                      <strong>₹{billingSummary.totalRefunded.toFixed(2)}</strong>
+                    </div>
+                  </div>
+                )}
+
+                {ledgerData.length > 0 ? (
+                  <div className="ledger-table-wrap">
+                    <table className="ledger-table">
+                      <thead>
+                        <tr>
+                          <th>Date / Time</th>
+                          <th>Type</th>
+                          <th>Description</th>
+                          <th>Amount</th>
+                          <th>Balance</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {ledgerData.map((item) => (
+                          <tr key={item.id}>
+                            <td style={{ whiteSpace: 'nowrap', color: 'rgba(255,255,255,0.5)' }}>
+                              {new Date(item.createdAt).toLocaleDateString()} {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </td>
+                            <td>
+                              <span className={`ledger-badge ${item.type}`}>
+                                {item.type}
+                              </span>
+                            </td>
+                            <td>
+                              <span>{item.reason}</span>
+                            </td>
+                            <td className={item.type === 'CREDIT' ? 'ledger-amount-credit' : item.type === 'REFUND' ? 'ledger-amount-refund' : 'ledger-amount-debit'}>
+                              {item.type === 'CREDIT' || item.type === 'REFUND' ? `+₹${item.amount.toFixed(2)}` : `-₹${item.amount.toFixed(2)}`}
+                            </td>
+                            <td style={{ fontWeight: 600 }}>
+                              ₹{item.balanceAfter.toFixed(2)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="empty-panel">
+                    <Wallet size={32} />
+                    <p>No wallet transactions recorded yet.</p>
+                    <button className="text-link-btn" onClick={() => setShowRechargeModal(true)}>
+                      Top Up Wallet
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Wallet Recharge Modal */}
+      <WalletRechargeModal 
+        isOpen={showRechargeModal} 
+        onClose={() => setShowRechargeModal(false)}
+        onSuccess={() => {
+          refreshWallet();
+          fetchDashboardData(true);
+        }}
+      />
+
+      {/* Razorpay Plan Upgrade Modal */}
+      {selectedUpgradePlan && (
+        <RazorpayCheckoutModal 
+          isOpen={showUpgradeCheckout}
+          onClose={() => setShowUpgradeCheckout(false)}
+          plan={selectedUpgradePlan}
+          currency="INR"
+          onSuccess={async () => {
+            setShowUpgradeCheckout(false);
+            if (updateUserPlan) {
+              await updateUserPlan(selectedUpgradePlan.id);
+            }
+            refreshWallet();
+            fetchDashboardData(true);
+          }}
+        />
+      )}
+
+      {/* User Profile & Features Modal */}
+      <UserProfileModal 
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        onOpenRecharge={() => setShowRechargeModal(true)}
+      />
     </div>
   );
 }

@@ -42,12 +42,7 @@ export default function Signup() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // Google Modal State
-  const [showGoogleDialog, setShowGoogleDialog] = useState(false);
-  const [googleEmail, setGoogleEmail] = useState('');
-  const [googleName, setGoogleName] = useState('');
-
-  const { signup, googleAuth } = useAuth();
+  const { signup } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -90,41 +85,9 @@ export default function Signup() {
     setSubmitting(false);
 
     if (res.success) {
-      // Free dashboard redirect with unconfirmed email banner
-      navigate('/', { replace: true });
+      navigate('/dashboard', { replace: true });
     } else {
       setError(res.error || 'Failed to create account. Please try again.');
-    }
-  };
-
-  // Trigger Google Sign Up
-  const handleStartGoogle = () => {
-    setGoogleEmail('devang.goswami@klyrova.com');
-    setGoogleName('Devang Goswami');
-    setShowGoogleDialog(true);
-  };
-
-  // Confirm Google Sign-In / Auto-Save to DB
-  const handleConfirmGoogle = async (e) => {
-    e?.preventDefault();
-    setSubmitting(true);
-    setError('');
-
-    const emailToUse = googleEmail.trim() || 'user.google@contaques.pro';
-    const nameToUse = googleName.trim() || 'Google Member';
-
-    const res = await googleAuth({
-      email: emailToUse,
-      name: nameToUse
-    });
-    setSubmitting(false);
-    setShowGoogleDialog(false);
-
-    if (res.success) {
-      // Instant login/signup with saved customer data -> Dashboard!
-      navigate('/', { replace: true });
-    } else {
-      setError(res.error || 'Google authorization failed.');
     }
   };
 
@@ -162,12 +125,13 @@ export default function Signup() {
           </div>
         )}
 
-        {/* 1-Click Continue with Google Button */}
+        {/* 1-Click Continue with Google Button - Review Status */}
         <button 
           type="button" 
           className="signup-google-bar-btn"
-          onClick={handleStartGoogle}
-          title="Sign up with Google"
+          onClick={() => setError('Google OAuth verification is currently pending. Please sign up using the form below.')}
+          title="Google OAuth currently under review"
+          style={{ cursor: 'pointer' }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24">
             <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.4 9 5 12 5z"/>
@@ -176,6 +140,7 @@ export default function Signup() {
             <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.4-6.4-5.2L1.9 16C3.7 20.4 7.5 23 12 23z"/>
           </svg>
           <span>Continue with Google</span>
+          <span style={{ fontSize: '11px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', padding: '2px 8px', borderRadius: '10px', marginLeft: 'auto', color: '#94a3b8' }}>OAuth In Review</span>
         </button>
 
         {/* Divider */}
@@ -304,68 +269,6 @@ export default function Signup() {
           </div>
         </form>
       </div>
-
-      {/* Google OAuth Simulation Modal */}
-      {showGoogleDialog && (
-        <div className="google-auth-dialog-backdrop" onClick={() => setShowGoogleDialog(false)}>
-          <div className="google-auth-dialog-card" onClick={(e) => e.stopPropagation()}>
-            <div className="google-dialog-header">
-              <svg width="24" height="24" viewBox="0 0 24 24">
-                <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.4 9 5 12 5z"/>
-                <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"/>
-                <path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.8s.2-2.1.4-2.8L1.9 6.3C.7 8.7 0 10.3 0 12s.7 3.3 1.9 5.7l3.7-2.9z"/>
-                <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.4-6.4-5.2L1.9 16C3.7 20.4 7.5 23 12 23z"/>
-              </svg>
-              <h4>Sign in with Google</h4>
-            </div>
-
-            <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 16px 0' }}>
-              Choose an account to continue to <strong>Contaques Intelligence</strong>. Your profile data will be automatically saved.
-            </p>
-
-            <form onSubmit={handleConfirmGoogle} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
-                <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>Google Account Name</label>
-                <input 
-                  type="text" 
-                  className="google-sim-input"
-                  value={googleName}
-                  onChange={(e) => setGoogleName(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>Google Account Email</label>
-                <input 
-                  type="email" 
-                  className="google-sim-input"
-                  value={googleEmail}
-                  onChange={(e) => setGoogleEmail(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
-                <button 
-                  type="button" 
-                  className="google-cancel-btn"
-                  onClick={() => setShowGoogleDialog(false)}
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="google-continue-btn"
-                  disabled={submitting}
-                >
-                  {submitting ? 'Connecting...' : 'Authorize & Continue'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -11,6 +11,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { API_URL } from '../config';
+import { useAuth } from '../context/AuthContext';
 import './Database.css';
 
 // Brand Button Colors for PDF (Vibrant, Modern & Recognizable Button Badges)
@@ -153,6 +154,7 @@ const drawPdfSocialBadges = (doc, cell, rawLead) => {
 };
 
 function Database() {
+  const { authFetch } = useAuth();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -212,7 +214,7 @@ function Database() {
   const fetchJobs = useCallback(async (manual = false) => {
     if (manual) setIsRefreshing(true);
     try {
-      const res = await fetch(`${API_URL}/api/jobs`);
+      const res = await authFetch(`${API_URL}/api/jobs`);
       if (!res.ok) throw new Error("Failed to load scraping history");
       const data = await res.json();
       setJobs(data);
@@ -223,7 +225,7 @@ function Database() {
       setLoading(false);
       if (manual) setTimeout(() => setIsRefreshing(false), 400);
     }
-  }, []);
+  }, [authFetch]);
 
   useEffect(() => {
     fetchJobs();
@@ -236,7 +238,7 @@ function Database() {
     }
     setLoadingExtracted(true);
     try {
-      const res = await fetch(`${API_URL}/api/leads/by-jobs`, {
+      const res = await authFetch(`${API_URL}/api/leads/by-jobs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jobIds, dataType: type })
@@ -249,7 +251,7 @@ function Database() {
     } finally {
       setLoadingExtracted(false);
     }
-  }, []);
+  }, [authFetch]);
 
   useEffect(() => {
     if (dbTab === 'EXPORTER') {
@@ -278,7 +280,7 @@ function Database() {
     setModalFilter('ALL');
     
     try {
-      const res = await fetch(`${API_URL}/api/jobs/${job.id}/leads`);
+      const res = await authFetch(`${API_URL}/api/jobs/${job.id}/leads`);
       if (!res.ok) throw new Error("Failed to load leads");
       const data = await res.json();
       setJobLeads(data);
@@ -294,7 +296,7 @@ function Database() {
     if (e) e.stopPropagation();
     if (!window.confirm(`Are you sure you want to delete Job #${jobId} and its verified leads?`)) return;
     try {
-      const res = await fetch(`${API_URL}/api/jobs/${jobId}`, {
+      const res = await authFetch(`${API_URL}/api/jobs/${jobId}`, {
         method: 'DELETE'
       });
       if (res.ok) {
@@ -322,11 +324,13 @@ function Database() {
 
   // Filtered Jobs
   const filteredJobs = useMemo(() => {
+    const q = (searchQuery || '').toLowerCase();
     return jobs.filter(job => {
-      const matchesSearch = 
-        job.keyword.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        job.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        job.id.toString().includes(searchQuery);
+      if (!job) return false;
+      const kw = (job.keyword || '').toLowerCase();
+      const loc = (job.location || '').toLowerCase();
+      const jid = (job.id ?? '').toString();
+      const matchesSearch = !q || kw.includes(q) || loc.includes(q) || jid.includes(q);
 
       const matchesSource = sourceFilter === 'ALL' || job.source === sourceFilter;
       const matchesStatus = statusFilter === 'ALL' || job.status === statusFilter;
@@ -766,7 +770,7 @@ function Database() {
     showToast(`Fetching leads for ${selectedJobIds.length} jobs...`);
     
     try {
-      const promises = selectedJobIds.map(id => fetch(`${API_URL}/api/jobs/${id}/leads`).then(res => res.json()));
+      const promises = selectedJobIds.map(id => authFetch(`${API_URL}/api/jobs/${id}/leads`).then(res => res.json()));
       const results = await Promise.all(promises);
       const allLeads = results.flat();
       

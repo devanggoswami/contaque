@@ -735,3 +735,108 @@
     margin-top: 6px;
   }
 }
+
+/* --------------------------------------------------------------------------
+   PREPAID WALLET & COST ESTIMATOR STYLES IN GENERATE DATA
+   -------------------------------------------------------------------------- */
+
+.lead-cost-summary-box {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cost-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.cost-summary-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.cost-plan-badge {
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  color: #a5b4fc;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.cost-summary-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cost-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.cost-row.total-row {
+  padding-top: 6px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  font-weight: 600;
+  color: #fff;
+}
+
+.cost-total-val {
+  font-size: 14px;
+  color: #c084fc;
+  font-weight: 800;
+}
+
+.cost-row.wallet-row {
+  font-size: 12px;
+}
+
+.bal-good {
+  color: #10b981;
+  font-weight: 700;
+}
+
+.bal-short {
+  color: #ef4444;
+  font-weight: 700;
+}
+
+.shortfall-warning {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #fca5a5;
+  font-size: 11.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.submit-button.recharge-btn {
+  background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%) !important;
+  box-shadow: 0 8px 25px -5px rgba(168, 85, 247, 0.5) !important;
+  color: #fff !important;
+}
+
+.submit-button.recharge-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px -5px rgba(168, 85, 247, 0.65) !important;
+}

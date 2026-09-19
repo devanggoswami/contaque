@@ -55,3 +55,9 @@ Thumbs.db
 *.sln
 *.sw?
 .vercel
+
+# Local test & debug scripts
+server/set_test_balance.js
+server/test_*.js
+server/alter_db.js
+scratch/

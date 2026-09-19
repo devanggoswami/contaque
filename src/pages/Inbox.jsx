@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Mail, RefreshCw, Send, Search, User, Clock, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { API_URL } from '../config';
+import { useAuth } from '../context/AuthContext';
 import './Inbox.css';
 
 function Inbox() {
+  const { authFetch } = useAuth();
   const [threads, setThreads] = useState([]);
   const [activeThread, setActiveThread] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -16,9 +18,9 @@ function Inbox() {
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
 
-  const fetchThreads = async () => {
+  const fetchThreads = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/api/inbox/threads`);
+      const res = await authFetch(`${API_URL}/api/inbox/threads`);
       const data = await res.json();
       setThreads(data);
       setLoading(false);
@@ -26,11 +28,11 @@ function Inbox() {
       console.error(err);
       setLoading(false);
     }
-  };
+  }, [authFetch]);
 
   const fetchMessages = async (threadId) => {
     try {
-      const res = await fetch(`${API_URL}/api/inbox/threads/${threadId}`);
+      const res = await authFetch(`${API_URL}/api/inbox/threads/${threadId}`);
       const data = await res.json();
       setMessages(data);
       scrollToBottom();
@@ -47,7 +49,7 @@ function Inbox() {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 120000); // 2 min timeout
-      const res = await fetch(`${API_URL}/api/inbox/sync`, { method: 'POST', signal: controller.signal });
+      const res = await authFetch(`${API_URL}/api/inbox/sync`, { method: 'POST', signal: controller.signal });
       clearTimeout(timeout);
       const data = await res.json();
       if (data.error) {
@@ -72,7 +74,7 @@ function Inbox() {
     setSending(true);
     
     try {
-      const res = await fetch(`${API_URL}/api/inbox/reply`, {
+      const res = await authFetch(`${API_URL}/api/inbox/reply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

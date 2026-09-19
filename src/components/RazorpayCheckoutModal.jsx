@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  X, ShieldCheck, CheckCircle2, Lock, ArrowRight, CreditCard, 
-  Smartphone, Building, Check, Sparkles, AlertCircle, User, Mail 
+import {
+  X, ShieldCheck, CheckCircle2, Lock, ArrowRight, CreditCard,
+  Smartphone, Building, Check, Sparkles, AlertCircle, User, Mail
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import './RazorpayCheckoutModal.css';
@@ -152,10 +152,12 @@ export default function RazorpayCheckoutModal({
     }
   };
 
-  return (
+    if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <div className="rp-modal-backdrop" onClick={onClose}>
       <div className="rp-modal-container" onClick={(e) => e.stopPropagation()}>
-        
+
         {/* Stepper Header */}
         <div className="rp-stepper-header">
           <div className="rp-brand-title">
@@ -200,9 +202,9 @@ export default function RazorpayCheckoutModal({
                   <>
                     <div className="rp-form-group">
                       <label>Full Name *</label>
-                      <input 
-                        type="text" 
-                        className="rp-input" 
+                      <input
+                        type="text"
+                        className="rp-input"
                         placeholder="e.g. Alex Johnson"
                         value={accountForm.name}
                         onChange={(e) => setAccountForm(p => ({ ...p, name: e.target.value }))}
@@ -211,7 +213,7 @@ export default function RazorpayCheckoutModal({
                     </div>
                     <div className="rp-form-group">
                       <label>Country *</label>
-                      <select 
+                      <select
                         className="rp-select"
                         value={accountForm.country}
                         onChange={(e) => setAccountForm(p => ({ ...p, country: e.target.value }))}
@@ -231,9 +233,9 @@ export default function RazorpayCheckoutModal({
 
                 <div className="rp-form-group">
                   <label>Work Email *</label>
-                  <input 
-                    type="email" 
-                    className="rp-input" 
+                  <input
+                    type="email"
+                    className="rp-input"
                     placeholder="name@company.com"
                     value={accountForm.email}
                     onChange={(e) => setAccountForm(p => ({ ...p, email: e.target.value }))}
@@ -243,9 +245,9 @@ export default function RazorpayCheckoutModal({
 
                 <div className="rp-form-group">
                   <label>Password *</label>
-                  <input 
-                    type="password" 
-                    className="rp-input" 
+                  <input
+                    type="password"
+                    className="rp-input"
                     placeholder="••••••••••••"
                     value={accountForm.password}
                     onChange={(e) => setAccountForm(p => ({ ...p, password: e.target.value }))}
@@ -253,8 +255,8 @@ export default function RazorpayCheckoutModal({
                   />
                 </div>
 
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="rp-primary-btn"
                   disabled={authLoading}
                 >
@@ -268,8 +270,8 @@ export default function RazorpayCheckoutModal({
 
                 <div style={{ textAlign: 'center', marginTop: '14px', fontSize: '12.5px', color: '#94a3b8' }}>
                   <span>{accountForm.isLoginMode ? "Don't have an account?" : "Already have an account?"}</span>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     style={{ background: 'none', border: 'none', color: '#818cf8', fontWeight: 700, cursor: 'pointer', marginLeft: '6px' }}
                     onClick={() => setAccountForm(p => ({ ...p, isLoginMode: !p.isLoginMode }))}
                   >
@@ -294,9 +296,9 @@ export default function RazorpayCheckoutModal({
                 <div className="rp-grid-2col">
                   <div className="rp-form-group">
                     <label>Billing Name *</label>
-                    <input 
-                      type="text" 
-                      className="rp-input" 
+                    <input
+                      type="text"
+                      className="rp-input"
                       value={billingForm.name}
                       onChange={(e) => setBillingForm(p => ({ ...p, name: e.target.value }))}
                       required
@@ -304,9 +306,9 @@ export default function RazorpayCheckoutModal({
                   </div>
                   <div className="rp-form-group">
                     <label>Billing Email *</label>
-                    <input 
-                      type="email" 
-                      className="rp-input" 
+                    <input
+                      type="email"
+                      className="rp-input"
                       value={billingForm.email}
                       onChange={(e) => setBillingForm(p => ({ ...p, email: e.target.value }))}
                       required
@@ -317,9 +319,9 @@ export default function RazorpayCheckoutModal({
                 <div className="rp-grid-2col">
                   <div className="rp-form-group">
                     <label>Mobile Phone *</label>
-                    <input 
-                      type="tel" 
-                      className="rp-input" 
+                    <input
+                      type="tel"
+                      className="rp-input"
                       placeholder="+91 98765 43210"
                       value={billingForm.phone}
                       onChange={(e) => setBillingForm(p => ({ ...p, phone: e.target.value }))}
@@ -328,7 +330,7 @@ export default function RazorpayCheckoutModal({
                   </div>
                   <div className="rp-form-group">
                     <label>Country *</label>
-                    <select 
+                    <select
                       className="rp-select"
                       value={billingForm.country}
                       onChange={(e) => setBillingForm(p => ({ ...p, country: e.target.value }))}
@@ -346,9 +348,9 @@ export default function RazorpayCheckoutModal({
 
                 <div className="rp-form-group">
                   <label>Billing Address</label>
-                  <input 
-                    type="text" 
-                    className="rp-input" 
+                  <input
+                    type="text"
+                    className="rp-input"
                     placeholder="Street, Landmark, City"
                     value={billingForm.address}
                     onChange={(e) => setBillingForm(p => ({ ...p, address: e.target.value }))}
@@ -357,9 +359,9 @@ export default function RazorpayCheckoutModal({
 
                 <div className="rp-form-group">
                   <label>GSTIN (Optional for Tax Invoice)</label>
-                  <input 
-                    type="text" 
-                    className="rp-input" 
+                  <input
+                    type="text"
+                    className="rp-input"
                     placeholder="e.g. 27ABCDE1234F1Z5"
                     value={billingForm.gstin}
                     onChange={(e) => setBillingForm(p => ({ ...p, gstin: e.target.value }))}
@@ -394,24 +396,24 @@ export default function RazorpayCheckoutModal({
               {/* Razorpay Form Body */}
               <div className="razorpay-body-content">
                 <div className="razorpay-method-nav">
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className={`razorpay-method-tab ${razorpayMethod === 'upi' ? 'active' : ''}`}
                     onClick={() => setRazorpayMethod('upi')}
                   >
                     <Smartphone size={14} />
                     <span>UPI / QR</span>
                   </button>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className={`razorpay-method-tab ${razorpayMethod === 'card' ? 'active' : ''}`}
                     onClick={() => setRazorpayMethod('card')}
                   >
                     <CreditCard size={14} />
                     <span>Card</span>
                   </button>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className={`razorpay-method-tab ${razorpayMethod === 'netbanking' ? 'active' : ''}`}
                     onClick={() => setRazorpayMethod('netbanking')}
                   >
@@ -432,8 +434,8 @@ export default function RazorpayCheckoutModal({
                       <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155' }}>
                         Enter UPI ID / VPA
                       </label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         className="razorpay-native-input"
                         placeholder="yourname@okhdfcbank / paytm"
                         value={upiId}
@@ -447,8 +449,8 @@ export default function RazorpayCheckoutModal({
                       <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155' }}>
                         Card Number
                       </label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         className="razorpay-native-input"
                         placeholder="4532 •••• •••• 9821"
                         maxLength="19"
@@ -458,10 +460,10 @@ export default function RazorpayCheckoutModal({
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' }}>
                         <div>
                           <label style={{ fontSize: '11px', fontWeight: 700, color: '#334155' }}>Expiry (MM/YY)</label>
-                          <input 
-                            type="text" 
-                            className="razorpay-native-input" 
-                            placeholder="08/28" 
+                          <input
+                            type="text"
+                            className="razorpay-native-input"
+                            placeholder="08/28"
                             maxLength="5"
                             value={cardExpiry}
                             onChange={(e) => setCardExpiry(e.target.value)}
@@ -469,10 +471,10 @@ export default function RazorpayCheckoutModal({
                         </div>
                         <div>
                           <label style={{ fontSize: '11px', fontWeight: 700, color: '#334155' }}>CVV</label>
-                          <input 
-                            type="password" 
-                            className="razorpay-native-input" 
-                            placeholder="•••" 
+                          <input
+                            type="password"
+                            className="razorpay-native-input"
+                            placeholder="•••"
                             maxLength="4"
                             value={cardCvv}
                             onChange={(e) => setCardCvv(e.target.value)}
@@ -487,7 +489,7 @@ export default function RazorpayCheckoutModal({
                       <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155' }}>
                         Choose Bank
                       </label>
-                      <select 
+                      <select
                         className="razorpay-native-input"
                         value={selectedBank}
                         onChange={(e) => setSelectedBank(e.target.value)}
@@ -503,8 +505,8 @@ export default function RazorpayCheckoutModal({
                   )}
 
                   {/* Razorpay Action Button */}
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     className="razorpay-pay-button"
                     disabled={paying}
                   >
@@ -562,9 +564,9 @@ export default function RazorpayCheckoutModal({
                 </div>
               )}
 
-              <button 
-                type="button" 
-                className="rp-primary-btn" 
+              <button
+                type="button"
+                className="rp-primary-btn"
                 onClick={handleFinish}
               >
                 <span>Launch Dashboard Now</span>
@@ -575,6 +577,7 @@ export default function RazorpayCheckoutModal({
 
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

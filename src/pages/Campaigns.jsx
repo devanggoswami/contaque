@@ -9,6 +9,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { API_URL } from '../config';
+import { useAuth } from '../context/AuthContext';
 import './Campaigns.css';
 
 // DD/MM/YYYY hh:mm AM/PM Formatter
@@ -31,6 +32,7 @@ const formatDateTime = (dateStr) => {
 };
 
 function Campaigns() {
+  const { authFetch } = useAuth();
   const [activeTab, setActiveTab] = useState('STUDIO'); // STUDIO, DASHBOARD, ACCOUNTS
   
   // Data
@@ -46,12 +48,12 @@ function Campaigns() {
   const [jobSearch, setJobSearch] = useState('');
   const [gmailOnly, setGmailOnly] = useState(true);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [accRes, campRes, jobRes] = await Promise.all([
-        fetch(`${API_URL}/api/campaigns/accounts`),
-        fetch(`${API_URL}/api/campaigns/list`),
-        fetch(`${API_URL}/api/jobs`)
+        authFetch(`${API_URL}/api/campaigns/accounts`),
+        authFetch(`${API_URL}/api/campaigns/list`),
+        authFetch(`${API_URL}/api/jobs`)
       ]);
       const accData = await accRes.json();
       const campData = await campRes.json();
@@ -62,7 +64,7 @@ function Campaigns() {
     } catch (e) {
       console.error(e);
     }
-  };
+  }, [authFetch]);
 
   useEffect(() => {
     fetchData();
@@ -154,7 +156,7 @@ function Campaigns() {
     e.preventDefault();
     setLoading(true);
     try {
-      await fetch(`${API_URL}/api/campaigns/accounts`, {
+      await authFetch(`${API_URL}/api/campaigns/accounts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newAccount)
@@ -170,7 +172,7 @@ function Campaigns() {
   const handleDeleteAccount = async (id) => {
     if(!confirm("Delete this email account?")) return;
     try {
-      await fetch(`${API_URL}/api/campaigns/accounts/${id}`, { method: 'DELETE' });
+      await authFetch(`${API_URL}/api/campaigns/accounts/${id}`, { method: 'DELETE' });
       fetchData();
     } catch (e) {}
   };
@@ -185,7 +187,7 @@ function Campaigns() {
       if (attachmentFile) {
         const formData = new FormData();
         formData.append('attachment', attachmentFile);
-        const uploadRes = await fetch(`${API_URL}/api/campaigns/upload`, {
+        const uploadRes = await authFetch(`${API_URL}/api/campaigns/upload`, {
           method: 'POST',
           body: formData
         });
@@ -206,7 +208,7 @@ function Campaigns() {
         attachment_type
       };
 
-      const res = await fetch(`${API_URL}/api/campaigns/create`, {
+      const res = await authFetch(`${API_URL}/api/campaigns/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -231,7 +233,7 @@ function Campaigns() {
   const handleToggleStatus = async (id, currentStatus) => {
     const newStatus = currentStatus === 'RUNNING' ? 'PAUSED' : 'RUNNING';
     try {
-      await fetch(`${API_URL}/api/campaigns/${id}/status`, {
+      await authFetch(`${API_URL}/api/campaigns/${id}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
@@ -243,7 +245,7 @@ function Campaigns() {
   const handleDeleteCampaign = async (id) => {
     if (!window.confirm("Are you sure you want to delete this campaign? This will also remove all pending emails for this campaign from the queue.")) return;
     try {
-      await fetch(`${API_URL}/api/campaigns/${id}`, {
+      await authFetch(`${API_URL}/api/campaigns/${id}`, {
         method: 'DELETE'
       });
       fetchData();

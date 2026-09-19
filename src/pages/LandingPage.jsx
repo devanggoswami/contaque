@@ -351,7 +351,7 @@ function LandingPage() {
 
   const handleCheckoutSuccess = async (receipt) => {
     setIsCheckoutOpen(false);
-    navigate('/', { replace: true });
+    navigate('/dashboard', { replace: true });
   };
 
   // Active state for Engine Tab Switcher
@@ -451,7 +451,7 @@ function LandingPage() {
             </button>
             <button 
               className="btn-primary-gradient border-shimmer" 
-              onClick={() => navigate(isAuthenticated ? '/' : '/login')} 
+              onClick={() => navigate(isAuthenticated ? '/dashboard' : '/login')} 
               title="Launch Contaques"
             >
               <Zap size={15} />
@@ -483,7 +483,7 @@ function LandingPage() {
             <button 
               type="button" 
               className="hero-cta-btn hero-cta-large"
-              onClick={() => navigate('/signup')}
+              onClick={() => navigate(isAuthenticated ? '/dashboard' : '/signup')}
             >
               <span>Get Started Free</span>
               <ArrowRight size={18} />
@@ -672,21 +672,21 @@ function LandingPage() {
             <div className="showcase-action-btns">
               {activeEngine === 'whatsapp' ? (
                 <>
-                  <button className="btn-emerald-gradient" onClick={() => navigate('/')}>
+                  <button className="btn-emerald-gradient" onClick={() => navigate(isAuthenticated ? '/generate' : '/signup')}>
                     <MessageSquare size={15} />
                     <span>Launch WhatsApp Radar</span>
                   </button>
-                  <button className="btn-glass-subtle" onClick={() => navigate('/database')}>
+                  <button className="btn-glass-subtle" onClick={() => navigate(isAuthenticated ? '/database' : '/signup')}>
                     <span>View Extracted Database</span>
                   </button>
                 </>
               ) : (
                 <>
-                  <button className="btn-primary-gradient" onClick={() => navigate('/')}>
+                  <button className="btn-primary-gradient" onClick={() => navigate(isAuthenticated ? '/generate' : '/signup')}>
                     <span>Deploy This Engine</span>
                     <ArrowRight size={15} />
                   </button>
-                  <button className="btn-glass-subtle" onClick={() => navigate('/database')}>
+                  <button className="btn-glass-subtle" onClick={() => navigate(isAuthenticated ? '/database' : '/signup')}>
                     <span>View Extracted Database</span>
                   </button>
                 </>
@@ -1008,28 +1008,28 @@ function LandingPage() {
             </p>
 
             <div className="footer-feature-badges">
-              <div className="feature-badge-item" onClick={() => navigate('/generate')} title="Find Targeted Leads">
+              <div className="feature-badge-item" onClick={() => navigate(isAuthenticated ? '/generate' : '/signup')} title="Find Targeted Leads">
                 <div className="feature-badge-icon">
                   <Search size={17} />
                 </div>
                 <span className="feature-badge-label">Find<br />Leads</span>
               </div>
 
-              <div className="feature-badge-item" onClick={() => navigate('/database')} title="Enrich Lead Profiles">
+              <div className="feature-badge-item" onClick={() => navigate(isAuthenticated ? '/database' : '/signup')} title="Enrich Lead Profiles">
                 <div className="feature-badge-icon">
                   <Database size={17} />
                 </div>
                 <span className="feature-badge-label">Enrich<br />Data</span>
               </div>
 
-              <div className="feature-badge-item" onClick={() => navigate('/campaigns')} title="Direct Multi-Channel Outreach">
+              <div className="feature-badge-item" onClick={() => navigate(isAuthenticated ? '/campaigns' : '/signup')} title="Direct Multi-Channel Outreach">
                 <div className="feature-badge-icon">
                   <Send size={17} />
                 </div>
                 <span className="feature-badge-label">Outreach<br />Easily</span>
               </div>
 
-              <div className="feature-badge-item" onClick={() => navigate('/')} title="Accelerate Deal Velocity">
+              <div className="feature-badge-item" onClick={() => navigate(isAuthenticated ? '/dashboard' : '/signup')} title="Accelerate Deal Velocity">
                 <div className="feature-badge-icon">
                   <BarChart3 size={17} />
                 </div>

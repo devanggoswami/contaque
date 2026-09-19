@@ -4,9 +4,11 @@ import {
   Search, MapPin, Tag, Globe, Hash, Sparkles, Zap, 
   CheckCircle2, Clock, ArrowRight, ShieldCheck, RefreshCw, 
   ExternalLink, Layers, Terminal, Compass, Building2, Flame,
-  AlertTriangle, MessageCircle, X
+  AlertTriangle, MessageCircle, X, Wallet
 } from 'lucide-react';
 import { API_URL } from '../config';
+import { useAuth } from '../context/AuthContext';
+import WalletRechargeModal from '../components/WalletRechargeModal';
 import './GenerateData.css';
 
 const PRESET_QUERIES = [
@@ -33,6 +35,7 @@ const PLATFORM_PRESETS = [
 
 function GenerateData() {
   const navigate = useNavigate();
+  const { wallet, walletBalance, walletRates, refreshWallet, authFetch } = useAuth();
   const [source, setSource] = useState('maps');
   const [location, setLocation] = useState('');
   const [keyword, setKeyword] = useState('');
@@ -43,10 +46,18 @@ function GenerateData() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [billing, setBilling] = useState(null);
+  const [showRechargeModal, setShowRechargeModal] = useState(false);
   
   // Non-intrusive toast notification and button feedback
   const [successToast, setSuccessToast] = useState(null);
   const [justDispatched, setJustDispatched] = useState(false);
+
+  // Dynamic cost calculation
+  const ratePerLead = (walletRates && walletRates[source]) !== undefined ? walletRates[source] : (source === 'yellowpages' ? 0.60 : source === 'yandex' ? 1.70 : 1.10);
+  const countNum = parseInt(targetCount, 10) || 0;
+  const estimatedCost = parseFloat((countNum * ratePerLead).toFixed(2));
+  const hasSufficientBalance = walletBalance >= estimatedCost;
+  const shortfall = Math.max(0, parseFloat((estimatedCost - walletBalance).toFixed(2)));
 
   useEffect(() => {
     fetch(`${API_URL}/api/billing`)
@@ -142,10 +153,18 @@ function GenerateData() {
     }
 
     setError(null);
+
+    // Pre-flight balance check before dispatching
+    if (!hasSufficientBalance) {
+      setError(`Insufficient wallet balance. You need ₹${shortfall.toFixed(2)} more to launch this batch.`);
+      setShowRechargeModal(true);
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/api/generate`, {
+      const response = await authFetch(`${API_URL}/api/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -161,9 +180,19 @@ function GenerateData() {
 
       const data = await response.json();
 
+      if (response.status === 402) {
+        setError(data.error || "Insufficient wallet balance to launch job.");
+        setShowRechargeModal(true);
+        setLoading(false);
+        return;
+      }
+
       if (!response.ok) {
         throw new Error(data.error || "Failed to launch scraping process");
       }
+
+      // Refresh wallet balance immediately to reflect the held reservation
+      refreshWallet();
 
       setLoading(false);
       setJustDispatched(true);
@@ -462,28 +491,73 @@ function GenerateData() {
               </div>
             </div>
 
-            <button 
-              type="submit" 
-              className={`submit-button ${justDispatched ? 'dispatched' : ''}`} 
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <RefreshCw size={18} className="spin-icon" />
-                  <span>Launching Worker Threads...</span>
-                </>
-              ) : justDispatched ? (
-                <>
-                  <CheckCircle2 size={18} />
-                  <span>Engine Dispatched Successfully!</span>
-                </>
-              ) : (
-                <>
-                  <Zap size={18} />
-                  <span>Execute Scrape Engine</span>
-                </>
+            {/* Dynamic Prepaid Cost & Hold Estimator */}
+            <div className="lead-cost-summary-box animate-fade-in">
+              <div className="cost-summary-header">
+                <span className="cost-summary-title">Billing & Wallet Hold Estimate</span>
+                <span className="cost-plan-badge">{(wallet.plan || 'starter').toUpperCase()} TIER</span>
+              </div>
+              <div className="cost-summary-details">
+                <div className="cost-row">
+                  <span>Rate per Unique Lead ({getSourceDisplayName(source)}):</span>
+                  <strong>₹{ratePerLead.toFixed(2)}</strong>
+                </div>
+                <div className="cost-row">
+                  <span>Target Batch Size:</span>
+                  <span>{targetCount} leads</span>
+                </div>
+                <div className="cost-row total-row">
+                  <span>Estimated Hold (Auto-refund on unfulfilled/duplicates):</span>
+                  <strong className="cost-total-val">₹{estimatedCost.toFixed(2)}</strong>
+                </div>
+                <div className="cost-row wallet-row">
+                  <span>Your Available Balance:</span>
+                  <strong className={hasSufficientBalance ? 'bal-good' : 'bal-short'}>
+                    ₹{walletBalance.toFixed(2)}
+                  </strong>
+                </div>
+              </div>
+              {!hasSufficientBalance && (
+                <div className="shortfall-warning">
+                  <AlertTriangle size={14} style={{ flexShrink: 0 }} />
+                  <span>You need ₹{shortfall.toFixed(2)} more to execute this batch.</span>
+                </div>
               )}
-            </button>
+            </div>
+
+            {hasSufficientBalance ? (
+              <button 
+                type="submit" 
+                className={`submit-button ${justDispatched ? 'dispatched' : ''}`} 
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <RefreshCw size={18} className="spin-icon" />
+                    <span>Launching Worker Threads...</span>
+                  </>
+                ) : justDispatched ? (
+                  <>
+                    <CheckCircle2 size={18} />
+                    <span>Engine Dispatched Successfully!</span>
+                  </>
+                ) : (
+                  <>
+                    <Zap size={18} />
+                    <span>Execute Scrape Engine (Hold ₹{estimatedCost.toFixed(2)})</span>
+                  </>
+                )}
+              </button>
+            ) : (
+              <button 
+                type="button" 
+                className="submit-button recharge-btn" 
+                onClick={() => setShowRechargeModal(true)}
+              >
+                <Wallet size={18} />
+                <span>Top Up Wallet (Shortfall: ₹{shortfall.toFixed(2)})</span>
+              </button>
+            )}
           </form>
 
           {error && (
@@ -501,31 +575,38 @@ function GenerateData() {
             <CheckCircle2 size={20} />
           </div>
           <div className="toast-body">
-            <div className="toast-title">Scraper Dispatched (Job #{successToast.jobId})</div>
-            <div className="toast-subtitle">
-              Harvesting {successToast.count} leads for "{successToast.keyword}" in "{successToast.location}".
-            </div>
+            <h4>Extraction Job Dispatched</h4>
+            <p>
+              Targeting <strong>{successToast.keyword}</strong> in <strong>{successToast.location}</strong> ({successToast.count} records).
+            </p>
           </div>
           <div className="toast-actions">
             <button 
               type="button" 
-              className="toast-open-db-btn"
+              className="toast-view-btn"
               onClick={() => navigate('/database')}
             >
-              <span>View Database</span>
-              <ArrowRight size={13} />
+              View in Database <ArrowRight size={14} />
             </button>
             <button 
               type="button" 
-              className="toast-dismiss-btn"
+              className="toast-close-btn"
               onClick={() => setSuccessToast(null)}
               aria-label="Dismiss notification"
             >
-              <X size={15} />
+              <X size={16} />
             </button>
           </div>
         </div>
       )}
+
+      {/* Wallet Recharge Modal */}
+      <WalletRechargeModal 
+        isOpen={showRechargeModal} 
+        initialAmount={shortfall} 
+        onClose={() => setShowRechargeModal(false)} 
+        onSuccess={() => refreshWallet()} 
+      />
     </div>
   );
 }

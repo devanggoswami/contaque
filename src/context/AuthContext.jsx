@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { API_URL } from '../config';
 
 const AuthContext = createContext(null);
@@ -9,36 +9,140 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [wallet, setWallet] = useState({
+    balance: 0.00,
+    currency: 'INR',
+    plan: 'free',
+    rates: {}
+  });
 
-  // Initialize session from localStorage & provide sliding activity renewal
+  const refreshWallet = async (overrideToken) => {
+    let activeToken = overrideToken || token;
+    if (!activeToken) {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          activeToken = parsed?.token;
+        }
+      } catch {
+        // fallback
+      }
+    }
+    if (!activeToken) return;
+
+    try {
+      const headers = { 'Authorization': `Bearer ${activeToken}` };
+      const res = await fetch(`${API_URL}/api/wallet/balance`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setWallet({
+          balance: Number(data.balance || 0),
+          currency: data.currency || 'INR',
+          plan: data.plan || 'free',
+          rates: data.rates || {},
+          allTiers: data.allTiers || {}
+        });
+      }
+    } catch {
+      // Quiet fallback for local execution
+    }
+  };
+
+  const authFetch = useCallback(async (url, options = {}) => {
+    let activeToken = token;
+    if (!activeToken) {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          activeToken = parsed?.token;
+        }
+      } catch {
+        // fallback
+      }
+    }
+    const headers = {
+      ...options.headers,
+      ...(activeToken ? { 'Authorization': `Bearer ${activeToken}` } : {})
+    };
+    return fetch(url, { ...options, headers });
+  }, [token]);
+
+  const updateUserPlan = async (newPlan) => {
+    try {
+      const res = await authFetch(`${API_URL}/api/wallet/plan/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: newPlan })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        await refreshWallet();
+        return { success: true, message: data.message };
+      }
+      return { success: false, error: data.error };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  };
+
+  // Initialize session from localStorage, verify with server & provide sliding activity renewal
   useEffect(() => {
-    const initSession = () => {
+    const initSession = async () => {
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
           const session = JSON.parse(saved);
-          // Check if session is valid
-          if (session.expiresAt && Date.now() < session.expiresAt) {
-            setUser(session.user);
-            setToken(session.token);
+          // Check if session token and expiration are valid
+          if (session.token && session.expiresAt && Date.now() < session.expiresAt) {
+            try {
+              const vRes = await fetch(`${API_URL}/api/auth/verify`, {
+                headers: { 'Authorization': `Bearer ${session.token}` }
+              });
+              if (vRes.ok) {
+                const vData = await vRes.json();
+                const activeUser = vData.user || session.user;
+                setUser(activeUser);
+                setToken(session.token);
+                refreshWallet(session.token);
 
-            // Sliding Window: If active and more than 12h elapsed, automatically extend 48 hours
-            const timeRemaining = session.expiresAt - Date.now();
-            if (timeRemaining < 36 * 60 * 60 * 1000) {
-              const updatedSession = {
-                ...session,
-                expiresAt: Date.now() + 48 * 60 * 60 * 1000
-              };
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSession));
+                // Sliding Window: If active and more than 12h elapsed, automatically extend 48 hours
+                const timeRemaining = session.expiresAt - Date.now();
+                if (timeRemaining < 36 * 60 * 60 * 1000) {
+                  const updatedSession = {
+                    ...session,
+                    user: activeUser,
+                    expiresAt: Date.now() + 48 * 60 * 60 * 1000
+                  };
+                  localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSession));
+                }
+                return;
+              } else {
+                // Token rejected by server
+                localStorage.removeItem(STORAGE_KEY);
+                setUser(null);
+                setToken(null);
+                return;
+              }
+            } catch {
+              // Server temporary network error: retain local session if not expired
+              setUser(session.user);
+              setToken(session.token);
+              refreshWallet(session.token);
+              return;
             }
-          } else {
-            // Expired, clear storage
-            localStorage.removeItem(STORAGE_KEY);
           }
         }
+        // No stored session or expired
+        localStorage.removeItem(STORAGE_KEY);
+        setUser(null);
+        setToken(null);
       } catch (err) {
         console.error('Session load error:', err);
         localStorage.removeItem(STORAGE_KEY);
+        setUser(null);
+        setToken(null);
       } finally {
         setLoading(false);
       }
@@ -106,34 +210,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const googleAuth = async ({ email, name, avatar }) => {
-    try {
-      const res = await fetch(`${API_URL}/api/auth/google`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name, avatar })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Google sign-in failed');
-      }
-
-      const expiresAt = Date.now() + 48 * 60 * 60 * 1000;
-      const sessionData = {
-        token: data.token,
-        user: data.user,
-        expiresAt
-      };
-
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
-      setUser(data.user);
-      setToken(data.token);
-      return { success: true, user: data.user, isExisting: data.isExisting };
-    } catch (err) {
-      return { success: false, error: err.message };
-    }
-  };
 
   const verifyEmail = async () => {
     if (!user?.email) return;
@@ -185,17 +261,31 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem(STORAGE_KEY);
     setUser(null);
     setToken(null);
+    setWallet({
+      balance: 0.00,
+      currency: 'INR',
+      plan: 'free',
+      rates: {},
+      allTiers: {}
+    });
   };
 
   return (
     <AuthContext.Provider value={{ 
       user, 
       token, 
-      isAuthenticated: !!user, 
+      wallet,
+      walletBalance: wallet.balance,
+      walletRates: wallet.rates,
+      walletAllTiers: wallet.allTiers,
+      userPlan: wallet.plan || (user && user.plan) || 'plus',
+      updateUserPlan,
+      refreshWallet,
+      authFetch,
+      isAuthenticated: Boolean(user && token), 
       loading, 
       login, 
       signup, 
-      googleAuth, 
       verifyEmail, 
       activatePlan, 
       logout 

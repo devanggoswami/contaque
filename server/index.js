@@ -65,8 +65,13 @@ app.use(cors());
 app.use(express.json());
 
 // Mount Routers
+const walletRouter = require('./routes/wallet');
+const { reserveBalance, settleJob } = require('./utils/wallet');
+const { getRatePerLead } = require('./utils/pricing');
+
 app.use('/api/campaigns', campaignsRouter);
 app.use('/api/inbox', inboxRouter);
+app.use('/api/wallet', walletRouter);
 
 // Authentication Endpoints (Credentials validated with 48-hour secure session)
 const crypto = require('crypto');
@@ -99,6 +104,31 @@ function verifyAuthToken(token) {
     return null;
   } catch {
     return null;
+  }
+}
+
+// Middleware: Rejects any unauthenticated requests with 401
+async function requireAuth(req, res, next) {
+  try {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : (req.query.token || req.headers['x-access-token']);
+    if (!token) {
+      return res.status(401).json({ error: 'Authentication required. Please log in.' });
+    }
+    const verified = verifyAuthToken(token);
+    if (!verified || !verified.email) {
+      return res.status(401).json({ error: 'Session expired or invalid token. Please log in again.' });
+    }
+    const uRes = await db.query('SELECT * FROM users WHERE LOWER(email) = $1', [verified.email.toLowerCase()]);
+    if (uRes.rows.length === 0) {
+      return res.status(401).json({ error: 'User account not found. Please log in again.' });
+    }
+    req.user = uRes.rows[0];
+    req.userEmail = verified.email;
+    next();
+  } catch (err) {
+    console.error('requireAuth middleware error:', err);
+    return res.status(500).json({ error: 'Authentication verification failed.' });
   }
 }
 
@@ -238,77 +268,11 @@ app.post('/api/auth/signup', async (req, res) => {
   }
 });
 
-// POST /api/auth/google (Auto-saves Google users, 2nd time auto-logs in with saved data)
-app.post('/api/auth/google', async (req, res) => {
-  try {
-    const { email, name, avatar } = req.body;
-    if (!email) return res.status(400).json({ error: 'Google email is required' });
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanName = (name || cleanEmail.split('@')[0]).trim();
-
-    // Check if user already exists
-    const existing = await db.query('SELECT * FROM users WHERE LOWER(email) = $1', [cleanEmail]);
-    if (existing.rows.length > 0) {
-      // 2nd time: Recognized existing customer, load saved plan & data!
-      const u = existing.rows[0];
-      const token = generateAuthToken(cleanEmail);
-      return res.json({
-        success: true,
-        isExisting: true,
-        token,
-        user: {
-          id: u.id,
-          name: u.name,
-          email: u.email,
-          country: u.country || 'India',
-          email_verified: true,
-          plan: u.plan || 'free',
-          auth_provider: 'google'
-        },
-        expiresInHours: 48
-      });
-    }
-
-    // 1st time Google sign up: Automatically save user data to database
-    const insertResult = await db.query(
-      `INSERT INTO users (name, email, password_hash, country, auth_provider, email_verified, plan)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [cleanName, cleanEmail, 'GOOGLE_AUTH', 'India', 'google', true, 'free']
-    );
-    const newUser = insertResult.rows[0];
-    const token = generateAuthToken(cleanEmail);
-    return res.json({
-      success: true,
-      isExisting: false,
-      token,
-      user: {
-        id: newUser.id,
-        name: newUser.name,
-        email: newUser.email,
-        country: newUser.country,
-        email_verified: true,
-        plan: newUser.plan,
-        auth_provider: 'google'
-      },
-      expiresInHours: 48
-    });
-  } catch (err) {
-    console.error('Google auth error:', err);
-    const token = generateAuthToken(req.body.email || 'google.user@contaques.pro');
-    return res.json({
-      success: true,
-      token,
-      user: {
-        name: req.body.name || 'Google User',
-        email: req.body.email,
-        country: 'India',
-        email_verified: true,
-        plan: 'free',
-        auth_provider: 'google'
-      },
-      expiresInHours: 48
-    });
-  }
+// POST /api/auth/google - Disabled until official Google OAuth Client ID is configured
+app.post('/api/auth/google', (req, res) => {
+  return res.status(501).json({
+    error: 'Google OAuth is currently under verification. Please use your email and password to log in.'
+  });
 });
 
 // POST /api/auth/verify-email (Marks email as confirmed)
@@ -348,19 +312,41 @@ app.post('/api/checkout/razorpay', async (req, res) => {
   }
 });
 
-// GET /api/auth/verify
-app.get('/api/auth/verify', (req, res) => {
+// GET /api/auth/verify - Verify session token against database
+app.get('/api/auth/verify', async (req, res) => {
   const authHeader = req.headers.authorization || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : req.query.token;
+  const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : (req.query.token || req.headers['x-access-token']);
   const verified = verifyAuthToken(token);
-  if (verified) {
+  if (!verified || !verified.email) {
+    return res.status(401).json({ valid: false, error: 'Session expired or invalid' });
+  }
+
+  try {
+    const uRes = await db.query(
+      'SELECT id, name, email, plan, wallet_balance, email_verified, country FROM users WHERE LOWER(email) = $1',
+      [verified.email.toLowerCase()]
+    );
+    if (uRes.rows.length === 0) {
+      return res.status(401).json({ valid: false, error: 'User account not found' });
+    }
+    const u = uRes.rows[0];
     return res.json({
       valid: true,
-      user: { email: verified.email, name: 'Devang Goswami', role: 'Administrator' },
+      user: {
+        id: u.id,
+        name: u.name || verified.email.split('@')[0],
+        email: u.email,
+        plan: u.plan || 'free',
+        wallet_balance: parseFloat(u.wallet_balance || 0),
+        email_verified: !!u.email_verified,
+        country: u.country || 'India'
+      },
       expiresAt: verified.expiresAt
     });
+  } catch (err) {
+    console.error('Session verify error:', err);
+    return res.status(500).json({ valid: false, error: 'Failed to verify session' });
   }
-  return res.status(401).json({ valid: false, error: 'Session expired or invalid' });
 });
 
 // Start Background Mail Queue
@@ -700,8 +686,8 @@ async function fetchYahooLeads(source, location, keyword, targetCount, platform)
   return leads;
 }
 
-// POST /api/generate - Start a scraping job
-app.post('/api/generate', async (req, res) => {
+// POST /api/generate - Start a scraping job (Strict Authentication Required)
+app.post('/api/generate', requireAuth, async (req, res) => {
   const { source, location, keyword, targetCount, platform } = req.body;
   
   const validSources = ['maps', 'dorking', 'yellowpages', 'yandex', 'whatsapp'];
@@ -715,19 +701,63 @@ app.post('/api/generate', async (req, res) => {
 
   // Non-maps sources now use direct Bing scraping (no API key needed)
 
-  const requestedCount = parseInt(targetCount, 10) || 20;
+  const requestedCount = parseInt(targetCount || req.body.lead_count, 10) || 20;
 
   try {
-    // 1. Create a job entry
+    // 0. Resolve authenticated user from middleware
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ error: "Authentication required. Please log in with a valid account to generate leads." });
+    }
+
+    // 1. Calculate per-lead pricing & estimated hold
+    const ratePerLead = getRatePerLead(source, user.plan);
+    const estimatedCost = parseFloat((requestedCount * ratePerLead).toFixed(2));
+
+    // 2. Atomically reserve/hold balance with PostgreSQL row-lock
+    const reserveResult = await reserveBalance(user.id, estimatedCost, null, {
+      source,
+      location,
+      keyword,
+      requestedCount,
+      ratePerLead
+    });
+
+    if (!reserveResult.success) {
+      if (reserveResult.reason === 'INSUFFICIENT_BALANCE') {
+        return res.status(402).json({
+          error: 'Insufficient wallet balance. Please recharge your wallet to launch this job.',
+          currentBalance: reserveResult.currentBalance,
+          required: reserveResult.required,
+          shortfall: reserveResult.shortfall,
+          ratePerLead,
+          requestedCount
+        });
+      }
+      return res.status(400).json({ error: 'Could not process wallet reservation' });
+    }
+
+    // 3. Create a job entry with billing details
     const jobResult = await db.query(
-      `INSERT INTO jobs (source, location, keyword, target_count, requested_count, fetched_count, status) 
-       VALUES ($1, $2, $3, $4, $4, 0, 'IN_PROGRESS') RETURNING id`,
-      [source, location, keyword, requestedCount]
+      `INSERT INTO jobs (source, location, keyword, target_count, requested_count, fetched_count, status, user_id, rate_per_lead, estimated_cost, billing_status) 
+       VALUES ($1, $2, $3, $4, $4, 0, 'IN_PROGRESS', $5, $6, $7, 'HELD') RETURNING id`,
+      [source, location, keyword, requestedCount, user.id, ratePerLead, estimatedCost]
     );
     const jobId = jobResult.rows[0].id;
 
+    // Attach reference_id to the DEBIT ledger record
+    if (reserveResult.ledgerId) {
+      await db.query('UPDATE wallet_ledger SET reference_id = $1 WHERE id = $2', [String(jobId), reserveResult.ledgerId]).catch(() => {});
+    }
+
     // Send initial response so UI doesn't hang
-    res.json({ message: "Job started", jobId });
+    res.json({ 
+      message: "Job started", 
+      jobId,
+      ratePerLead,
+      estimatedCost,
+      remainingBalance: reserveResult.newBalance
+    });
 
     // 2. Fetch data in the background
     (async () => {
@@ -1450,9 +1480,29 @@ app.post('/api/generate', async (req, res) => {
         await db.query(`UPDATE jobs SET fetched_count = $1, status = 'COMPLETED' WHERE id = $2`, [finalCount, jobId]);
         console.log(`Job ${jobId} [${source}] completed: ${finalCount} leads.`);
 
+        // Settle job billing: strictly charge unique leads and automatically refund unfulfilled/duplicate slots
+        await settleJob(user.id, jobId, requestedCount, finalCount, ratePerLead, {
+          source,
+          keyword,
+          location
+        });
+        console.log(`Job ${jobId} [${source}] billing settled.`);
+
       } catch (error) {
         console.error(`Job ${jobId} critical error:`, error.message);
         await db.query(`UPDATE jobs SET status = 'FAILED' WHERE id = $1`, [jobId]);
+
+        // On failure, settle with whatever was inserted (or 0), refunding the rest
+        try {
+          const countRes = await db.query(`SELECT COUNT(*) FROM leads WHERE job_id = $1`, [jobId]);
+          const partialCount = parseInt(countRes.rows[0]?.count, 10) || 0;
+          await settleJob(user.id, jobId, requestedCount, partialCount, ratePerLead, {
+            failed: true,
+            error: error.message
+          });
+        } catch (settleErr) {
+          console.error(`Error settling failed job ${jobId}:`, settleErr.message);
+        }
       }
     })();
 
@@ -1532,7 +1582,7 @@ app.get('/api/billing', async (req, res) => {
 });
 
 // GET /api/dashboard - Dashboard stats with real-time billing telemetry
-app.get('/api/dashboard', async (req, res) => {
+app.get('/api/dashboard', requireAuth, async (req, res) => {
   try {
     const [todayLeads, totalLeads, totalJobs, categories, mapsStats] = await Promise.all([
       db.query(`SELECT COUNT(*) FROM leads WHERE DATE(created_at) = CURRENT_DATE`),
@@ -1590,7 +1640,7 @@ app.get('/api/dashboard', async (req, res) => {
 });
 
 // GET /api/jobs - History of jobs
-app.get('/api/jobs', async (req, res) => {
+app.get('/api/jobs', requireAuth, async (req, res) => {
   try {
     const jobs = await db.query(`
       SELECT j.*, 
@@ -1607,7 +1657,7 @@ app.get('/api/jobs', async (req, res) => {
 });
 
 // GET /api/jobs/:id/leads - Get leads for a job
-app.get('/api/jobs/:id/leads', async (req, res) => {
+app.get('/api/jobs/:id/leads', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const leads = await db.query(`SELECT * FROM leads WHERE job_id = $1 ORDER BY id ASC`, [id]);
@@ -1619,7 +1669,7 @@ app.get('/api/jobs/:id/leads', async (req, res) => {
 });
 
 // POST /api/leads/by-jobs - Get leads for multiple jobs filtered by data type
-app.post('/api/leads/by-jobs', async (req, res) => {
+app.post('/api/leads/by-jobs', requireAuth, async (req, res) => {
   try {
     const { jobIds, dataType } = req.body;
     if (!Array.isArray(jobIds) || jobIds.length === 0) {

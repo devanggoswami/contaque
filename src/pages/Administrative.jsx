@@ -5,9 +5,11 @@ import {
   Terminal, Database
 } from 'lucide-react';
 import { API_URL } from '../config';
+import { useAuth } from '../context/AuthContext';
 import './Administrative.css';
 
 function Administrative() {
+  const { authFetch } = useAuth();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -17,7 +19,7 @@ function Administrative() {
   const fetchAdminData = useCallback(async (manual = false) => {
     if (manual) setIsRefreshing(true);
     try {
-      const res = await fetch(`${API_URL}/api/dashboard`);
+      const res = await authFetch(`${API_URL}/api/dashboard`);
       if (!res.ok) throw new Error("Failed to fetch administrative telemetry");
       const data = await res.json();
       setStats(data);
@@ -28,7 +30,7 @@ function Administrative() {
       setLoading(false);
       if (manual) setTimeout(() => setIsRefreshing(false), 500);
     }
-  }, []);
+  }, [authFetch]);
 
   useEffect(() => {
     fetchAdminData();
