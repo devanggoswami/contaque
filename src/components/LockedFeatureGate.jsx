@@ -57,7 +57,7 @@ export default function LockedFeatureGate({
           <div className="pendulum-anchor">
             <div className="pendulum-string" />
             <div className="swinging-lock-badge" title="Locked Feature">
-              <Lock size={32} className="lock-svg" />
+              <Lock size={22} className="lock-svg" />
             </div>
           </div>
 

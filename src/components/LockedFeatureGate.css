@@ -1,50 +1,55 @@
 /* ==============================================================================
    LOCKED FEATURE GATE - BLURRED PREVIEW & DYNAMIC SWINGING LOCK STYLES
+   Compact, Perfectly Centered & Never Cut-Off Layout
    ============================================================================== */
 
 .locked-gate-wrapper {
   position: relative;
   width: 100%;
-  min-height: calc(100vh - 40px);
+  height: 100vh;
+  min-height: 100vh;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 /* Blurred background preview of the active page */
 .locked-gate-blurred-preview {
-  filter: blur(6px) saturate(70%) brightness(96%);
-  opacity: 0.38;
+  filter: blur(6px) saturate(75%) brightness(96%);
+  opacity: 0.35;
   pointer-events: none;
   user-select: none;
   -webkit-user-select: none;
   transition: filter 0.4s ease, opacity 0.4s ease;
-  transform: scale(0.995);
-  max-height: calc(100vh - 50px);
+  height: 100%;
   overflow: hidden;
 }
 
-/* Paywall Overlay */
+/* Paywall Overlay - Uses auto margins to guarantee it never clips from top */
 .locked-gate-overlay {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  min-height: 100%;
+  height: 100%;
+  width: 100%;
   display: flex;
-  align-items: center;
   justify-content: center;
-  padding: 32px 20px;
-  background: radial-gradient(circle at 50% 35%, rgba(248, 250, 252, 0.55) 0%, rgba(241, 245, 249, 0.85) 100%);
+  align-items: flex-start;
+  overflow-y: auto;
+  padding: 30px 16px;
+  box-sizing: border-box;
+  background: radial-gradient(circle at 50% 35%, rgba(248, 250, 252, 0.65) 0%, rgba(241, 245, 249, 0.90) 100%);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   z-index: 50;
-  animation: fadeInGate 0.35s ease-out forwards;
+  animation: fadeInGate 0.3s ease-out forwards;
 }
 
 @keyframes fadeInGate {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -52,24 +57,26 @@
   }
 }
 
-/* Glassmorphic Paywall Card */
+/* Compact Glassmorphic Paywall Card */
 .locked-gate-card {
   position: relative;
-  max-width: 580px;
+  max-width: 480px;
   width: 100%;
+  margin: auto; /* Perfectly centers vertically when height permits, without clipping top */
   background: #ffffff;
-  border-radius: 28px;
-  border: 1px solid rgba(226, 232, 240, 0.85);
+  border-radius: 22px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
   box-shadow: 
-    0 25px 60px -15px rgba(15, 23, 42, 0.18),
-    0 10px 25px -5px rgba(15, 23, 42, 0.08),
+    0 20px 45px -10px rgba(15, 23, 42, 0.16),
+    0 8px 18px -4px rgba(15, 23, 42, 0.06),
     0 0 0 1px rgba(255, 255, 255, 0.8) inset;
-  padding: 44px 36px 36px 36px;
+  padding: 24px 28px 20px 28px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  overflow: hidden;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 /* Top decorative subtle gradient highlight */
@@ -79,7 +86,8 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 5px;
+  height: 4px;
+  border-radius: 22px 22px 0 0;
   background: linear-gradient(90deg, #f59e0b, #d97706, #fbbf24, #f59e0b);
   background-size: 200% 100%;
   animation: shimmerBorder 4s linear infinite;
@@ -96,15 +104,15 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
   perspective: 600px;
 }
 
 .pendulum-string {
   width: 2px;
-  height: 18px;
-  background: linear-gradient(to bottom, rgba(203, 213, 225, 0.6), rgba(245, 158, 11, 0.7));
-  margin-bottom: -2px;
+  height: 10px;
+  background: linear-gradient(to bottom, rgba(203, 213, 225, 0.8), rgba(245, 158, 11, 0.8));
+  margin-bottom: -1px;
 }
 
 /* Keyframe for pendulum sway (swings side to side naturally) */
@@ -113,16 +121,16 @@
     transform: rotate(0deg);
   }
   20% {
-    transform: rotate(18deg) translateY(-2px);
+    transform: rotate(16deg) translateY(-2px);
   }
   40% {
-    transform: rotate(-15deg) translateY(-1px);
+    transform: rotate(-13deg) translateY(-1px);
   }
   60% {
-    transform: rotate(10deg) translateY(-1px);
+    transform: rotate(9deg) translateY(-1px);
   }
   80% {
-    transform: rotate(-6deg) translateY(0);
+    transform: rotate(-4deg) translateY(0);
   }
   100% {
     transform: rotate(0deg);
@@ -132,15 +140,15 @@
 @keyframes lockGlowPulse {
   0%, 100% {
     box-shadow: 
-      0 0 25px rgba(245, 158, 11, 0.35), 
-      0 10px 25px rgba(217, 119, 6, 0.15),
-      inset 0 0 15px rgba(245, 158, 11, 0.2);
+      0 0 18px rgba(245, 158, 11, 0.35), 
+      0 6px 16px rgba(217, 119, 6, 0.15),
+      inset 0 0 10px rgba(245, 158, 11, 0.2);
   }
   50% {
     box-shadow: 
-      0 0 45px rgba(245, 158, 11, 0.65), 
-      0 16px 35px rgba(217, 119, 6, 0.28),
-      inset 0 0 25px rgba(245, 158, 11, 0.4);
+      0 0 32px rgba(245, 158, 11, 0.60), 
+      0 10px 22px rgba(217, 119, 6, 0.25),
+      inset 0 0 16px rgba(245, 158, 11, 0.35);
   }
 }
 
@@ -148,11 +156,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 76px;
-  height: 76px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 50%, #fde68a 100%);
-  border: 2.5px solid #f59e0b;
+  border: 2px solid #f59e0b;
   color: #d97706;
   transform-origin: top center;
   animation: 
@@ -167,23 +175,23 @@
 }
 
 .lock-svg {
-  filter: drop-shadow(0 2px 5px rgba(217, 119, 6, 0.3));
+  filter: drop-shadow(0 1px 3px rgba(217, 119, 6, 0.25));
 }
 
 /* Tier Pill */
 .locked-tier-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
+  gap: 5px;
+  padding: 4px 10px;
   border-radius: 100px;
   background: #fffbeb;
   border: 1px solid #fde68a;
   color: #b45309;
-  font-size: 0.76rem;
+  font-size: 0.70rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  margin-bottom: 14px;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
   text-transform: uppercase;
 }
 
@@ -193,54 +201,61 @@
 
 /* Titles */
 .locked-gate-title {
-  font-size: 1.65rem;
+  font-size: 1.35rem;
   font-weight: 800;
   color: #0f172a;
-  margin: 0 0 8px 0;
+  margin: 0 0 4px 0;
   letter-spacing: -0.02em;
 }
 
 .locked-gate-subtitle {
-  font-size: 0.94rem;
+  font-size: 0.83rem;
   color: #475569;
-  line-height: 1.5;
-  margin: 0 0 24px 0;
-  max-width: 480px;
+  line-height: 1.4;
+  margin: 0 0 14px 0;
+  max-width: 420px;
 }
 
 /* Bullets List */
 .locked-bullets-list {
   display: flex;
   flex-direction: column;
-  gap: 11px;
+  gap: 7px;
   width: 100%;
   background: #f8fafc;
   border: 1px solid #f1f5f9;
-  border-radius: 18px;
-  padding: 18px 20px;
-  margin-bottom: 24px;
+  border-radius: 14px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
   text-align: left;
+  box-sizing: border-box;
 }
 
 .locked-bullet-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-size: 0.88rem;
+  gap: 9px;
+  font-size: 0.80rem;
   color: #334155;
   font-weight: 500;
+  line-height: 1.3;
 }
 
 .bullet-check-circle {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: #ecfdf5;
   color: #10b981;
   flex-shrink: 0;
+}
+
+.bullet-check-circle svg {
+  width: 12px;
+  height: 12px;
 }
 
 /* Pricing Strip */
@@ -249,11 +264,12 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 14px 20px;
+  padding: 8px 14px;
   background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
   border: 1px solid #fde68a;
-  border-radius: 16px;
-  margin-bottom: 24px;
+  border-radius: 12px;
+  margin-bottom: 14px;
+  box-sizing: border-box;
 }
 
 .pricing-left {
@@ -263,14 +279,14 @@
 }
 
 .price-tag {
-  font-size: 1.6rem;
+  font-size: 1.35rem;
   font-weight: 800;
   color: #92400e;
   letter-spacing: -0.02em;
 }
 
 .price-period {
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   font-weight: 600;
   color: #b45309;
 }
@@ -284,17 +300,17 @@
 
 .pricing-badge {
   display: inline-block;
-  padding: 2px 8px;
-  border-radius: 6px;
+  padding: 1px 6px;
+  border-radius: 5px;
   background: #d97706;
   color: #ffffff;
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   font-weight: 700;
   letter-spacing: 0.04em;
 }
 
 .pricing-sub {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   color: #92400e;
   font-weight: 500;
 }
@@ -303,33 +319,33 @@
 .locked-cta-group {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
-  margin-bottom: 18px;
+  margin-bottom: 10px;
 }
 
 .locked-upgrade-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  padding: 14px 24px;
-  border-radius: 16px;
+  padding: 11px 20px;
+  border-radius: 13px;
   background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   border: none;
   color: #ffffff;
-  font-size: 1.02rem;
+  font-size: 0.94rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 8px 24px -4px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 6px 18px -3px rgba(37, 99, 235, 0.4);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .locked-upgrade-btn:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
-  box-shadow: 0 12px 30px -4px rgba(37, 99, 235, 0.55);
+  box-shadow: 0 10px 24px -4px rgba(37, 99, 235, 0.55);
 }
 
 .locked-upgrade-btn:active {
@@ -339,15 +355,15 @@
 .locked-learn-btn {
   background: transparent;
   border: none;
-  color: #475569;
-  font-size: 0.88rem;
+  color: #64748b;
+  font-size: 0.80rem;
   font-weight: 600;
   cursor: pointer;
-  padding: 6px 12px;
-  border-radius: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
   transition: color 0.15s ease;
   text-decoration: underline;
-  text-underline-offset: 4px;
+  text-underline-offset: 3px;
 }
 
 .locked-learn-btn:hover {
@@ -359,31 +375,35 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  font-size: 0.76rem;
+  gap: 5px;
+  font-size: 0.70rem;
   color: #64748b;
   font-weight: 500;
 }
 
-/* Responsive styles */
+/* Mobile responsive adjustments */
 @media (max-width: 640px) {
+  .locked-gate-overlay {
+    padding: 20px 12px;
+  }
+
   .locked-gate-card {
-    padding: 32px 20px 24px 20px;
-    border-radius: 22px;
+    padding: 20px 16px 16px 16px;
+    border-radius: 18px;
   }
 
   .locked-gate-title {
-    font-size: 1.35rem;
+    font-size: 1.20rem;
   }
 
   .locked-gate-subtitle {
-    font-size: 0.88rem;
+    font-size: 0.78rem;
   }
 
   .locked-pricing-strip {
     flex-direction: column;
     align-items: flex-start;
-    gap: 10px;
+    gap: 6px;
   }
 
   .pricing-right {
@@ -391,7 +411,7 @@
   }
 
   .swinging-lock-badge {
-    width: 64px;
-    height: 64px;
+    width: 46px;
+    height: 46px;
   }
 }
