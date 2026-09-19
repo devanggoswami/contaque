@@ -38,6 +38,7 @@ async function resolveUser(req) {
       if (email && expiresAt && Date.now() < expiresAt) {
         const expectedSig = crypto.createHmac('sha256', jwtSecret).update(`${email}:${expiresAt}`).digest('hex');
         if (signature === expectedSig) {
+          const cleanEmail = email.trim().toLowerCase();
           let userRes = await db.query('SELECT * FROM users WHERE LOWER(email) = $1', [cleanEmail]);
           if (userRes.rows.length === 0) {
             const adminEmail = (process.env.ADMIN_USER || process.env.AUTH_USER || '').trim().toLowerCase();
@@ -56,7 +57,8 @@ async function resolveUser(req) {
           }
         }
       }
-    } catch {
+    } catch (err) {
+      console.error('[resolveUser error]:', err.message);
       return null;
     }
   }
