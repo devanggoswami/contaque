@@ -38,8 +38,19 @@ async function resolveUser(req) {
       if (email && expiresAt && Date.now() < expiresAt) {
         const expectedSig = crypto.createHmac('sha256', jwtSecret).update(`${email}:${expiresAt}`).digest('hex');
         if (signature === expectedSig) {
-          const cleanEmail = email.trim().toLowerCase();
-          const userRes = await db.query('SELECT * FROM users WHERE LOWER(email) = $1', [cleanEmail]);
+          let userRes = await db.query('SELECT * FROM users WHERE LOWER(email) = $1', [cleanEmail]);
+          if (userRes.rows.length === 0) {
+            const adminEmail = (process.env.ADMIN_USER || process.env.AUTH_USER || '').trim().toLowerCase();
+            if (adminEmail && cleanEmail === adminEmail) {
+              userRes = await db.query(
+                `INSERT INTO users (name, email, password_hash, plan, email_verified, wallet_balance, country, auth_provider)
+                 VALUES ($1, $2, $3, 'plus', true, 44830.00, 'India', 'local')
+                 ON CONFLICT (email) DO UPDATE SET plan = 'plus', email_verified = true
+                 RETURNING *`,
+                [process.env.ADMIN_NAME || 'Devang Goswami', adminEmail, process.env.ADMIN_PASSWORD || '2112@Dev']
+              );
+            }
+          }
           if (userRes.rows.length > 0) {
             return userRes.rows[0];
           }

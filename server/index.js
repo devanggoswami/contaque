@@ -119,9 +119,19 @@ async function requireAuth(req, res, next) {
     if (!verified || !verified.email) {
       return res.status(401).json({ error: 'Session expired or invalid token. Please log in again.' });
     }
-    const uRes = await db.query('SELECT * FROM users WHERE LOWER(email) = $1', [verified.email.toLowerCase()]);
+    let uRes = await db.query('SELECT * FROM users WHERE LOWER(email) = $1', [verified.email.toLowerCase()]);
     if (uRes.rows.length === 0) {
-      return res.status(401).json({ error: 'User account not found. Please log in again.' });
+      if (AUTH_USER && verified.email.toLowerCase() === AUTH_USER.toLowerCase()) {
+        uRes = await db.query(
+          `INSERT INTO users (name, email, password_hash, plan, email_verified, wallet_balance, country, auth_provider)
+           VALUES ($1, $2, $3, 'plus', true, 44830.00, 'India', 'local')
+           ON CONFLICT (email) DO UPDATE SET plan = 'plus', email_verified = true
+           RETURNING *`,
+          [ADMIN_NAME, AUTH_USER, AUTH_PASS]
+        );
+      } else {
+        return res.status(401).json({ error: 'User account not found. Please log in again.' });
+      }
     }
     req.user = uRes.rows[0];
     req.userEmail = verified.email;
@@ -143,17 +153,29 @@ app.post('/api/auth/login', async (req, res) => {
 
     // 1. Check Administrator credentials
     if (AUTH_USER && AUTH_PASS && cleanEmail === AUTH_USER.toLowerCase() && password === AUTH_PASS) {
+      let adminRow = await db.query('SELECT * FROM users WHERE LOWER(email) = $1', [cleanEmail]);
+      if (adminRow.rows.length === 0) {
+        adminRow = await db.query(
+          `INSERT INTO users (name, email, password_hash, plan, email_verified, wallet_balance, country, auth_provider)
+           VALUES ($1, $2, $3, 'plus', true, 44830.00, 'India', 'local')
+           ON CONFLICT (email) DO UPDATE SET plan = 'plus', email_verified = true
+           RETURNING *`,
+          [ADMIN_NAME, AUTH_USER, AUTH_PASS]
+        );
+      }
+      const adminUser = adminRow.rows[0];
       const token = generateAuthToken(cleanEmail);
       return res.json({
         success: true,
         token,
         user: {
+          id: adminUser.id,
           email: AUTH_USER,
-          name: ADMIN_NAME,
+          name: adminUser.name || ADMIN_NAME,
           role: 'Administrator',
-          country: 'India',
+          country: adminUser.country || 'India',
           email_verified: true,
-          plan: 'plus'
+          plan: adminUser.plan || 'plus'
         },
         expiresInHours: 48
       });

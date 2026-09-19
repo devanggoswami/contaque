@@ -198,6 +198,23 @@ const initDb = async () => {
       CREATE INDEX IF NOT EXISTS idx_inbox_threads_account ON inbox_threads(account_id);
     `);
 
+    // Ensure Administrator / Default Admin exists in users table with plus plan & wallet balance
+    const adminEmail = (process.env.ADMIN_USER || process.env.AUTH_USER || '').trim().toLowerCase();
+    if (adminEmail) {
+      const adminName = process.env.ADMIN_NAME || 'Devang Goswami';
+      const adminPass = process.env.ADMIN_PASSWORD || process.env.AUTH_PASS || '2112@Dev';
+      await client.query(`
+        INSERT INTO users (name, email, password_hash, plan, email_verified, wallet_balance, country, auth_provider)
+        VALUES ($1, $2, $3, 'plus', true, 44830.00, 'India', 'local')
+        ON CONFLICT (email) DO UPDATE 
+        SET name = EXCLUDED.name,
+            password_hash = EXCLUDED.password_hash,
+            plan = 'plus',
+            email_verified = true,
+            wallet_balance = CASE WHEN users.wallet_balance = 0 THEN 44830.00 ELSE users.wallet_balance END;
+      `, [adminName, adminEmail, adminPass]);
+    }
+
     client.release();
     console.log(`[PostgreSQL ${isNeon ? 'Neon Cloud' : 'Localhost'}] Schema verified & all tables ready.`);
   } catch (err) {
