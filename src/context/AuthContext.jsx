@@ -224,6 +224,35 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const loginWithGoogle = async (credential, plan = 'free') => {
+    try {
+      const res = await fetch(`${API_URL}/api/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential, plan })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Google authentication failed.');
+      }
+
+      const expiresAt = Date.now() + 48 * 60 * 60 * 1000;
+      const sessionData = {
+        token: data.token,
+        user: data.user,
+        expiresAt
+      };
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
+      setUser(data.user);
+      setToken(data.token);
+      await refreshWallet(data.token);
+      return { success: true, user: data.user };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  };
 
   const verifyEmail = async () => {
     if (!user?.email) return;
@@ -299,6 +328,7 @@ export const AuthProvider = ({ children }) => {
       isAuthenticated: Boolean(user && token), 
       loading, 
       login, 
+      loginWithGoogle,
       signup, 
       verifyEmail, 
       activatePlan, 

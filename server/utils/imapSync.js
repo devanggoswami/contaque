@@ -55,9 +55,9 @@ async function syncAccountInbox(account) {
         
         if (threadRes.rowCount === 0) {
           const newThread = await db.query(
-            `INSERT INTO inbox_threads (account_id, lead_email, lead_name, last_message_date, is_unread) 
-             VALUES ($1, $2, $3, $4, true) RETURNING id`,
-            [account.id, senderEmail, senderName, parsed.date || new Date()]
+            `INSERT INTO inbox_threads (account_id, lead_email, lead_name, last_message_date, is_unread, user_id) 
+             VALUES ($1, $2, $3, $4, true, $5) RETURNING id`,
+            [account.id, senderEmail, senderName, parsed.date || new Date(), account.user_id || null]
           );
           threadId = newThread.rows[0].id;
         } else {
@@ -98,8 +98,14 @@ async function syncAccountInbox(account) {
   }
 }
 
-async function syncAllAccounts() {
-  const accountsRes = await db.query("SELECT * FROM email_accounts");
+async function syncAllAccounts(userId = null) {
+  let query = "SELECT * FROM email_accounts";
+  let params = [];
+  if (userId) {
+    query += " WHERE user_id = $1";
+    params.push(userId);
+  }
+  const accountsRes = await db.query(query, params);
   let total = 0;
   for (let account of accountsRes.rows) {
     const res = await syncAccountInbox(account);

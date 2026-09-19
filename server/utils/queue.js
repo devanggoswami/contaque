@@ -16,7 +16,7 @@ const processQueue = async () => {
     const res = await db.query(`
       SELECT eq.id as queue_id, eq.target_email, eq.campaign_id, eq.lead_id, 
              c.subject, c.body_html, c.status as camp_status,
-             c.attachment_path, c.attachment_type, c.image_link
+             c.attachment_path, c.attachment_type, c.image_link, c.user_id
       FROM email_queue eq
       JOIN campaigns c ON eq.campaign_id = c.id
       WHERE eq.status = 'PENDING' AND c.status = 'RUNNING'
@@ -41,11 +41,11 @@ const processQueue = async () => {
       return;
     }
 
-    // 3. Get an available Gmail account
-    const account = await mailer.getAvailableAccount();
+    // 3. Get an available email account belonging to campaign owner
+    const account = await mailer.getAvailableAccount(job.user_id);
     if (!account) {
-      console.log('No available email accounts. Queue paused.');
-      await db.query(`UPDATE campaigns SET status = 'PAUSED' WHERE status = 'RUNNING'`);
+      console.log(`No available email accounts for user ${job.user_id}. Campaign #${job.campaign_id} paused.`);
+      await db.query(`UPDATE campaigns SET status = 'PAUSED' WHERE id = $1`, [job.campaign_id]);
       isProcessing = false;
       setTimeout(processQueue, 10000); // Poll again in 10s
       return;

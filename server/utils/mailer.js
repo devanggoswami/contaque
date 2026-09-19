@@ -140,8 +140,8 @@ const parseTemplate = (template, lead) => {
   return parsed;
 };
 
-// Get the next available account that hasn't hit the daily limit
-const getAvailableAccount = async () => {
+// Get the next available account that hasn't hit the daily limit (scoped to userId)
+const getAvailableAccount = async (userId = null) => {
   // First, reset counts if the day has rolled over
   await db.query(`
     UPDATE email_accounts 
@@ -149,14 +149,15 @@ const getAvailableAccount = async () => {
     WHERE last_reset_date < CURRENT_DATE
   `);
 
-  // Max 400 per account just to be safe (Gmail limit is 500)
-  const res = await db.query(`
-    SELECT * FROM email_accounts 
-    WHERE status = 'ACTIVE' AND daily_sent_count < 400 
-    ORDER BY daily_sent_count ASC 
-    LIMIT 1
-  `);
-  
+  let sql = `SELECT * FROM email_accounts WHERE status = 'ACTIVE' AND daily_sent_count < 400`;
+  const params = [];
+  if (userId) {
+    sql += ` AND user_id = $1`;
+    params.push(userId);
+  }
+  sql += ` ORDER BY daily_sent_count ASC LIMIT 1`;
+
+  const res = await db.query(sql, params);
   if (res.rows.length === 0) return null;
   return res.rows[0];
 };

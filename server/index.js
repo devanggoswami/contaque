@@ -290,11 +290,110 @@ app.post('/api/auth/signup', async (req, res) => {
   }
 });
 
-// POST /api/auth/google - Disabled until official Google OAuth Client ID is configured
-app.post('/api/auth/google', (req, res) => {
-  return res.status(501).json({
-    error: 'Google OAuth is currently under verification. Please use your email and password to log in.'
-  });
+// POST /api/auth/google - Authenticate using verified Google Identity Services ID Token
+app.post('/api/auth/google', async (req, res) => {
+  try {
+    const idToken = (req.body.credential || req.body.token || req.body.id_token || '').trim();
+    if (!idToken) {
+      return res.status(400).json({ error: 'Google ID token credential is required.' });
+    }
+
+    const expectedClientId = (process.env.GOOGLE_CLIENT_ID || '620266835413-ddei1t4hkassitliv02rhhgfe7r2eq5h.apps.googleusercontent.com').trim();
+
+    // 1. Verify Google ID Token via Google's official tokeninfo endpoint
+    let payload;
+    try {
+      const googleRes = await axios.get(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`, {
+        timeout: 10000
+      });
+      payload = googleRes.data;
+    } catch (gErr) {
+      console.error('[Google OAuth Token Verification Failed]:', gErr.response?.data || gErr.message);
+      const errMsg = gErr.response?.data?.error_description || 'Invalid or expired Google ID token.';
+      return res.status(401).json({ error: errMsg });
+    }
+
+    // 2. Validate Token Claims
+    if (!payload || !payload.email) {
+      return res.status(401).json({ error: 'Google token does not contain a verified email.' });
+    }
+
+    // Check Audience (aud must match our client ID)
+    if (payload.aud !== expectedClientId) {
+      console.warn(`[Google OAuth Audience Mismatch]: Received ${payload.aud} vs Expected ${expectedClientId}`);
+      return res.status(401).json({ error: 'Google client ID audience mismatch. Unauthorized application.' });
+    }
+
+    // Check Issuer
+    const validIssuers = ['accounts.google.com', 'https://accounts.google.com'];
+    if (!validIssuers.includes(payload.iss)) {
+      return res.status(401).json({ error: 'Invalid Google token issuer.' });
+    }
+
+    // Check Expiration
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (payload.exp && parseInt(payload.exp, 10) < nowSec) {
+      return res.status(401).json({ error: 'Google ID token has expired. Please sign in again.' });
+    }
+
+    const cleanEmail = payload.email.trim().toLowerCase();
+    const cleanName = (payload.name || payload.given_name || cleanEmail.split('@')[0]).trim();
+    const picture = payload.picture || '';
+
+    // 3. Resolve or Create User in PostgreSQL Database
+    let userRow;
+    const existing = await db.query('SELECT * FROM users WHERE LOWER(email) = $1', [cleanEmail]);
+
+    if (existing.rows.length > 0) {
+      userRow = existing.rows[0];
+      // If user exists, ensure email_verified is true and link google auth
+      await db.query(
+        `UPDATE users SET 
+           email_verified = true,
+           auth_provider = CASE WHEN auth_provider = 'local' THEN 'google' ELSE auth_provider END
+         WHERE id = $1`,
+        [userRow.id]
+      );
+      const reFetch = await db.query('SELECT * FROM users WHERE id = $1', [userRow.id]);
+      userRow = reFetch.rows[0];
+    } else {
+      // New Google User Signup
+      const isAdmin = AUTH_USER && cleanEmail === AUTH_USER.toLowerCase();
+      const userPlan = isAdmin ? 'plus' : (req.body.plan || 'free');
+      const initialBalance = isAdmin ? 44830.00 : 0.00;
+
+      const insertRes = await db.query(
+        `INSERT INTO users (name, email, password_hash, country, auth_provider, email_verified, plan, wallet_balance)
+         VALUES ($1, $2, 'GOOGLE_OAUTH', 'India', 'google', true, $3, $4)
+         RETURNING *`,
+        [cleanName, cleanEmail, userPlan, initialBalance]
+      );
+      userRow = insertRes.rows[0];
+    }
+
+    // 4. Issue 48-Hour Session Token
+    const sessionToken = generateAuthToken(cleanEmail);
+
+    return res.json({
+      success: true,
+      token: sessionToken,
+      user: {
+        id: userRow.id,
+        name: userRow.name || cleanName,
+        email: userRow.email,
+        country: userRow.country || 'India',
+        email_verified: true,
+        plan: userRow.plan || 'free',
+        wallet_balance: parseFloat(userRow.wallet_balance || 0),
+        auth_provider: 'google',
+        picture
+      },
+      expiresInHours: 48
+    });
+  } catch (err) {
+    console.error('[Google OAuth Internal Error]:', err);
+    return res.status(500).json({ error: 'Internal server error processing Google authentication.' });
+  }
 });
 
 // POST /api/auth/verify-email (Marks email as confirmed)
@@ -731,6 +830,7 @@ app.post('/api/generate', requireAuth, async (req, res) => {
     if (!user) {
       return res.status(401).json({ error: "Authentication required. Please log in with a valid account to generate leads." });
     }
+    const jobUserId = user.id;
 
     // 1. Calculate per-lead pricing & estimated hold
     const ratePerLead = getRatePerLead(source, user.plan);
@@ -861,14 +961,14 @@ app.post('/api/generate', requireAuth, async (req, res) => {
                 let emails = null;
 
                 const insertResult = await db.query(
-                  `INSERT INTO leads (job_id, place_id, name, address, phone, website, category, source_link, emails)
-                   SELECT $1::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::TEXT
+                  `INSERT INTO leads (job_id, user_id, place_id, name, address, phone, website, category, source_link, emails)
+                   SELECT $1::INTEGER, $10::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::TEXT
                    WHERE NOT EXISTS (
                      SELECT 1 FROM leads 
-                     WHERE place_id = $2 OR (source_link = $8 AND source_link != '')
+                     WHERE user_id = $10 AND (place_id = $2 OR (source_link = $8 AND source_link != ''))
                    )
                    ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
-                  [jobId, place.id, name, address, phone, website, category, sourceLink, emails]
+                  [jobId, place.id, name, address, phone, website, category, sourceLink, emails, jobUserId]
                 );
 
                 if (insertResult.rowCount > 0) {
@@ -893,14 +993,14 @@ app.post('/api/generate', requireAuth, async (req, res) => {
             for (const item of secondaryQueue) {
               if (totalFetched >= requestedCount) break;
               const insertResult = await db.query(
-                `INSERT INTO leads (job_id, place_id, name, address, phone, website, category, source_link)
-                 SELECT $1::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT
+                `INSERT INTO leads (job_id, user_id, place_id, name, address, phone, website, category, source_link)
+                 SELECT $1::INTEGER, $9::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT
                  WHERE NOT EXISTS (
                    SELECT 1 FROM leads 
-                   WHERE place_id = $2 OR (source_link = $8 AND source_link != '')
+                   WHERE user_id = $9 AND (place_id = $2 OR (source_link = $8 AND source_link != ''))
                  )
                  ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
-                [jobId, item.place.id, item.name, item.address, item.phone, item.website, item.category, item.sourceLink]
+                [jobId, item.place.id, item.name, item.address, item.phone, item.website, item.category, item.sourceLink, jobUserId]
               );
               if (insertResult.rowCount > 0) {
                 totalFetched++;
@@ -1209,21 +1309,21 @@ app.post('/api/generate', requireAuth, async (req, res) => {
                   try {
                     const insertResult = await db.query(
                       `INSERT INTO leads (
-                         job_id, place_id, name, address, phone, website, category, source_link, emails,
+                         job_id, user_id, place_id, name, address, phone, website, category, source_link, emails,
                          instagram, facebook, linkedin, twitter, youtube, tiktok, pinterest, telegram, mobile, whatsapp
                        )
                        SELECT 
-                         $1::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::TEXT,
+                         $1::INTEGER, $20::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::TEXT,
                          $10::TEXT, $11::TEXT, $12::TEXT, $13::TEXT, $14::TEXT, $15::TEXT, $16::TEXT, $17::TEXT, $18::TEXT, $19::TEXT
                        WHERE NOT EXISTS (
                          SELECT 1 FROM leads 
-                         WHERE place_id = $2 OR (source_link = $8 AND source_link != '')
+                         WHERE user_id = $20 AND (place_id = $2 OR (source_link = $8 AND source_link != ''))
                        )
                        ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
                       [
                         jobId, placeId, name, address, phone, website, category, sourceLink, emails,
                         socials.instagram, socials.facebook, socials.linkedin, socials.twitter, socials.youtube, 
-                        socials.tiktok, socials.pinterest, socials.telegram, mobile, whatsapp
+                        socials.tiktok, socials.pinterest, socials.telegram, mobile, whatsapp, jobUserId
                       ]
                     );
                     if (insertResult.rowCount > 0) {
@@ -1358,11 +1458,11 @@ app.post('/api/generate', requireAuth, async (req, res) => {
                   const whatsapp = waData.url;
                   const placeId = `yahoo_${Buffer.from(link).toString('base64').substring(0, 80)}`;
                   const insertResult = await db.query(
-                    `INSERT INTO leads (job_id, place_id, name, address, phone, website, category, source_link, mobile, whatsapp)
-                     SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
-                     WHERE NOT EXISTS (SELECT 1 FROM leads WHERE place_id = $2 OR (source_link = $8 AND source_link != ''))
+                    `INSERT INTO leads (job_id, user_id, place_id, name, address, phone, website, category, source_link, mobile, whatsapp)
+                     SELECT $1, $11, $2, $3, $4, $5, $6, $7, $8, $9, $10
+                     WHERE NOT EXISTS (SELECT 1 FROM leads WHERE user_id = $11 AND (place_id = $2 OR (source_link = $8 AND source_link != '')))
                      ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
-                    [jobId, placeId, title.substring(0, 80), location, mobile, link, keyword, link, mobile, whatsapp]
+                    [jobId, placeId, title.substring(0, 80), location, mobile, link, keyword, link, mobile, whatsapp, jobUserId]
                   );
                   if (insertResult.rowCount > 0) {
                     totalFetched++;
@@ -1436,11 +1536,11 @@ app.post('/api/generate', requireAuth, async (req, res) => {
                     const placeId = place.id || `wa_${Buffer.from(name + mobile).toString('base64').substring(0, 80)}`;
 
                     const insertResult = await db.query(
-                      `INSERT INTO leads (job_id, place_id, name, address, phone, website, category, source_link, mobile, whatsapp)
-                       SELECT $1::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::VARCHAR, $10::TEXT
-                       WHERE NOT EXISTS (SELECT 1 FROM leads WHERE place_id = $2::VARCHAR OR (source_link = $8::TEXT AND source_link != ''))
+                      `INSERT INTO leads (job_id, user_id, place_id, name, address, phone, website, category, source_link, mobile, whatsapp)
+                       SELECT $1::INTEGER, $11::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::VARCHAR, $10::TEXT
+                       WHERE NOT EXISTS (SELECT 1 FROM leads WHERE user_id = $11 AND (place_id = $2::VARCHAR OR (source_link = $8::TEXT AND source_link != '')))
                        ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
-                      [jobId, placeId, name, address, mobile, website, category, sourceLink, mobile, whatsapp]
+                      [jobId, placeId, name, address, mobile, website, category, sourceLink, mobile, whatsapp, jobUserId]
                     );
 
                     if (insertResult.rowCount > 0) {
@@ -1469,11 +1569,11 @@ app.post('/api/generate', requireAuth, async (req, res) => {
                     }
 
                     const insertResult = await db.query(
-                      `INSERT INTO leads (job_id, place_id, name, address, phone, website, category, source_link, mobile, whatsapp, max_messenger)
-                       SELECT $1::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::VARCHAR, $10::TEXT, $11::TEXT
-                       WHERE NOT EXISTS (SELECT 1 FROM leads WHERE place_id = $2::VARCHAR OR (source_link = $8::TEXT AND source_link != ''))
+                      `INSERT INTO leads (job_id, user_id, place_id, name, address, phone, website, category, source_link, mobile, whatsapp, max_messenger)
+                       SELECT $1::INTEGER, $12::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::VARCHAR, $10::TEXT, $11::TEXT
+                       WHERE NOT EXISTS (SELECT 1 FROM leads WHERE user_id = $12 AND (place_id = $2::VARCHAR OR (source_link = $8::TEXT AND source_link != '')))
                        ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
-                      [jobId, placeId, name, address, rawPhone, website, category, sourceLink, mobile, whatsapp, maxMessenger]
+                      [jobId, placeId, name, address, rawPhone, website, category, sourceLink, mobile, whatsapp, maxMessenger, jobUserId]
                     );
 
                     if (insertResult.rowCount > 0) {
@@ -1536,24 +1636,25 @@ app.post('/api/generate', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/billing - Real-time Google Places API Usage & Billing Telemetry
-app.get('/api/billing', async (req, res) => {
+// GET /api/billing - Real-time Google Places API Usage & Billing Telemetry (Isolated to Authenticated User)
+app.get('/api/billing', requireAuth, async (req, res) => {
   try {
+    const userId = req.user.id;
     const monthJobs = await db.query(`
       SELECT COUNT(*) as job_count, 
              COALESCE(SUM(fetched_count), 0) as total_leads,
              COALESCE(SUM(GREATEST(1, CEIL(fetched_count / 20.0))), 0) as total_requests
       FROM jobs 
-      WHERE source = 'maps' AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)
-    `);
+      WHERE user_id = $1 AND source = 'maps' AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)
+    `, [userId]);
 
     const allTimeJobs = await db.query(`
       SELECT COUNT(*) as job_count, 
              COALESCE(SUM(fetched_count), 0) as total_leads,
              COALESCE(SUM(GREATEST(1, CEIL(fetched_count / 20.0))), 0) as total_requests
       FROM jobs 
-      WHERE source = 'maps'
-    `);
+      WHERE user_id = $1 AND source = 'maps'
+    `, [userId]);
 
     const monthRequests = parseInt(monthJobs.rows[0].total_requests, 10);
     const monthLeads = parseInt(monthJobs.rows[0].total_leads, 10);
@@ -1603,27 +1704,28 @@ app.get('/api/billing', async (req, res) => {
   }
 });
 
-// GET /api/dashboard - Dashboard stats with real-time billing telemetry
+// GET /api/dashboard - Dashboard stats with real-time billing telemetry (Strictly Scoped to Authenticated User)
 app.get('/api/dashboard', requireAuth, async (req, res) => {
   try {
+    const userId = req.user.id;
     const [todayLeads, totalLeads, totalJobs, categories, mapsStats] = await Promise.all([
-      db.query(`SELECT COUNT(*) FROM leads WHERE DATE(created_at) = CURRENT_DATE`),
-      db.query(`SELECT COUNT(*) FROM leads`),
-      db.query(`SELECT COUNT(*) FROM jobs`),
+      db.query(`SELECT COUNT(*) FROM leads WHERE user_id = $1 AND DATE(created_at) = CURRENT_DATE`, [userId]),
+      db.query(`SELECT COUNT(*) FROM leads WHERE user_id = $1`, [userId]),
+      db.query(`SELECT COUNT(*) FROM jobs WHERE user_id = $1`, [userId]),
       db.query(`
         SELECT category, COUNT(*) as count 
         FROM leads 
-        WHERE category != '' 
+        WHERE user_id = $1 AND category != '' 
         GROUP BY category 
         ORDER BY count DESC 
         LIMIT 5
-      `),
+      `, [userId]),
       db.query(`
         SELECT COALESCE(SUM(fetched_count), 0) as total_leads,
                COALESCE(SUM(GREATEST(1, CEIL(fetched_count / 20.0))), 0) as total_requests
         FROM jobs 
-        WHERE source = 'maps' AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)
-      `)
+        WHERE user_id = $1 AND source = 'maps' AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)
+      `, [userId])
     ]);
 
     const monthRequests = parseInt(mapsStats.rows[0].total_requests, 10);
@@ -1661,16 +1763,18 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/jobs - History of jobs
+// GET /api/jobs - History of jobs (Strictly Scoped to Authenticated User)
 app.get('/api/jobs', requireAuth, async (req, res) => {
   try {
+    const userId = req.user.id;
     const jobs = await db.query(`
       SELECT j.*, 
              COALESCE(j.requested_count, j.fetched_count) as target_count,
              (SELECT count(*) FROM leads l WHERE l.job_id = j.id AND emails IS NOT NULL AND emails != '-' AND emails != 'None') as valid_emails_count 
       FROM jobs j 
-      ORDER BY created_at DESC LIMIT 50
-    `);
+      WHERE j.user_id = $1
+      ORDER BY j.created_at DESC LIMIT 50
+    `, [userId]);
     res.json(jobs.rows);
   } catch (error) {
     console.error("Jobs fetch error:", error);
@@ -1678,11 +1782,19 @@ app.get('/api/jobs', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/jobs/:id/leads - Get leads for a job
+// GET /api/jobs/:id/leads - Get leads for a job (Strict Ownership Verification)
 app.get('/api/jobs/:id/leads', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const leads = await db.query(`SELECT * FROM leads WHERE job_id = $1 ORDER BY id ASC`, [id]);
+    const userId = req.user.id;
+
+    // Verify ownership of the job
+    const jobCheck = await db.query(`SELECT id FROM jobs WHERE id = $1 AND user_id = $2`, [id, userId]);
+    if (jobCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Job not found or access denied" });
+    }
+
+    const leads = await db.query(`SELECT * FROM leads WHERE job_id = $1 AND user_id = $2 ORDER BY id ASC`, [id, userId]);
     res.json(leads.rows);
   } catch (error) {
     console.error("Leads fetch error:", error);
@@ -1690,15 +1802,16 @@ app.get('/api/jobs/:id/leads', requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/leads/by-jobs - Get leads for multiple jobs filtered by data type
+// POST /api/leads/by-jobs - Get leads for multiple jobs filtered by data type (Strict Ownership Verification)
 app.post('/api/leads/by-jobs', requireAuth, async (req, res) => {
   try {
     const { jobIds, dataType } = req.body;
+    const userId = req.user.id;
     if (!Array.isArray(jobIds) || jobIds.length === 0) {
       return res.json([]);
     }
     
-    let whereClause = `l.job_id = ANY($1::int[])`;
+    let whereClause = `l.job_id = ANY($1::int[]) AND j.user_id = $2`;
     if (dataType === 'emails') {
       whereClause += ` AND l.emails IS NOT NULL AND l.emails != ''`;
     } else if (dataType === 'socials') {
@@ -1735,7 +1848,7 @@ app.post('/api/leads/by-jobs', requireAuth, async (req, res) => {
       WHERE ${whereClause}
       ORDER BY l.id ASC
     `;
-    const result = await db.query(query, [jobIds]);
+    const result = await db.query(query, [jobIds, userId]);
     res.json(result.rows);
   } catch (error) {
     console.error("Leads by jobs error:", error);
@@ -1743,12 +1856,20 @@ app.post('/api/leads/by-jobs', requireAuth, async (req, res) => {
   }
 });
 
-// DELETE /api/jobs/:id - Delete a job and its leads
-app.delete('/api/jobs/:id', async (req, res) => {
+// DELETE /api/jobs/:id - Delete a job and its leads (Strict Ownership Verification)
+app.delete('/api/jobs/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    await db.query(`DELETE FROM leads WHERE job_id = $1`, [id]);
-    const deleteResult = await db.query(`DELETE FROM jobs WHERE id = $1 RETURNING id`, [id]);
+    const userId = req.user.id;
+
+    // Verify ownership of the job
+    const jobCheck = await db.query(`SELECT id FROM jobs WHERE id = $1 AND user_id = $2`, [id, userId]);
+    if (jobCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Job not found or access denied" });
+    }
+
+    await db.query(`DELETE FROM leads WHERE job_id = $1 AND user_id = $2`, [id, userId]);
+    const deleteResult = await db.query(`DELETE FROM jobs WHERE id = $1 AND user_id = $2 RETURNING id`, [id, userId]);
     if (deleteResult.rowCount === 0) {
       return res.status(404).json({ error: "Job not found" });
     }

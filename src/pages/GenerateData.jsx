@@ -60,11 +60,11 @@ function GenerateData() {
   const shortfall = Math.max(0, parseFloat((estimatedCost - walletBalance).toFixed(2)));
 
   useEffect(() => {
-    fetch(`${API_URL}/api/billing`)
+    authFetch(`${API_URL}/api/billing`)
       .then(res => res.json())
       .then(data => setBilling(data))
       .catch(err => console.error("Billing fetch error:", err));
-  }, []);
+  }, [authFetch]);
 
   // Auto-dismiss toast after 6 seconds
   useEffect(() => {

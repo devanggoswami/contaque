@@ -181,7 +181,21 @@ const initDb = async () => {
       ALTER TABLE jobs ADD COLUMN IF NOT EXISTS refunded_amount NUMERIC(12, 2) DEFAULT 0.00;
       ALTER TABLE jobs ADD COLUMN IF NOT EXISTS billing_status VARCHAR(50) DEFAULT 'SETTLED';
 
+      -- Multi-User Data Isolation: User FK columns & indices
+      ALTER TABLE leads ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
+      ALTER TABLE email_accounts ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
+      ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
+      ALTER TABLE inbox_threads ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
+
+      -- Allow same email account on different users if necessary
+      DO $$ BEGIN
+        IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'email_accounts_email_key') THEN
+          ALTER TABLE email_accounts DROP CONSTRAINT email_accounts_email_key;
+        END IF;
+      END $$;
+
       CREATE INDEX IF NOT EXISTS idx_leads_job_id ON leads(job_id);
+      CREATE INDEX IF NOT EXISTS idx_leads_user_id ON leads(user_id);
       CREATE INDEX IF NOT EXISTS idx_leads_place_id ON leads(place_id);
       CREATE INDEX IF NOT EXISTS idx_leads_source_link ON leads(source_link);
       CREATE INDEX IF NOT EXISTS idx_leads_created_at ON leads(created_at DESC);
@@ -189,6 +203,9 @@ const initDb = async () => {
       CREATE INDEX IF NOT EXISTS idx_leads_whatsapp ON leads(whatsapp);
       CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_jobs_user_id ON jobs(user_id);
+      CREATE INDEX IF NOT EXISTS idx_campaigns_user_id ON campaigns(user_id);
+      CREATE INDEX IF NOT EXISTS idx_email_accounts_user_id ON email_accounts(user_id);
+      CREATE INDEX IF NOT EXISTS idx_inbox_threads_user_id ON inbox_threads(user_id);
       CREATE INDEX IF NOT EXISTS idx_wallet_ledger_user ON wallet_ledger(user_id);
       CREATE INDEX IF NOT EXISTS idx_wallet_ledger_created ON wallet_ledger(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_wallet_ledger_type ON wallet_ledger(type);
@@ -203,7 +220,7 @@ const initDb = async () => {
     if (adminEmail) {
       const adminName = process.env.ADMIN_NAME || 'Devang Goswami';
       const adminPass = process.env.ADMIN_PASSWORD || process.env.AUTH_PASS || '2112@Dev';
-      await client.query(`
+      const adminUpsert = await client.query(`
         INSERT INTO users (name, email, password_hash, plan, email_verified, wallet_balance, country, auth_provider)
         VALUES ($1, $2, $3, 'plus', true, 44830.00, 'India', 'local')
         ON CONFLICT (email) DO UPDATE 
@@ -211,8 +228,21 @@ const initDb = async () => {
             password_hash = EXCLUDED.password_hash,
             plan = 'plus',
             email_verified = true,
-            wallet_balance = CASE WHEN users.wallet_balance = 0 THEN 44830.00 ELSE users.wallet_balance END;
+            wallet_balance = CASE WHEN users.wallet_balance = 0 THEN 44830.00 ELSE users.wallet_balance END
+        RETURNING id;
       `, [adminName, adminEmail, adminPass]);
+
+      const adminId = adminUpsert.rows[0]?.id;
+      if (adminId) {
+        // Multi-User Isolation: Migrate all existing production/test data strictly to admin account
+        await client.query('UPDATE jobs SET user_id = $1 WHERE user_id IS NULL', [adminId]);
+        await client.query('UPDATE leads SET user_id = jobs.user_id FROM jobs WHERE leads.job_id = jobs.id AND leads.user_id IS NULL');
+        await client.query('UPDATE leads SET user_id = $1 WHERE user_id IS NULL', [adminId]);
+        await client.query('UPDATE email_accounts SET user_id = $1 WHERE user_id IS NULL', [adminId]);
+        await client.query('UPDATE campaigns SET user_id = $1 WHERE user_id IS NULL', [adminId]);
+        await client.query('UPDATE inbox_threads SET user_id = email_accounts.user_id FROM email_accounts WHERE inbox_threads.account_id = email_accounts.id AND inbox_threads.user_id IS NULL');
+        await client.query('UPDATE inbox_threads SET user_id = $1 WHERE user_id IS NULL', [adminId]);
+      }
     }
 
     client.release();

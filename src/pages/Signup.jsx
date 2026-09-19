@@ -5,6 +5,7 @@ import {
   AlertCircle, ShieldCheck, User, Globe 
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import GoogleAuthButton from '../components/GoogleAuthButton';
 import './LandingPage.css';
 import './Signup.css';
 
@@ -42,8 +43,20 @@ export default function Signup() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const { signup } = useAuth();
+  const { signup, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
+
+  const handleGoogleSuccess = async (credential) => {
+    setError('');
+    setSubmitting(true);
+    const res = await loginWithGoogle(credential, requestedPlan);
+    setSubmitting(false);
+    if (res.success) {
+      navigate('/dashboard', { replace: true });
+    } else {
+      setError(res.error || 'Google authentication failed. Please try again.');
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -125,23 +138,12 @@ export default function Signup() {
           </div>
         )}
 
-        {/* 1-Click Continue with Google Button - Review Status */}
-        <button 
-          type="button" 
-          className="signup-google-bar-btn"
-          onClick={() => setError('Google OAuth verification is currently pending. Please sign up using the form below.')}
-          title="Google OAuth currently under review"
-          style={{ cursor: 'pointer' }}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24">
-            <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.4 9 5 12 5z"/>
-            <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"/>
-            <path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.8s.2-2.1.4-2.8L1.9 6.3C.7 8.7 0 10.3 0 12s.7 3.3 1.9 5.7l3.7-2.9z"/>
-            <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.4-6.4-5.2L1.9 16C3.7 20.4 7.5 23 12 23z"/>
-          </svg>
-          <span>Continue with Google</span>
-          <span style={{ fontSize: '11px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', padding: '2px 8px', borderRadius: '10px', marginLeft: 'auto', color: '#94a3b8' }}>OAuth In Review</span>
-        </button>
+        {/* Official Google Identity Services Sign Up Button */}
+        <GoogleAuthButton 
+          isSignup={true}
+          onSuccess={handleGoogleSuccess} 
+          onError={setError} 
+        />
 
         {/* Divider */}
         <div className="signup-divider-row">

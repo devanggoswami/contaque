@@ -5,13 +5,17 @@ const multer = require('multer');
 const path = require('path');
 const mailer = require('../utils/mailer');
 const { isValidEmailAddress } = require('../utils/email_extractor');
+const { requireAuth } = require('../utils/auth');
 
-// Test direct sending with full diagnostics
+// Enforce strict authentication on all campaign endpoints
+router.use(requireAuth);
+
+// Test direct sending with full diagnostics (scoped to user's accounts)
 router.post('/test-send', async (req, res) => {
   try {
     const { to_email } = req.body;
-    const account = await mailer.getAvailableAccount();
-    if (!account) return res.status(400).json({ error: 'No active email account found' });
+    const account = await mailer.getAvailableAccount(req.user.id);
+    if (!account) return res.status(400).json({ error: 'No active email account found for your user. Please connect an email account first.' });
     
     const info = await mailer.sendEmail(
       account, 
@@ -34,11 +38,22 @@ router.post('/test-send', async (req, res) => {
   }
 });
 
-// Reset failed campaigns and queue
+// Reset failed campaigns and queue (scoped to user)
 router.post('/reset-failed', async (req, res) => {
   try {
-    const qRes = await db.query(`UPDATE email_queue SET status = 'PENDING', error_msg = NULL WHERE status = 'FAILED'`);
-    const cRes = await db.query(`UPDATE campaigns SET status = 'RUNNING', sent_count = 0, failed_count = 0 WHERE status = 'COMPLETED' AND sent_count = 0`);
+    const qRes = await db.query(`
+      UPDATE email_queue 
+      SET status = 'PENDING', error_msg = NULL 
+      WHERE status = 'FAILED' 
+        AND campaign_id IN (SELECT id FROM campaigns WHERE user_id = $1)
+    `, [req.user.id]);
+
+    const cRes = await db.query(`
+      UPDATE campaigns 
+      SET status = 'RUNNING', sent_count = 0, failed_count = 0 
+      WHERE status = 'COMPLETED' AND sent_count = 0 AND user_id = $1
+    `, [req.user.id]);
+
     res.json({ reset_queue_count: qRes.rowCount, reset_campaigns_count: cRes.rowCount });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -51,14 +66,14 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// Auto ensure completed_at column exists in campaigns table
-db.query(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP;`).catch(() => {});
-
-// --- EMAIL ACCOUNTS ---
+// --- EMAIL ACCOUNTS (User-Scoped) ---
 
 router.get('/accounts', async (req, res) => {
   try {
-    const result = await db.query('SELECT id, email, daily_sent_count, status, created_at FROM email_accounts ORDER BY id DESC');
+    const result = await db.query(
+      'SELECT id, email, daily_sent_count, status, created_at FROM email_accounts WHERE user_id = $1 ORDER BY id DESC',
+      [req.user.id]
+    );
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -67,10 +82,13 @@ router.get('/accounts', async (req, res) => {
 
 router.post('/accounts', async (req, res) => {
   const { email, app_password } = req.body;
+  if (!email || !app_password) {
+    return res.status(400).json({ error: 'Email and app password are required' });
+  }
   try {
     const result = await db.query(
-      `INSERT INTO email_accounts (email, app_password) VALUES ($1, $2) RETURNING id, email`,
-      [email, app_password]
+      `INSERT INTO email_accounts (email, app_password, user_id) VALUES ($1, $2, $3) RETURNING id, email`,
+      [email.trim().toLowerCase(), app_password.trim(), req.user.id]
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -80,22 +98,29 @@ router.post('/accounts', async (req, res) => {
 
 router.delete('/accounts/:id', async (req, res) => {
   try {
-    await db.query(`DELETE FROM email_accounts WHERE id = $1`, [req.params.id]);
+    const delRes = await db.query(
+      `DELETE FROM email_accounts WHERE id = $1 AND user_id = $2 RETURNING id`, 
+      [req.params.id, req.user.id]
+    );
+    if (delRes.rowCount === 0) {
+      return res.status(404).json({ error: 'Email account not found or access denied' });
+    }
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// --- CAMPAIGNS ---
+// --- CAMPAIGNS (User-Scoped) ---
 
 router.get('/list', async (req, res) => {
   try {
     const result = await db.query(`
       SELECT * 
       FROM campaigns 
+      WHERE user_id = $1
       ORDER BY created_at DESC
-    `);
+    `, [req.user.id]);
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -133,12 +158,17 @@ router.post('/create', async (req, res) => {
       // Create mock validLeads objects so the loop below works the same way
       validLeads = emailsList.map(email => ({ id: null, emails: email }));
     } else {
-      // 1. Find leads with valid emails for this job
-      let leadsQuery = `SELECT id, emails FROM leads WHERE emails IS NOT NULL AND emails != '-' AND emails != 'None'`;
-      let queryParams = [];
+      // 1. Find leads with valid emails, strictly isolated to req.user.id
+      let leadsQuery = `
+        SELECT l.id, l.emails 
+        FROM leads l
+        WHERE l.emails IS NOT NULL AND l.emails != '-' AND l.emails != 'None'
+          AND l.user_id = $1
+      `;
+      let queryParams = [req.user.id];
       
       if (target_mode === 'SPECIFIC' && Array.isArray(target_job_ids) && target_job_ids.length > 0) {
-        leadsQuery += ` AND job_id = ANY($1::int[])`;
+        leadsQuery += ` AND l.job_id = ANY($2::int[]) AND l.job_id IN (SELECT id FROM jobs WHERE user_id = $1)`;
         queryParams.push(target_job_ids);
         finalTargetJobId = target_job_ids.join(',');
       }
@@ -152,21 +182,19 @@ router.post('/create', async (req, res) => {
       return res.status(400).json({ error: 'No leads with valid emails found for this selection.' });
     }
 
-    // 2. Create Campaign
+    // 2. Create Campaign (strictly assigned to req.user.id)
     const campRes = await db.query(
-      `INSERT INTO campaigns (name, subject, body_html, target_job_id, total_leads, status, attachment_path, attachment_type, image_link, is_manual) 
-       VALUES ($1, $2, $3, $4, $5, 'DRAFT', $6, $7, $8, $9) RETURNING id`,
-      [name, subject, body_html || '', finalTargetJobId, validLeads.length, attachment_filename || null, attachment_type || null, image_link || null, isManual]
+      `INSERT INTO campaigns (name, subject, body_html, target_job_id, total_leads, status, attachment_path, attachment_type, image_link, is_manual, user_id) 
+       VALUES ($1, $2, $3, $4, $5, 'DRAFT', $6, $7, $8, $9, $10) RETURNING id`,
+      [name, subject, body_html || '', finalTargetJobId, validLeads.length, attachment_filename || null, attachment_type || null, image_link || null, isManual, req.user.id]
     );
     const campaignId = campRes.rows[0].id;
 
     // 3. Queue Emails (Valid business emails only)
     for (const lead of validLeads) {
-      // Split if multiple emails comma separated, take first
       const primaryEmail = lead.emails.split(',')[0].trim();
       if (primaryEmail && isValidEmailAddress(primaryEmail)) {
         if (isManual) {
-          // No lead_id, insert directly
           await db.query(
             `INSERT INTO email_queue (campaign_id, target_email) VALUES ($1, $2)`,
             [campaignId, primaryEmail]
@@ -191,7 +219,13 @@ router.post('/create', async (req, res) => {
 router.put('/:id/status', async (req, res) => {
   const { status } = req.body; // 'RUNNING', 'PAUSED'
   try {
-    await db.query(`UPDATE campaigns SET status = $1 WHERE id = $2`, [status, req.params.id]);
+    const updateRes = await db.query(
+      `UPDATE campaigns SET status = $1 WHERE id = $2 AND user_id = $3 RETURNING id`, 
+      [status, req.params.id, req.user.id]
+    );
+    if (updateRes.rowCount === 0) {
+      return res.status(404).json({ error: 'Campaign not found or access denied' });
+    }
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -200,10 +234,19 @@ router.put('/:id/status', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
+    // Verify ownership first
+    const campCheck = await db.query(
+      `SELECT id FROM campaigns WHERE id = $1 AND user_id = $2`, 
+      [req.params.id, req.user.id]
+    );
+    if (campCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Campaign not found or access denied' });
+    }
+
     // Delete queue items first (foreign key)
     await db.query(`DELETE FROM email_queue WHERE campaign_id = $1`, [req.params.id]);
     // Then delete the campaign
-    await db.query(`DELETE FROM campaigns WHERE id = $1`, [req.params.id]);
+    await db.query(`DELETE FROM campaigns WHERE id = $1 AND user_id = $2`, [req.params.id, req.user.id]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
