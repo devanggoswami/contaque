@@ -359,7 +359,7 @@ function Dashboard() {
                   title="Click to view full plan features & rates"
                 >
                   <span className="free-status-dot"></span>
-                  <span className="plan-name-text">Free Starter Plan</span>
+                  <span className="plan-name-text">Free Plan</span>
                 </div>
                 <button 
                   type="button" 
