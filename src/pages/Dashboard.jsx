@@ -301,7 +301,7 @@ function Dashboard() {
               <strong>Please confirm email in your inbox</strong>
               <span>Verification link sent to <strong className="alert-email-highlight">{user.email}</strong>. Open your email and click the confirmation link to complete verification.</span>
               {resendStatus.message && (
-                <div style={{ marginTop: '6px', fontSize: '12px', color: resendStatus.isError ? '#f87171' : '#34d399', fontWeight: 500 }}>
+                <div style={{ marginTop: '6px', fontSize: '12px', color: resendStatus.isError ? '#dc2626' : '#059669', fontWeight: 600 }}>
                   {resendStatus.message}
                 </div>
               )}
@@ -756,7 +756,7 @@ function Dashboard() {
                       <tbody>
                         {ledgerData.map((item) => (
                           <tr key={item.id}>
-                            <td style={{ whiteSpace: 'nowrap', color: 'rgba(255,255,255,0.5)' }}>
+                            <td style={{ whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>
                               {new Date(item.createdAt).toLocaleDateString()} {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </td>
                             <td>
