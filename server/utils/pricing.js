@@ -5,12 +5,12 @@
 
 const ENGINE_PRICING = {
   free: {
-    name: 'Free Starter',
-    maps: 1.30,         // Google Business Indexes
-    dorking: 1.00,      // Socials & Custom Domain Discovery
+    name: 'Free Plan',
+    maps: 1.30,         // Google Business Index
+    dorking: 1.00,      // Social / Custom Discovery
     whatsapp: 1.00,     // WhatsApp Radar
-    yellowpages: 0.60,  // Yellow Pages B2B
-    yandex: 1.70        // Yandex + MAX Messenger
+    yellowpages: 0.60,  // Yellow Pages
+    yandex: 1.70        // Yandex
   },
   pack: {
     name: 'Value Pack',
@@ -22,10 +22,10 @@ const ENGINE_PRICING = {
   },
   plus: {
     name: 'Value Plus',
-    maps: 0.90,
-    dorking: 0.70,
-    whatsapp: 0.70,
-    yellowpages: 0.40,
+    maps: 1.00,
+    dorking: 0.80,
+    whatsapp: 0.80,
+    yellowpages: 0.50,
     yandex: 1.30
   }
 };

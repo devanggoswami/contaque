@@ -12,45 +12,75 @@ import './UserProfileModal.css';
 const PLAN_DEFINITIONS = {
   free: {
     id: 'free',
-    name: 'Free Starter',
+    name: 'Free Plan',
     badge: 'PAY AS YOU GO',
-    tagline: 'Standard rates, pay only for what you extract',
+    tagline: 'Pay only for leads you generate',
     price: '₹0',
-    period: 'forever',
+    period: '/month',
     icon: Zap,
     color: '#64748b',
-    bgLight: '#f8fafc',
-    borderLight: '#e2e8f0',
-    maxBatch: '50 leads / job',
-    speed: '1x Standard'
+    leadRates: [
+      { engine: 'Google Business Index', rate: '₹1.30' },
+      { engine: 'Social / Custom Discovery', rate: '₹1.00' },
+      { engine: 'WhatsApp Radar', rate: '₹1.00' },
+      { engine: 'Yellow Pages', rate: '₹0.60' },
+      { engine: 'Yandex', rate: '₹1.70' },
+    ],
+    featuresTitle: 'Features Included:',
+    features: [
+      'No monthly fees or commitments',
+      'Access to all 5 scraping engines',
+      'WhatsApp phone status isolation',
+      '1-Click Excel, CSV, PDF Export',
+    ]
   },
   pack: {
     id: 'pack',
     name: 'Value Pack',
     badge: 'MOST POPULAR',
-    tagline: 'Discounted per-lead rates + high-speed parallel workers',
+    tagline: 'Lower rates + advanced features',
     price: '₹299',
     period: '/month',
     icon: Sparkles,
-    color: '#4f46e5',
-    bgLight: '#eef2ff',
-    borderLight: '#c7d2fe',
-    maxBatch: '250 leads / job',
-    speed: '2x Fast Parallel'
+    color: '#6366f1',
+    leadRates: [
+      { engine: 'Google Business Index', rate: '₹1.10' },
+      { engine: 'Social / Custom Discovery', rate: '₹0.80' },
+      { engine: 'WhatsApp Radar', rate: '₹0.80' },
+      { engine: 'Yellow Pages', rate: '₹0.50' },
+      { engine: 'Yandex', rate: '₹1.50' },
+    ],
+    featuresTitle: 'Features Included:',
+    features: [
+      'Discounted per-lead scraping rates',
+      'Priority parallel scraper workers',
+      'Real-time WhatsApp verification',
+      'Cloud job history & persistence',
+    ]
   },
   plus: {
     id: 'plus',
     name: 'Value Plus',
-    badge: 'PRO UNLIMITED',
-    tagline: 'Lowest per-lead rates + full cold email & unified inbox suite',
+    badge: 'ALL-IN-ONE POWERHOUSE',
+    tagline: 'Lowest rates + full cold outreach suite',
     price: '₹499',
     period: '/month',
     icon: Crown,
-    color: '#b45309',
-    bgLight: '#fef3c7',
-    borderLight: '#fde68a',
-    maxBatch: 'Unlimited',
-    speed: '4x Ultra Fast'
+    color: '#0ea5e9',
+    leadRates: [
+      { engine: 'Google Business Index', rate: '₹1.00' },
+      { engine: 'Social / Custom Discovery', rate: '₹0.80' },
+      { engine: 'WhatsApp Radar', rate: '₹0.80' },
+      { engine: 'Yellow Pages', rate: '₹0.50' },
+      { engine: 'Yandex', rate: '₹1.30' },
+    ],
+    featuresTitle: '🔥 Includes Outreach Suite:',
+    features: [
+      'Free Bulk Email Outreach (1,600/day)',
+      'Advanced campaign multi-rotation',
+      '2-way unified inbox for replies',
+      'Lowest rates across all 5 engines',
+    ]
   }
 };
 
@@ -135,10 +165,10 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
 
   const planInfo = PLAN_DEFINITIONS[currentPlanKey] || PLAN_DEFINITIONS.plus;
   const rates = wallet?.rates || {
-    maps: currentPlanKey === 'plus' ? 0.90 : currentPlanKey === 'pack' ? 1.10 : 1.30,
-    dorking: currentPlanKey === 'plus' ? 0.70 : currentPlanKey === 'pack' ? 0.80 : 1.00,
-    whatsapp: currentPlanKey === 'plus' ? 0.70 : currentPlanKey === 'pack' ? 0.80 : 1.00,
-    yellowpages: currentPlanKey === 'plus' ? 0.40 : currentPlanKey === 'pack' ? 0.50 : 0.60,
+    maps: currentPlanKey === 'plus' ? 1.00 : currentPlanKey === 'pack' ? 1.10 : 1.30,
+    dorking: currentPlanKey === 'plus' ? 0.80 : currentPlanKey === 'pack' ? 0.80 : 1.00,
+    whatsapp: currentPlanKey === 'plus' ? 0.80 : currentPlanKey === 'pack' ? 0.80 : 1.00,
+    yellowpages: currentPlanKey === 'plus' ? 0.50 : currentPlanKey === 'pack' ? 0.50 : 0.60,
     yandex: currentPlanKey === 'plus' ? 1.30 : currentPlanKey === 'pack' ? 1.50 : 1.70,
   };
 
@@ -199,37 +229,38 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
             </div>
           </div>
 
-          <button className="profile-modal-close-btn" onClick={onClose} aria-label="Close modal">
-            <X size={20} />
+          <button className="profile-modal-close" onClick={onClose} aria-label="Close modal">
+            <X size={18} />
           </button>
         </div>
 
-        {/* Top Wallet & Status Bar */}
+        {/* Status Bar */}
         <div className="profile-status-bar">
-          <div className="status-item">
-            <span className="status-item-label">Current Balance</span>
-            <span className="status-item-val green">
+          <div className="status-stat-item">
+            <span className="stat-label">Wallet Balance</span>
+            <strong className="stat-val balance">
               ₹{Number(walletBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
+            </strong>
           </div>
-          <div className="status-item">
-            <span className="status-item-label">Account Plan</span>
-            <span className="status-item-val">{planInfo.name}</span>
+          <div className="status-stat-item">
+            <span className="stat-label">Active Plan</span>
+            <strong className="stat-val plan">{planInfo.name}</strong>
           </div>
-          <div className="status-item">
-            <span className="status-item-label">Billing Cycle</span>
-            <span className="status-item-val">{planInfo.price} {planInfo.period}</span>
+          <div className="status-stat-item">
+            <span className="stat-label">Maps Rate</span>
+            <strong className="stat-val rate">₹{Number(rates.maps || 1.00).toFixed(2)}/lead</strong>
           </div>
-          <div className="status-item">
-            <span className="status-item-label">Account Status</span>
-            <span className="status-item-badge active">
-              <span className="pulse-dot"></span> Active
-            </span>
+          <div className="status-stat-item">
+            <span className="stat-label">Security & Session</span>
+            <strong className="stat-val status">
+              <ShieldCheck size={14} color="#059669" />
+              <span>Verified JWT</span>
+            </strong>
           </div>
         </div>
 
         {/* Tab Switcher */}
-        <div className="profile-tab-switcher">
+        <div className="profile-modal-tabs">
           <button 
             className={`profile-tab-btn ${activeTab === 'RATES_FEATURES' ? 'active' : ''}`}
             onClick={() => setActiveTab('RATES_FEATURES')}
@@ -262,10 +293,10 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
                 <div className="engine-rate-tile">
                   <div className="engine-name-group">
                     <span className="engine-dot blue"></span>
-                    <span className="engine-title">Google Maps Direct</span>
+                    <span className="engine-title">Google Business Index</span>
                   </div>
                   <div className="engine-price-tag">
-                    <span className="price-main">₹{Number(rates.maps || 0.90).toFixed(2)}</span>
+                    <span className="price-main">₹{Number(rates.maps || (currentPlanKey === 'plus' ? 1.00 : currentPlanKey === 'pack' ? 1.10 : 1.30)).toFixed(2)}</span>
                     <span className="price-unit">/ lead</span>
                   </div>
                   <span className="engine-std-compare">Standard: ₹1.30</span>
@@ -274,10 +305,10 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
                 <div className="engine-rate-tile">
                   <div className="engine-name-group">
                     <span className="engine-dot purple"></span>
-                    <span className="engine-title">Social / Business Dorking</span>
+                    <span className="engine-title">Social / Custom Discovery</span>
                   </div>
                   <div className="engine-price-tag">
-                    <span className="price-main">₹{Number(rates.dorking || 0.70).toFixed(2)}</span>
+                    <span className="price-main">₹{Number(rates.dorking || (currentPlanKey === 'free' ? 1.00 : 0.80)).toFixed(2)}</span>
                     <span className="price-unit">/ lead</span>
                   </div>
                   <span className="engine-std-compare">Standard: ₹1.00</span>
@@ -286,10 +317,10 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
                 <div className="engine-rate-tile">
                   <div className="engine-name-group">
                     <span className="engine-dot green"></span>
-                    <span className="engine-title">WhatsApp Group Radar</span>
+                    <span className="engine-title">WhatsApp Radar</span>
                   </div>
                   <div className="engine-price-tag">
-                    <span className="price-main">₹{Number(rates.whatsapp || 0.70).toFixed(2)}</span>
+                    <span className="price-main">₹{Number(rates.whatsapp || (currentPlanKey === 'free' ? 1.00 : 0.80)).toFixed(2)}</span>
                     <span className="price-unit">/ lead</span>
                   </div>
                   <span className="engine-std-compare">Standard: ₹1.00</span>
@@ -298,10 +329,10 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
                 <div className="engine-rate-tile">
                   <div className="engine-name-group">
                     <span className="engine-dot amber"></span>
-                    <span className="engine-title">YellowPages Directory</span>
+                    <span className="engine-title">Yellow Pages</span>
                   </div>
                   <div className="engine-price-tag">
-                    <span className="price-main">₹{Number(rates.yellowpages || 0.40).toFixed(2)}</span>
+                    <span className="price-main">₹{Number(rates.yellowpages || (currentPlanKey === 'free' ? 0.60 : 0.50)).toFixed(2)}</span>
                     <span className="price-unit">/ lead</span>
                   </div>
                   <span className="engine-std-compare">Standard: ₹0.60</span>
@@ -310,10 +341,10 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
                 <div className="engine-rate-tile">
                   <div className="engine-name-group">
                     <span className="engine-dot red"></span>
-                    <span className="engine-title">Yandex + MAX Messenger</span>
+                    <span className="engine-title">Yandex</span>
                   </div>
                   <div className="engine-price-tag">
-                    <span className="price-main">₹{Number(rates.yandex || 1.30).toFixed(2)}</span>
+                    <span className="price-main">₹{Number(rates.yandex || (currentPlanKey === 'plus' ? 1.30 : currentPlanKey === 'pack' ? 1.50 : 1.70)).toFixed(2)}</span>
                     <span className="price-unit">/ lead</span>
                   </div>
                   <span className="engine-std-compare">Standard: ₹1.70</span>
@@ -378,54 +409,70 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
                 const isCurrent = p.id === currentPlanKey;
                 const IconComponent = p.icon;
                 return (
-                  <div key={p.id} className={`plan-card-option ${isCurrent ? 'active-plan' : ''}`}>
+                  <div 
+                    key={p.id} 
+                    className={`plan-card-option ${isCurrent ? 'active-plan' : ''} ${p.id === 'pack' ? 'pack-card' : ''} ${p.id === 'plus' ? 'plus-card' : ''}`}
+                  >
                     {isCurrent && (
                       <div className="current-plan-ribbon">
                         <span>YOUR ACTIVE PLAN</span>
                       </div>
                     )}
-                    <div className="plan-option-header">
-                      <div className="plan-icon-wrapper" style={{ color: p.color }}>
-                        <IconComponent size={24} />
+
+                    {/* Card Top Row: Name + Badge */}
+                    <div className="plan-card-top-header">
+                      <div className="plan-title-with-icon">
+                        <div className="plan-icon-wrapper" style={{ color: p.color }}>
+                          <IconComponent size={20} />
+                        </div>
+                        <h4 className="plan-name-h">{p.name}</h4>
                       </div>
-                      <h4 className="plan-name-h">{p.name}</h4>
-                      <p className="plan-tagline-p">{p.tagline}</p>
+                      <span className={`plan-badge-inline ${p.id}`}>
+                        {p.badge}
+                      </span>
                     </div>
 
+                    {/* Price and Tagline */}
                     <div className="plan-price-block">
-                      <span className="price-big">{p.price}</span>
-                      <span className="price-sub">{p.period}</span>
+                      <div className="plan-price-number-row">
+                        <span className="price-big">{p.price}</span>
+                        <span className="price-sub">{p.period}</span>
+                      </div>
+                      <p className="plan-tagline-p">• {p.tagline}</p>
                     </div>
 
-                    <div className="plan-specs-list">
-                      <div className="spec-row">
-                        <span className="spec-label">Google Maps:</span>
-                        <span className="spec-val">
-                          {p.id === 'plus' ? '₹0.90' : p.id === 'pack' ? '₹1.10' : '₹1.30'}/lead
-                        </span>
+                    {/* Engine Rates Breakdown Table */}
+                    <div className="plan-engine-rates-table">
+                      <div className="plan-rates-header">
+                        <span>ENGINE</span>
+                        <span>PER LEAD</span>
                       </div>
-                      <div className="spec-row">
-                        <span className="spec-label">Batch Size:</span>
-                        <span className="spec-val">{p.maxBatch}</span>
-                      </div>
-                      <div className="spec-row">
-                        <span className="spec-label">Engine Speed:</span>
-                        <span className="spec-val">{p.speed}</span>
-                      </div>
-                      <div className="spec-row">
-                        <span className="spec-label">Cold Email Suite:</span>
-                        <span className="spec-val">
-                          {p.id === 'plus' ? '✅ Included' : '🔒 Locked'}
-                        </span>
-                      </div>
-                      <div className="spec-row">
-                        <span className="spec-label">Unified Inbox:</span>
-                        <span className="spec-val">
-                          {p.id === 'plus' ? '✅ Included' : '🔒 Locked'}
-                        </span>
+                      <div className="plan-rates-body">
+                        {p.leadRates.map((r, rIdx) => (
+                          <div key={rIdx} className="plan-rate-row">
+                            <span className="plan-engine-name">{r.engine}</span>
+                            <strong className="plan-engine-cost">{r.rate}</strong>
+                          </div>
+                        ))}
                       </div>
                     </div>
 
+                    {/* Features Included Checklist */}
+                    <div className="plan-features-block">
+                      <div className="plan-features-heading">
+                        {p.featuresTitle}
+                      </div>
+                      <ul className="plan-features-list">
+                        {p.features.map((feat, fIdx) => (
+                          <li key={fIdx} className="plan-feature-item">
+                            <Check size={14} className={`plan-feature-check ${p.id === 'plus' ? 'plus-check' : 'std-check'}`} />
+                            <span>{feat}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Action Area */}
                     <div className="plan-action-area">
                       {isCurrent ? (
                         <button className="plan-select-btn current" disabled>
@@ -434,7 +481,7 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
                         </button>
                       ) : (
                         <button 
-                          className="plan-select-btn"
+                          className={`plan-select-btn ${p.id === 'plus' ? 'plus-action' : p.id === 'pack' ? 'pack-action' : ''}`}
                           onClick={() => handlePlanSwitch(p.id)}
                           disabled={changingPlan}
                         >

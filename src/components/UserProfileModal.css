@@ -28,7 +28,7 @@
   border: 1px solid #e5e0d3;
   border-radius: 18px;
   width: 100%;
-  max-width: 760px;
+  max-width: 890px;
   max-height: calc(100vh - 48px);
   margin: 0 auto;
   display: flex;
@@ -512,26 +512,33 @@
   padding: 2px 10px;
   border-radius: 9999px;
   white-space: nowrap;
+  z-index: 2;
 }
 
-.plan-option-header {
+/* Card Top Row: Name + Badge */
+.plan-card-top-header {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  text-align: center;
-  gap: 4px;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.plan-title-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .plan-icon-wrapper {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   background: #faf8f5;
   border: 1px solid #e5e0d3;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 4px;
+  flex-shrink: 0;
 }
 
 .plan-name-h {
@@ -539,60 +546,170 @@
   font-size: 15px;
   font-weight: 800;
   color: #1f1d19;
+  letter-spacing: -0.2px;
+}
+
+.plan-badge-inline {
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  padding: 2.5px 7px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.plan-badge-inline.free {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.plan-badge-inline.pack {
+  background: #eef2ff;
+  color: #4f46e5;
+  border: 1px solid #c7d2fe;
+}
+
+.plan-badge-inline.plus {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+/* Price & Tagline */
+.plan-price-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 0 10px;
+  border-bottom: 1px dashed #e5e0d3;
+}
+
+.plan-price-number-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.price-big {
+  font-size: 24px;
+  font-weight: 900;
+  color: #1f1d19;
+  letter-spacing: -0.5px;
+}
+
+.price-sub {
+  font-size: 11px;
+  font-weight: 600;
+  color: #807a6f;
 }
 
 .plan-tagline-p {
   margin: 0;
   font-size: 11px;
   color: #807a6f;
-  line-height: 1.3;
+  line-height: 1.35;
 }
 
-.plan-price-block {
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 4px;
-  padding: 8px 0;
-  border-top: 1px dashed #e5e0d3;
-  border-bottom: 1px dashed #e5e0d3;
-}
-
-.price-big {
-  font-size: 22px;
-  font-weight: 800;
-  color: #1f1d19;
-}
-
-.price-sub {
-  font-size: 11px;
-  color: #807a6f;
-}
-
-.plan-specs-list {
+/* Engine Rates Table */
+.plan-engine-rates-table {
+  background: #faf8f5;
+  border: 1px solid #e5e0d3;
+  border-radius: 10px;
+  padding: 8px 10px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  font-size: 11.5px;
+  gap: 4px;
 }
 
-.spec-row {
+.plan-rates-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  font-weight: 800;
+  color: #807a6f;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #eae5d9;
+}
+
+.plan-rates-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3.5px;
+}
+
+.plan-rate-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  font-size: 11px;
 }
 
-.spec-label {
-  color: #807a6f;
+.plan-engine-name {
+  color: #4b463e;
+  font-weight: 500;
 }
 
-.spec-val {
-  font-weight: 700;
+.plan-engine-cost {
   color: #1f1d19;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 
+/* Features List */
+.plan-features-block {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.plan-features-heading {
+  font-size: 11px;
+  font-weight: 800;
+  color: #1f1d19;
+  letter-spacing: 0.2px;
+}
+
+.plan-features-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.plan-feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 11px;
+  color: #4b463e;
+  line-height: 1.35;
+}
+
+.plan-feature-check {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.plan-feature-check.plus-check {
+  color: #059669;
+}
+
+.plan-feature-check.std-check {
+  color: #4f46e5;
+}
+
+/* Action Area & Buttons */
 .plan-action-area {
   margin-top: auto;
+  padding-top: 8px;
 }
 
 .plan-select-btn {
@@ -601,8 +718,8 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 12px;
-  border-radius: 8px;
+  padding: 9px 12px;
+  border-radius: 9px;
   border: 1px solid #1f1d19;
   background: #1f1d19;
   color: #ffffff;
@@ -617,11 +734,34 @@
   transform: translateY(-1px);
 }
 
+.plan-select-btn.pack-action {
+  background: #4f46e5;
+  border-color: #4f46e5;
+}
+
+.plan-select-btn.pack-action:hover {
+  background: #4338ca;
+}
+
+.plan-select-btn.plus-action {
+  background: #0284c7;
+  border-color: #0284c7;
+}
+
+.plan-select-btn.plus-action:hover {
+  background: #0369a1;
+}
+
 .plan-select-btn.current {
   background: #ecfdf5;
   color: #047857;
   border: 1px solid #a7f3d0;
   cursor: default;
+}
+
+.plan-select-btn.current:hover {
+  transform: none;
+  background: #ecfdf5;
 }
 
 .plan-switch-alert {
