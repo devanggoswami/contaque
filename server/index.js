@@ -200,6 +200,7 @@ app.post('/api/auth/login', async (req, res) => {
             country: u.country || 'India',
             email_verified: !!u.email_verified,
             plan: u.plan || 'free',
+            wallet_balance: parseFloat(u.wallet_balance ?? 50.00),
             auth_provider: u.auth_provider
           },
           expiresInHours: 48
@@ -281,6 +282,7 @@ app.post('/api/auth/signup', async (req, res) => {
         country: newUser.country,
         email_verified: !!newUser.email_verified,
         plan: newUser.plan,
+        wallet_balance: parseFloat(newUser.wallet_balance || 50.00),
         auth_provider: newUser.auth_provider
       },
       expiresInHours: 48

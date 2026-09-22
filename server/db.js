@@ -289,6 +289,14 @@ const initDb = async () => {
       }
     }
 
+    // Ensure all registered users (non-admin) with 0 or null balance receive ₹50 welcome credit
+    await client.query(`
+      UPDATE users 
+      SET wallet_balance = 50.00 
+      WHERE (wallet_balance IS NULL OR wallet_balance = 0)
+        AND ($1 = '' OR LOWER(email) != LOWER($1))
+    `, [adminEmail || '']);
+
     client.release();
     console.log(`[PostgreSQL ${isNeon ? 'Neon Cloud' : 'Localhost'}] Schema verified & all tables ready.`);
   } catch (err) {

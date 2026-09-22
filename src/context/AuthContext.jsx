@@ -190,6 +190,9 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
       setUser(data.user);
       setToken(data.token);
+      if (data.user?.wallet_balance !== undefined) {
+        setWallet(prev => ({ ...prev, balance: Number(data.user.wallet_balance) }));
+      }
       await refreshWallet(data.token);
       return { success: true };
     } catch (err) {
@@ -220,6 +223,9 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
       setUser(data.user);
       setToken(data.token);
+      if (data.user?.wallet_balance !== undefined) {
+        setWallet(prev => ({ ...prev, balance: Number(data.user.wallet_balance) }));
+      }
       await refreshWallet(data.token);
       return { success: true, user: data.user };
     } catch (err) {
@@ -250,6 +256,9 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
       setUser(data.user);
       setToken(data.token);
+      if (data.user?.wallet_balance !== undefined) {
+        setWallet(prev => ({ ...prev, balance: Number(data.user.wallet_balance) }));
+      }
       await refreshWallet(data.token);
       return { success: true, user: data.user };
     } catch (err) {

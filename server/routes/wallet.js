@@ -75,12 +75,29 @@ router.get('/balance', async (req, res) => {
     const user = await resolveUser(req);
     if (!user) return res.status(401).json({ error: 'User not authenticated' });
 
-    const wallet = await getWalletBalance(user.id);
+    let wallet = await getWalletBalance(user.id);
+    let currentBalance = wallet ? wallet.balance : 0.00;
+
+    // Bulletproof welcome credit: if any non-admin user has 0 or null balance, grant ₹50 welcome credit
+    const adminEmail = (process.env.ADMIN_USER || process.env.AUTH_USER || '').trim().toLowerCase();
+    const isUserAdmin = adminEmail && user.email.toLowerCase() === adminEmail;
+
+    if (!isUserAdmin && (currentBalance <= 0 || isNaN(currentBalance))) {
+      try {
+        await creditBalance(user.id, 50.00, 'WELCOME_BONUS', 'Welcome Free Credits (₹50)', { bonus: true });
+        currentBalance = 50.00;
+      } catch (cErr) {
+        console.warn('Auto welcome credit warning:', cErr.message);
+        await db.query('UPDATE users SET wallet_balance = 50.00 WHERE id = $1', [user.id]);
+        currentBalance = 50.00;
+      }
+    }
+
     const engineRates = getEngineRates(user.plan || 'free');
 
     return res.json({
       success: true,
-      balance: wallet ? wallet.balance : 0.00,
+      balance: currentBalance,
       currency: 'INR',
       plan: normalizePlanKey(user.plan),
       rates: engineRates.rates,
