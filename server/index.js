@@ -12,6 +12,7 @@ const { enrichEmail } = require('./utils/email_enricher');
 const campaignsRouter = require('./routes/campaigns');
 const inboxRouter = require('./routes/inbox');
 const { startQueueEngine } = require('./utils/queue');
+const { sendVerificationEmail } = require('./utils/mailer');
 
 // Helper to extract non-social business website from text snippet
 function extractDomainFromSnippet(snippet) {
@@ -218,7 +219,7 @@ app.post('/api/auth/login', async (req, res) => {
 // POST /api/auth/signup (Email Signup with full details)
 app.post('/api/auth/signup', async (req, res) => {
   try {
-    const { name, email, password, country, auth_provider = 'local', plan = 'free' } = req.body;
+    const { name, email, password, country, auth_provider = 'local' } = req.body;
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
@@ -250,12 +251,24 @@ app.post('/api/auth/signup', async (req, res) => {
       return res.status(400).json({ error: 'An account with this email already exists. Please log in.' });
     }
 
-    // Insert new user with ₹50 free credits
+    // Security Authority: New signups are strictly initialized with 'free' plan (unless predefined Admin)
+    const isAdmin = AUTH_USER && cleanEmail === AUTH_USER.toLowerCase();
+    const initialPlan = isAdmin ? 'plus' : 'free';
     const isGoogle = auth_provider === 'google';
+
+    // Generate secure single-use email verification token for local email/password signups
+    let verificationToken = null;
+    let tokenExpiresAt = null;
+    if (!isGoogle) {
+      verificationToken = crypto.randomBytes(32).toString('hex');
+      tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    }
+
+    // Insert new user with ₹50 free credits
     const insertResult = await db.query(
-      `INSERT INTO users (name, email, password_hash, country, auth_provider, email_verified, plan, wallet_balance)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 50.00) RETURNING *`,
-      [cleanName, cleanEmail, password, cleanCountry, auth_provider, isGoogle, plan]
+      `INSERT INTO users (name, email, password_hash, country, auth_provider, email_verified, plan, wallet_balance, email_verification_token, email_verification_token_expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 50.00, $8, $9) RETURNING *`,
+      [cleanName, cleanEmail, password, cleanCountry, auth_provider, isGoogle, initialPlan, verificationToken, tokenExpiresAt]
     );
     const newUser = insertResult.rows[0];
 
@@ -268,6 +281,16 @@ app.post('/api/auth/signup', async (req, res) => {
       );
     } catch (lErr) {
       console.warn('Welcome bonus ledger insert warning:', lErr.message);
+    }
+
+    // Dispatch verification email asynchronously
+    if (!isGoogle && verificationToken) {
+      sendVerificationEmail({
+        toEmail: cleanEmail,
+        name: cleanName,
+        token: verificationToken,
+        origin: req.headers.origin || req.headers.referer
+      }).catch(mErr => console.warn('[Signup Verification Email Warning]:', mErr.message));
     }
 
     const token = generateAuthToken(cleanEmail);
@@ -289,7 +312,7 @@ app.post('/api/auth/signup', async (req, res) => {
     });
   } catch (err) {
     console.error('Signup error:', err);
-    // Fallback so user is not blocked
+    // Fallback so user is not blocked, strictly on free plan and unverified for local
     const token = generateAuthToken(req.body.email || 'user@contaques.pro');
     return res.json({
       success: true,
@@ -299,7 +322,7 @@ app.post('/api/auth/signup', async (req, res) => {
         email: req.body.email,
         country: req.body.country || 'India',
         email_verified: req.body.auth_provider === 'google',
-        plan: req.body.plan || 'free',
+        plan: 'free',
         auth_provider: req.body.auth_provider || 'local'
       },
       expiresInHours: 48
@@ -374,9 +397,9 @@ app.post('/api/auth/google', async (req, res) => {
       const reFetch = await db.query('SELECT * FROM users WHERE id = $1', [userRow.id]);
       userRow = reFetch.rows[0];
     } else {
-      // New Google User Signup
+      // New Google User Signup - Strictly assign 'free' plan unless default Admin
       const isAdmin = AUTH_USER && cleanEmail === AUTH_USER.toLowerCase();
-      const userPlan = isAdmin ? 'plus' : (req.body.plan || 'free');
+      const userPlan = isAdmin ? 'plus' : 'free';
       const initialBalance = isAdmin ? 44830.00 : 50.00;
 
       const insertRes = await db.query(
@@ -424,17 +447,136 @@ app.post('/api/auth/google', async (req, res) => {
   }
 });
 
-// POST /api/auth/verify-email (Marks email as confirmed)
-app.post('/api/auth/verify-email', async (req, res) => {
+// Helper for cryptographic token verification
+const handleVerifyEmailToken = async (tokenVal, res, isGetRedirect = false, reqOrigin = '') => {
   try {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ error: 'Email is required' });
-    const cleanEmail = email.trim().toLowerCase();
-    await db.query('UPDATE users SET email_verified = true WHERE LOWER(email) = $1', [cleanEmail]);
-    return res.json({ success: true, message: 'Email confirmed successfully' });
+    const token = (tokenVal || '').trim();
+    if (!token) {
+      if (isGetRedirect) {
+        const baseUrl = (reqOrigin || process.env.APP_URL || 'https://contaques.pro').replace(/\/+$/, '');
+        return res.redirect(`${baseUrl}/verify-email?error=missing_token`);
+      }
+      return res.status(400).json({ error: 'Verification token is required' });
+    }
+
+    const userRes = await db.query(
+      'SELECT id, name, email, email_verified, plan, wallet_balance, email_verification_token_expires_at FROM users WHERE email_verification_token = $1',
+      [token]
+    );
+
+    if (userRes.rows.length === 0) {
+      if (isGetRedirect) {
+        const baseUrl = (reqOrigin || process.env.APP_URL || 'https://contaques.pro').replace(/\/+$/, '');
+        return res.redirect(`${baseUrl}/verify-email?error=invalid_or_used`);
+      }
+      return res.status(400).json({ error: 'Invalid or already used verification token.' });
+    }
+
+    const u = userRes.rows[0];
+
+    // Check expiration timestamp
+    if (u.email_verification_token_expires_at && new Date(u.email_verification_token_expires_at) < new Date()) {
+      if (isGetRedirect) {
+        const baseUrl = (reqOrigin || process.env.APP_URL || 'https://contaques.pro').replace(/\/+$/, '');
+        return res.redirect(`${baseUrl}/verify-email?error=expired`);
+      }
+      return res.status(400).json({ error: 'Verification token has expired. Please request a new verification email.' });
+    }
+
+    // Mark email as verified and clear single-use token
+    await db.query(
+      'UPDATE users SET email_verified = true, email_verification_token = NULL, email_verification_token_expires_at = NULL WHERE id = $1',
+      [u.id]
+    );
+
+    if (isGetRedirect) {
+      const baseUrl = (reqOrigin || process.env.APP_URL || 'https://contaques.pro').replace(/\/+$/, '');
+      return res.redirect(`${baseUrl}/verify-email?status=success`);
+    }
+
+    return res.json({
+      success: true,
+      message: 'Email verified successfully!',
+      user: {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        email_verified: true,
+        plan: u.plan,
+        wallet_balance: parseFloat(u.wallet_balance || 0)
+      }
+    });
   } catch (err) {
     console.error('Email verify error:', err);
-    return res.json({ success: true });
+    return res.status(500).json({ error: 'Internal server error during email verification' });
+  }
+};
+
+// GET /api/auth/verify-email?token=... (For clicking link directly in email)
+app.get('/api/auth/verify-email', async (req, res) => {
+  const token = req.query.token;
+  return handleVerifyEmailToken(token, res, true, req.headers.origin || req.headers.referer);
+});
+
+// POST /api/auth/verify-email-token (Called by Frontend /verify-email page)
+app.post('/api/auth/verify-email-token', async (req, res) => {
+  const token = req.body.token || req.query.token;
+  return handleVerifyEmailToken(token, res, false);
+});
+
+// Insecure legacy endpoint: reject tokenless requests, enforce token requirement
+app.post('/api/auth/verify-email', async (req, res) => {
+  const token = req.body.token || req.query.token;
+  if (!token) {
+    return res.status(400).json({ 
+      error: 'Direct email verification without a token is disabled. Please use the verification link sent to your email.' 
+    });
+  }
+  return handleVerifyEmailToken(token, res, false);
+});
+
+// POST /api/auth/resend-verification (Authenticated endpoint to re-generate & send verification email)
+app.post('/api/auth/resend-verification', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : (req.query.token || req.headers['x-access-token']);
+    const verified = verifyAuthToken(token);
+    if (!verified || !verified.email) {
+      return res.status(401).json({ error: 'Authentication required to resend verification email' });
+    }
+
+    const uRes = await db.query('SELECT id, name, email, email_verified FROM users WHERE LOWER(email) = $1', [verified.email.toLowerCase()]);
+    if (uRes.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const u = uRes.rows[0];
+    if (u.email_verified) {
+      return res.json({ success: true, message: 'Your email is already verified.' });
+    }
+
+    const newToken = crypto.randomBytes(32).toString('hex');
+    const newExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await db.query(
+      'UPDATE users SET email_verification_token = $1, email_verification_token_expires_at = $2 WHERE id = $3',
+      [newToken, newExpiry, u.id]
+    );
+
+    await sendVerificationEmail({
+      toEmail: u.email,
+      name: u.name,
+      token: newToken,
+      origin: req.headers.origin || req.headers.referer
+    });
+
+    return res.json({
+      success: true,
+      message: `Verification email sent to ${u.email}! Please check your inbox.`
+    });
+  } catch (err) {
+    console.error('Resend verification error:', err);
+    return res.status(500).json({ error: 'Failed to resend verification email' });
   }
 });
 

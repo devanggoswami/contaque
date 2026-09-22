@@ -273,50 +273,59 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const verifyEmail = async () => {
-    if (!user?.email) return;
+  // Request new email verification link to be sent to user's registered email
+  const resendVerificationEmail = async () => {
     try {
-      await fetch(`${API_URL}/api/auth/verify-email`, {
+      const res = await authFetch(`${API_URL}/api/auth/resend-verification`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: user.email })
+        headers: { 'Content-Type': 'application/json' }
       });
-    } catch (e) {
-      console.warn('Verify email offline fallback:', e);
+      const data = await parseResponseJson(res);
+      if (!res.ok) throw new Error(data.error || 'Failed to send verification email');
+      return { success: true, message: data.message };
+    } catch (err) {
+      return { success: false, error: err.message };
     }
-    const updatedUser = { ...user, email_verified: true };
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const session = JSON.parse(saved);
-      session.user = updatedUser;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-    }
-    setUser(updatedUser);
   };
 
-  const activatePlan = async (planId, billingDetails, paymentId) => {
+  // Verify email using server-validated cryptographic token
+  const verifyEmailWithToken = async (token) => {
     try {
-      await fetch(`${API_URL}/api/checkout/razorpay`, {
+      const res = await fetch(`${API_URL}/api/auth/verify-email-token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: user?.email || billingDetails?.email,
-          planId,
-          billingDetails,
-          paymentId
-        })
+        body: JSON.stringify({ token })
       });
+      const data = await parseResponseJson(res);
+      if (!res.ok) throw new Error(data.error || 'Invalid or expired verification link');
+      
+      setUser(prev => {
+        if (!prev) return data.user || null;
+        const upd = { ...prev, email_verified: true };
+        try {
+          const saved = localStorage.getItem(STORAGE_KEY);
+          if (saved) {
+            const session = JSON.parse(saved);
+            session.user = upd;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+          }
+        } catch {}
+        return upd;
+      });
+
+      return { success: true, message: data.message, user: data.user };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  };
+
+  // Refresh and synchronize user plan and profile from backend source of truth
+  const activatePlan = async (planId, billingDetails) => {
+    try {
+      await refreshWallet();
     } catch (e) {
-      console.warn('Checkout offline fallback:', e);
+      console.warn('Sync plan error:', e);
     }
-    const updatedUser = { ...user, plan: planId, billing_details: billingDetails };
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const session = JSON.parse(saved);
-      session.user = updatedUser;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-    }
-    setUser(updatedUser);
   };
 
   const logout = () => {
@@ -340,7 +349,7 @@ export const AuthProvider = ({ children }) => {
       walletBalance: wallet.balance,
       walletRates: wallet.rates,
       walletAllTiers: wallet.allTiers,
-      userPlan: wallet.plan || (user && user.plan) || 'plus',
+      userPlan: wallet.plan || (user && user.plan) || 'free',
       updateUserPlan,
       refreshWallet,
       authFetch,
@@ -349,7 +358,8 @@ export const AuthProvider = ({ children }) => {
       login, 
       loginWithGoogle,
       signup, 
-      verifyEmail, 
+      resendVerificationEmail,
+      verifyEmailWithToken,
       activatePlan, 
       logout 
     }}>

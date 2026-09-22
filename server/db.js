@@ -215,6 +215,11 @@ const initDb = async () => {
       CREATE INDEX IF NOT EXISTS idx_email_queue_campaign_status ON email_queue(campaign_id, status);
       CREATE INDEX IF NOT EXISTS idx_inbox_threads_account ON inbox_threads(account_id);
 
+      -- Email Verification Tokens
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_token VARCHAR(255);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_token_expires_at TIMESTAMP;
+      CREATE INDEX IF NOT EXISTS idx_users_email_verification_token ON users(email_verification_token);
+
       -- Subscription & Payment Order Architecture
       ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_started_at TIMESTAMP;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMP;
@@ -296,6 +301,19 @@ const initDb = async () => {
       WHERE (wallet_balance IS NULL OR wallet_balance = 0)
         AND ($1 = '' OR LOWER(email) != LOWER($1))
     `, [adminEmail || '']);
+
+    // Audit & Remediation: Reset any non-admin users with 'plus' or 'pack' who have NO verified transactions in plan_transactions
+    const unverifiedPlanReset = await client.query(`
+      UPDATE users 
+      SET plan = 'free' 
+      WHERE plan IN ('plus', 'pack')
+        AND ($1 = '' OR LOWER(email) != LOWER($1))
+        AND id NOT IN (SELECT user_id FROM plan_transactions WHERE plan_id IN ('plus', 'pack'))
+      RETURNING id, email, plan
+    `, [adminEmail || '']);
+    if (unverifiedPlanReset.rowCount > 0) {
+      console.log(`[Security Audit]: Reset ${unverifiedPlanReset.rowCount} unverified user(s) with unverified paid plans back to 'free'.`);
+    }
 
     client.release();
     console.log(`[PostgreSQL ${isNeon ? 'Neon Cloud' : 'Localhost'}] Schema verified & all tables ready.`);

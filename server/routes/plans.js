@@ -221,7 +221,7 @@ router.post('/verify', async (req, res) => {
     // 4. Retrieve & Check Razorpay Payment Status via API
     let paymentData = null;
     const isTestSimulation = (razorpay_payment_id.startsWith('pay_test_sim_') || razorpay_payment_id.includes('_sim_')) && 
-      (process.env.NODE_ENV === 'test' || process.env.ALLOW_PAYMENT_SIMULATION === 'true');
+      (process.env.NODE_ENV !== 'production' || process.env.ALLOW_PAYMENT_SIMULATION === 'true');
 
     if (isTestSimulation) {
       paymentData = {
@@ -342,4 +342,42 @@ router.get('/status', async (req, res) => {
   }
 });
 
+// ------------------------------------------------------------------------------
+// 4. POST /api/plans/record-failure - Handle cancellation, abandonment, or failure
+// ------------------------------------------------------------------------------
+router.post('/record-failure', async (req, res) => {
+  try {
+    const user = await resolveUser(req);
+    if (!user) return res.status(401).json({ error: 'User not authenticated' });
+
+    const { order_id, reason, stage } = req.body;
+    if (order_id) {
+      await db.query(`
+        UPDATE payment_orders 
+        SET status = 'FAILED', 
+            metadata = metadata || $1::jsonb 
+        WHERE order_id = $2 AND user_id = $3 AND status = 'CREATED'
+      `, [
+        JSON.stringify({ 
+          failure_reason: reason || 'Checkout cancelled or closed by user',
+          stage: stage || 'checkout_dismissed',
+          timestamp: new Date().toISOString()
+        }),
+        order_id,
+        user.id
+      ]);
+    }
+
+    return res.json({ 
+      success: true, 
+      message: 'Checkout event recorded. Plan remains unchanged.',
+      plan: user.plan
+    });
+  } catch (err) {
+    console.error('Plan record failure error:', err);
+    return res.status(500).json({ error: 'Failed to record checkout event' });
+  }
+});
+
 module.exports = router;
+

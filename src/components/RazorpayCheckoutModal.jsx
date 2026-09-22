@@ -98,7 +98,7 @@ export default function RazorpayCheckoutModal({
         email: accountForm.email,
         password: accountForm.password,
         country: accountForm.country,
-        plan: plan.id
+        plan: 'free'
       });
       setAuthLoading(false);
       if (res.success) {
@@ -196,7 +196,7 @@ export default function RazorpayCheckoutModal({
             setPaying(false);
             setStep(4); // Move to Payment Success
 
-            // Activate plan in local user state
+            // Refresh user state from authoritative backend
             if (activatePlan) {
               await activatePlan(verifyData.plan || plan.id, billingForm);
             }
@@ -209,6 +209,18 @@ export default function RazorpayCheckoutModal({
         modal: {
           ondismiss: () => {
             setPaying(false);
+            setPaymentError('Payment was cancelled or closed. Your subscription remains unchanged.');
+            if (orderData?.orderId) {
+              authFetch(`${API_URL}/api/plans/record-failure`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  order_id: orderData.orderId,
+                  reason: 'Checkout window dismissed by user',
+                  stage: 'modal_dismissed'
+                })
+              }).catch(() => {});
+            }
           }
         }
       };
@@ -216,8 +228,20 @@ export default function RazorpayCheckoutModal({
       const rzpInstance = new window.Razorpay(options);
       rzpInstance.on('payment.failed', (failResp) => {
         console.error('[Razorpay Failed]:', failResp.error);
-        setPaymentError(failResp.error?.description || 'Payment was declined or cancelled.');
+        const errMsg = failResp.error?.description || 'Payment was declined or cancelled.';
+        setPaymentError(`${errMsg} Your subscription remains unchanged.`);
         setPaying(false);
+        if (orderData?.orderId) {
+          authFetch(`${API_URL}/api/plans/record-failure`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              order_id: orderData.orderId,
+              reason: errMsg,
+              stage: 'payment_failed'
+            })
+          }).catch(() => {});
+        }
       });
 
       rzpInstance.open();

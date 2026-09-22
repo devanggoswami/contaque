@@ -64,9 +64,9 @@ function AnimatedNumber({ value, duration = 650 }) {
 function Dashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user, verifyEmail, walletBalance, refreshWallet, userPlan, updateUserPlan, authFetch } = useAuth();
-  const [emailConfirmed, setEmailConfirmed] = useState(false);
-  const [verifyingEmail, setVerifyingEmail] = useState(false);
+  const { user, resendVerificationEmail, walletBalance, refreshWallet, userPlan, updateUserPlan, authFetch } = useAuth();
+  const [emailDismissed, setEmailDismissed] = useState(false);
+  const [resendStatus, setResendStatus] = useState({ sending: false, message: '', isError: false });
   const [showUpgradeCheckout, setShowUpgradeCheckout] = useState(false);
   const [selectedUpgradePlan, setSelectedUpgradePlan] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -83,11 +83,22 @@ function Dashboard() {
     }
   }, [searchParams, setSearchParams]);
 
-  const handleConfirmEmailClick = async () => {
-    setVerifyingEmail(true);
-    await verifyEmail();
-    setVerifyingEmail(false);
-    setEmailConfirmed(true);
+  const handleResendEmailClick = async () => {
+    setResendStatus({ sending: true, message: '', isError: false });
+    const res = await resendVerificationEmail();
+    if (res.success) {
+      setResendStatus({
+        sending: false,
+        message: 'Verification link sent! Check your inbox.',
+        isError: false
+      });
+    } else {
+      setResendStatus({
+        sending: false,
+        message: res.error || 'Failed to send verification email.',
+        isError: true
+      });
+    }
   };
 
   const [stats, setStats] = useState({
@@ -280,7 +291,7 @@ function Dashboard() {
   return (
     <div className="page-content animate-slide-up">
       {/* Email Verification Alert Banner */}
-      {user && !user.email_verified && !emailConfirmed && (
+      {user && !user.email_verified && !emailDismissed && (
         <div className="email-verify-alert-banner animate-fade-in">
           <div className="alert-left-group">
             <div className="alert-icon-circle">
@@ -288,22 +299,27 @@ function Dashboard() {
             </div>
             <div className="alert-message-text">
               <strong>Please confirm email in your inbox</strong>
-              <span>Verification link sent to <strong className="alert-email-highlight">{user.email}</strong>. Confirm your email to complete verification.</span>
+              <span>Verification link sent to <strong className="alert-email-highlight">{user.email}</strong>. Open your email and click the confirmation link to complete verification.</span>
+              {resendStatus.message && (
+                <div style={{ marginTop: '6px', fontSize: '12px', color: resendStatus.isError ? '#f87171' : '#34d399', fontWeight: 500 }}>
+                  {resendStatus.message}
+                </div>
+              )}
             </div>
           </div>
           <div className="alert-right-actions">
             <button 
               type="button" 
               className="alert-confirm-btn"
-              onClick={handleConfirmEmailClick}
-              disabled={verifyingEmail}
+              onClick={handleResendEmailClick}
+              disabled={resendStatus.sending}
             >
-              {verifyingEmail ? 'Confirming...' : 'Confirm Email Now'}
+              {resendStatus.sending ? 'Sending...' : 'Resend Verification Link'}
             </button>
             <button 
               type="button" 
               className="alert-dismiss-x"
-              onClick={() => setEmailConfirmed(true)}
+              onClick={() => setEmailDismissed(true)}
               title="Dismiss"
             >
               <X size={14} />

@@ -97,7 +97,7 @@ export default function Signup() {
       email: email.trim(),
       country,
       password,
-      plan: requestedPlan
+      plan: 'free'
     });
     setSubmitting(false);
 

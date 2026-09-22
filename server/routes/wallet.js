@@ -440,7 +440,10 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
 });
 
 // ------------------------------------------------------------------------------
-// 7. POST /api/wallet/plan/update - Switch or Upgrade User Subscription Plan
+// 7. POST /api/wallet/plan/update - Switch or Downgrade User Subscription Plan
+// Security Invariant: Paid plan upgrades CANNOT be activated directly here.
+// Paid plan activation strictly requires verified Razorpay payment via /api/plans/verify.
+// Only switching/downgrading to 'free' is permitted directly.
 // ------------------------------------------------------------------------------
 router.post('/plan/update', async (req, res) => {
   try {
@@ -448,6 +451,13 @@ router.post('/plan/update', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'User not authenticated' });
 
     const newPlan = normalizePlanKey(req.body.plan);
+
+    if (newPlan !== 'free') {
+      return res.status(403).json({
+        error: 'Paid plans cannot be activated directly. Paid plan activation requires verified payment via Razorpay checkout.'
+      });
+    }
+
     await db.query('UPDATE users SET plan = $1 WHERE id = $2', [newPlan, user.id]);
 
     const balanceInfo = await getWalletBalance(user.id);
