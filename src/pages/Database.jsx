@@ -475,7 +475,7 @@ function Database() {
         'Pinterest': sanitizeText(lead.pinterest || '-'),
         'Telegram': sanitizeText(lead.telegram || '-'),
         'City / Address': cleanAddress(lead.address, jobInfo.location),
-        'Source Link': sanitizeText(lead.source_link || '-')
+        'Link': sanitizeText(lead.source_link || '-')
       };
     });
 
@@ -517,7 +517,7 @@ function Database() {
         { wch: 30 },  // Pinterest
         { wch: 30 },  // Telegram
         { wch: 48 },  // Address
-        { wch: 45 }   // Source Link
+        { wch: 45 }   // Link
       ];
 
       // Convert text URLs to clickable Excel hyperlinks
@@ -599,7 +599,7 @@ function Database() {
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
 
-      const tableColumn = ["#", "Business Name", "Category", "Contact (Email/Mobile)", "Social Links", "Website / Domain", "Address", "Source Link"];
+      const tableColumn = ["#", "Business Name", "Category", "Contact (Email/Mobile)", "Social Links", "Website / Domain", "Address", "Link"];
       const tableRows = leadsToExport.map((lead, idx) => {
         let contactStr = sanitizeText(lead.emails || '-');
         let phoneStr = sanitizeText(lead.mobile || lead.phone);
@@ -832,7 +832,7 @@ function Database() {
             'Website': sanitizeText(l.website || '-'),
             'City / Address': cleanAddress(l.address, l.job_location),
             'Location': sanitizeText(l.job_location || '-'),
-            'Source Link': sanitizeText(l.source_link || '-')
+            'Link': sanitizeText(l.source_link || '-')
           };
         });
       } else if (getDataType === 'emails') {
@@ -846,7 +846,7 @@ function Database() {
           'Mobile / WhatsApp': sanitizeText(l.whatsapp || l.mobile || '-'),
           'City / Address': cleanAddress(l.address, l.job_location),
           'Location': sanitizeText(l.job_location || '-'),
-          'Source Link': sanitizeText(l.source_link || '-')
+          'Link': sanitizeText(l.source_link || '-')
         }));
       } else if (getDataType === 'max') {
         exportRows = extractedLeads.map((l, idx) => {
@@ -862,7 +862,7 @@ function Database() {
             'Verified Email': sanitizeText(l.emails || '-'),
             'City / Address': cleanAddress(l.address, l.job_location),
             'Location': sanitizeText(l.job_location || '-'),
-            'Source Link': sanitizeText(l.source_link || '-')
+            'Link': sanitizeText(l.source_link || '-')
           };
         });
       } else if (getDataType === 'phones') {
@@ -881,7 +881,7 @@ function Database() {
             'Verified Email': sanitizeText(l.emails || '-'),
             'City / Address': cleanAddress(l.address, l.job_location),
             'Location': sanitizeText(l.job_location || '-'),
-            'Source Link': sanitizeText(l.source_link || '-')
+            'Link': sanitizeText(l.source_link || '-')
           };
         });
       } else if (getDataType === 'socials') {
@@ -902,7 +902,7 @@ function Database() {
           'Verified Email': sanitizeText(l.emails || '-'),
           'City / Address': cleanAddress(l.address, l.job_location),
           'Location': sanitizeText(l.job_location || '-'),
-          'Source Link': sanitizeText(l.source_link || '-')
+          'Link': sanitizeText(l.source_link || '-')
         }));
       } else {
         // all
@@ -929,7 +929,7 @@ function Database() {
             'Telegram': sanitizeText(l.telegram || '-'),
             'City / Address': cleanAddress(l.address, l.job_location),
             'Location': sanitizeText(l.job_location || '-'),
-            'Source Link': sanitizeText(l.source_link || '-')
+            'Link': sanitizeText(l.source_link || '-')
           };
         });
       }
@@ -1053,7 +1053,7 @@ function Database() {
             7: { cellWidth: 145, textColor: [40, 35, 30] }
           };
         } else if (getDataType === 'emails') {
-          tableColumn = ["#", "Business Name", "Category", "Verified Email", "Website / Domain", "Phone / Mobile", "Address / Location", "Source Link"];
+          tableColumn = ["#", "Business Name", "Category", "Verified Email", "Website / Domain", "Phone / Mobile", "Address / Location", "Link"];
           tableRows = extractedLeads.map((lead, idx) => [
             idx + 1,
             cleanBusinessName(lead.name),
@@ -1075,7 +1075,7 @@ function Database() {
             7: { cellWidth: 70, textColor: [120, 80, 40], fontSize: 7 }
           };
         } else if (getDataType === 'phones') {
-          tableColumn = ["#", "Business Name", "Category", "Phone Number", "Mobile / WhatsApp", "Address / Location", "Website", "Source"];
+          tableColumn = ["#", "Business Name", "Category", "Phone Number", "Mobile / WhatsApp", "Address / Location", "Website", "Link"];
           tableRows = extractedLeads.map((lead, idx) => [
             idx + 1,
             cleanBusinessName(lead.name),
@@ -1097,7 +1097,7 @@ function Database() {
             7: { cellWidth: 70, textColor: [120, 80, 40], fontSize: 7 }
           };
         } else if (getDataType === 'socials') {
-          tableColumn = ["#", "Business Name", "Category", "Social Handles / Links", "Website / Domain", "Phone / Contact", "Location", "Source"];
+          tableColumn = ["#", "Business Name", "Category", "Social Handles / Links", "Website / Domain", "Phone / Contact", "Location", "Link"];
           tableRows = extractedLeads.map((lead, idx) => {
             return [
               idx + 1,
@@ -2531,12 +2531,12 @@ function Database() {
                             </div>
                           )}
 
-                          {/* Social Badges & Source Link */}
+                          {/* Social Badges & Link */}
                           <div className="mobile-lead-card-footer">
                             {renderSocialBadges(lead)}
                             {lead.source_link && (
                               <a href={lead.source_link} target="_blank" rel="noreferrer" className="mobile-source-link-btn">
-                                <span>Source Link</span>
+                                <span>Link</span>
                                 <ExternalLink size={12} />
                               </a>
                             )}
