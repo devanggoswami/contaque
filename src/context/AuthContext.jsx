@@ -11,16 +11,10 @@ async function parseResponseJson(res) {
   try {
     return JSON.parse(text);
   } catch {
-    if (text.includes('Service Suspended') || text.includes('suspended by its owner')) {
-      throw new Error('Backend service is currently suspended on Render. Please resume the service in your Render dashboard.');
+    if (res.status === 404 || res.status === 502 || res.status === 503 || res.status === 504 || text.includes('Service Suspended') || text.includes('<html>')) {
+      throw new Error('Backend service is currently unavailable. Please try again shortly.');
     }
-    if (res.status === 502 || res.status === 503 || res.status === 504) {
-      throw new Error('Backend server is waking up or temporarily busy. Please retry in 30 seconds.');
-    }
-    if (res.status === 404) {
-      throw new Error('Backend API endpoint not found (404). Please ensure backend service is running.');
-    }
-    throw new Error(!res.ok ? `Server returned error (${res.status}). Please check backend status.` : 'Invalid response from server.');
+    throw new Error(!res.ok ? 'Backend service is currently unavailable. Please try again shortly.' : 'Invalid response from server.');
   }
 }
 
