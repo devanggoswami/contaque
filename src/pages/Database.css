@@ -290,11 +290,11 @@
   display: inline-block;
 }
 
-.src-pill.maps { background: #eef2ff; color: #4338ca; border: 1px solid rgba(79, 70, 229, 0.2); }
-.src-pill.dorking { background: #ecfeff; color: #0891b2; border: 1px solid rgba(8, 145, 178, 0.2); }
-.src-pill.yellowpages { background: #fef3c7; color: #b45309; border: 1px solid rgba(180, 83, 9, 0.2); }
-.src-pill.yandex { background: #fce7f3; color: #db2777; border: 1px solid rgba(219, 39, 119, 0.2); }
-.src-pill.whatsapp { background: #dcfce7; color: #15803d; border: 1px solid rgba(34, 197, 94, 0.25); }
+.src-pill.maps { background: var(--primary-light, #DCEAF5); color: var(--brand-navy, #10367D); border: 1px solid #BAC7D5; }
+.src-pill.dorking { background: var(--bg-card-subtle, #F0F6FB); color: var(--primary, #2563EB); border: 1px solid #C8DDF0; }
+.src-pill.yellowpages { background: #F1F5F9; color: #334155; border: 1px solid #CBD5E1; }
+.src-pill.yandex { background: #F8FAFC; color: var(--text-secondary, #475569); border: 1px solid #E2E8F0; }
+.src-pill.whatsapp { background: var(--success-bg, #ECFDF5); color: var(--success-text, #059669); border: 1px solid var(--success-border, #A7F3D0); }
 
 .query-col-data {
   display: flex;
@@ -343,8 +343,8 @@
   margin-left: auto;
   font-size: 11px;
   font-weight: 800;
-  color: var(--primary);
-  background: var(--primary-light);
+  color: var(--brand-navy, #10367D);
+  background: var(--primary-light, #DCEAF5);
   padding: 1px 6px;
   border-radius: var(--radius-xs);
 }
@@ -366,7 +366,7 @@
 }
 
 .shimmer-bar {
-  background: linear-gradient(90deg, #4f46e5 25%, #818cf8 50%, #4f46e5 75%);
+  background: linear-gradient(90deg, #10367D 25%, #2563EB 50%, #10367D 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
@@ -422,9 +422,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: var(--primary-light);
-  color: var(--primary);
-  border: 1px solid rgba(79, 70, 229, 0.2);
+  background: var(--primary-light, #DCEAF5);
+  color: var(--brand-navy, #10367D);
+  border: 1px solid #BAC7D5;
   padding: 7px 14px;
   border-radius: var(--radius-md);
   font-size: 12.5px;
@@ -434,8 +434,9 @@
 }
 
 .inspect-leads-btn:hover:not(:disabled) {
-  background: var(--primary);
+  background: var(--primary, #2563EB);
   color: #ffffff;
+  border-color: #1D4ED8;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px var(--primary-glow);
 }
@@ -910,12 +911,12 @@
 
 .mobile-job-card.running {
   border-color: var(--primary);
-  background: rgba(79, 70, 229, 0.02);
+  background: rgba(37, 99, 235, 0.03);
 }
 
 .mobile-job-card.selected {
   border-color: var(--primary);
-  background: #f5f3ff;
+  background: var(--primary-light, #DCEAF5);
 }
 
 .mobile-job-card-header {
@@ -1119,9 +1120,9 @@
   gap: 4px;
   font-size: 11px;
   font-weight: 700;
-  color: var(--primary);
+  color: var(--brand-navy, #10367D);
   text-decoration: none;
-  background: #eef2ff;
+  background: var(--primary-light, #DCEAF5);
   padding: 4px 8px;
   border-radius: 5px;
 }
@@ -1424,9 +1425,9 @@
 }
 
 .db-tab-btn.active {
-  background: #eef2ff;
-  color: #4f46e5;
-  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.12);
+  background: var(--primary-light, #DCEAF5);
+  color: var(--brand-navy, #10367D);
+  box-shadow: 0 2px 8px rgba(16, 54, 125, 0.08);
 }
 
 .tab-pill-highlight {
@@ -1434,7 +1435,7 @@
   font-weight: 800;
   padding: 2px 7px;
   border-radius: 999px;
-  background: #4f46e5;
+  background: var(--brand-navy, #10367D);
   color: #ffffff;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -1662,22 +1663,22 @@
 }
 
 .btn-export.csv {
-  background: #f0f9ff;
-  color: #0369a1;
-  border-color: #bae6fd;
+  background: var(--primary-light, #DCEAF5);
+  color: var(--brand-navy, #10367D);
+  border-color: #BAC7D5;
 }
 .btn-export.csv:hover:not(:disabled) {
-  background: #e0f2fe;
+  background: #C8DDF0;
   transform: translateY(-1px);
 }
 
 .btn-export.pdf {
-  background: #faf5ff;
-  color: #6b21a8;
-  border-color: #e9d5ff;
+  background: var(--danger-bg, #FEF2F2);
+  color: var(--danger-text, #DC2626);
+  border-color: var(--danger-border, #FECACA);
 }
 .btn-export.pdf:hover:not(:disabled) {
-  background: #f3e8ff;
+  background: #FEE2E2;
   transform: translateY(-1px);
 }
 

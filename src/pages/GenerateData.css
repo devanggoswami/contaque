@@ -1,6 +1,7 @@
 /* ==========================================================================
    GENERATE DATA (SCRAPER LAUNCHER) STYLESHEET
-   Clean, modern B2B SaaS design system with single purple/indigo brand accent.
+   Deep Navy (#10367D) + Medium Blue (#2563EB) + Soft Light Blue (#DCEAF5)
+   Clean, modern B2B SaaS design system.
    Fully responsive across 360px, 390px, 430px mobile, tablet, and desktop screens.
    ========================================================================== */
 
@@ -25,10 +26,10 @@
 }
 
 .generate-card {
-  background-color: var(--bg-card, #ffffff);
+  background-color: var(--bg-card, #FFFFFF);
   border-radius: 12px;
-  border: 1px solid var(--border-color, #e2e8f0);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--border-color, #D9E1EA);
+  box-shadow: var(--shadow-xs);
   padding: 22px 26px;
   box-sizing: border-box;
 }
@@ -51,9 +52,9 @@
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  background: #eef2ff;
-  color: #4f46e5;
-  border: 1px solid #c7d2fe;
+  background: var(--primary-light, #DCEAF5);
+  color: var(--brand-navy, #10367D);
+  border: 1px solid #BAC7D5;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -62,22 +63,22 @@
 
 .generate-header h1 {
   font-size: 19px;
-  font-weight: 700;
-  color: #0f172a;
+  font-weight: 800;
+  color: var(--brand-navy, #10367D);
   margin-bottom: 2px;
   letter-spacing: -0.4px;
 }
 
 .generate-header p {
-  color: #64748b;
+  color: var(--text-muted, #64748B);
   font-size: 12.5px;
   margin: 0;
 }
 
 /* Presets Section */
 .presets-section {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-card-subtle, #F0F6FB);
+  border: 1px solid var(--border-color, #D9E1EA);
   border-radius: 8px;
   padding: 8px 12px;
   margin-bottom: 14px;
@@ -89,7 +90,7 @@
   gap: 5px;
   font-size: 10.5px;
   font-weight: 700;
-  color: #d97706;
+  color: var(--warning, #D97706);
   letter-spacing: 0.5px;
   margin-bottom: 6px;
 }
@@ -101,8 +102,8 @@
 }
 
 .preset-chip {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: #FFFFFF;
+  border: 1px solid var(--border-color, #D9E1EA);
   border-radius: 999px;
   padding: 4px 10px;
   font-size: 11.5px;
@@ -111,13 +112,13 @@
   align-items: center;
   gap: 4px;
   transition: all 0.15s ease;
-  color: #475569;
+  color: var(--text-secondary, #475569);
 }
 
 .preset-chip:hover {
-  border-color: #4f46e5;
-  color: #4f46e5;
-  background: #f8fafc;
+  border-color: var(--primary, #2563EB);
+  color: var(--brand-navy, #10367D);
+  background: var(--primary-light, #DCEAF5);
 }
 
 .preset-kw {
@@ -125,7 +126,7 @@
 }
 
 .preset-loc {
-  color: #64748b;
+  color: var(--text-muted, #64748B);
   font-weight: 500;
 }
 
@@ -157,33 +158,33 @@
 }
 
 .source-card {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-color, #D9E1EA);
   border-radius: 8px;
   padding: 8px 10px;
   display: flex;
   align-items: center;
   gap: 9px;
   cursor: pointer;
-  background-color: #ffffff;
+  background-color: #FFFFFF;
   transition: all 0.15s ease;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 .source-card:hover {
-  border-color: #cbd5e1;
-  background-color: #f8fafc;
+  border-color: var(--border-hover, #BAC7D5);
+  background-color: var(--bg-card-subtle, #F0F6FB);
 }
 
 .source-card.active {
-  border-color: #4f46e5;
-  background-color: #f5f3ff;
-  box-shadow: 0 0 0 1px #4f46e5;
+  border-color: var(--primary, #2563EB);
+  background-color: var(--primary-light, #DCEAF5);
+  box-shadow: 0 0 0 1px var(--primary, #2563EB);
 }
 
 .source-card.whatsapp-card.active {
-  border-color: #10b981;
-  background-color: #ecfdf5;
-  box-shadow: 0 0 0 1px #10b981;
+  border-color: var(--success, #10B981);
+  background-color: var(--success-bg, #ECFDF5);
+  box-shadow: 0 0 0 1px var(--success, #10B981);
 }
 
 .source-icon {
@@ -193,27 +194,27 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f1f5f9;
-  color: #64748b;
+  background-color: var(--bg-card-subtle, #F0F6FB);
+  color: var(--text-muted, #64748B);
   transition: all 0.15s ease;
   flex-shrink: 0;
 }
 
 .source-card.active .source-icon {
-  background-color: #ffffff;
-  color: #4f46e5;
-  border: 1px solid #c7d2fe;
+  background-color: #FFFFFF;
+  color: var(--brand-navy, #10367D);
+  border: 1px solid #BAC7D5;
 }
 
 .source-icon.whatsapp {
-  color: #059669;
-  background-color: #ecfdf5;
+  color: var(--success-text, #059669);
+  background-color: var(--success-bg, #ECFDF5);
 }
 
 .source-card.whatsapp-card.active .source-icon {
-  background-color: #ffffff;
-  color: #059669;
-  border: 1px solid #a7f3d0;
+  background-color: #FFFFFF;
+  color: var(--success-text, #059669);
+  border: 1px solid var(--success-border, #A7F3D0);
 }
 
 .source-details {
@@ -225,7 +226,7 @@
   margin: 0;
   font-size: 12px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--text-main, #172033);
   white-space: nowrap;
 }
 
@@ -233,8 +234,8 @@
   display: inline-block;
   font-size: 9.5px;
   font-weight: 700;
-  color: #047857;
-  background: #d1fae5;
+  color: var(--success-text, #059669);
+  background: #D1FAE5;
   padding: 1px 5px;
   border-radius: 4px;
   margin-top: 2px;
@@ -256,30 +257,30 @@
   gap: 5px;
   padding: 6px 12px;
   border-radius: 6px;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
+  border: 1px solid var(--border-color, #D9E1EA);
+  background: var(--bg-card-subtle, #F0F6FB);
   font-size: 12px;
   font-weight: 600;
-  color: #475569;
+  color: var(--text-secondary, #475569);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .platform-btn:hover {
-  border-color: #cbd5e1;
-  color: #0f172a;
+  border-color: var(--border-hover, #BAC7D5);
+  color: var(--brand-navy, #10367D);
 }
 
 .platform-btn.active {
-  background: #4f46e5;
-  color: #ffffff;
-  border-color: #4338ca;
+  background: var(--brand-navy, #10367D);
+  color: #FFFFFF;
+  border-color: var(--brand-navy-dark, #0A2558);
 }
 
 .custom-url-box {
   margin-top: 10px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-card-subtle, #F0F6FB);
+  border: 1px solid var(--border-color, #D9E1EA);
   border-radius: 8px;
   padding: 14px;
   display: flex;
@@ -290,7 +291,7 @@
 .custom-url-box label {
   font-size: 11.5px;
   font-weight: 700;
-  color: #475569;
+  color: var(--text-secondary, #475569);
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
@@ -299,30 +300,30 @@
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  background: #fffbeb;
-  border: 1px solid #fef3c7;
+  background: var(--warning-bg, #FFFBEB);
+  border: 1px solid var(--warning-border, #FEF3C7);
   border-radius: 6px;
   padding: 10px 12px;
   font-size: 12px;
-  color: #92400e;
+  color: var(--warning-text, #92400E);
   line-height: 1.4;
 }
 
 .warning-blink-icon {
-  color: #d97706;
+  color: var(--warning, #D97706);
   flex-shrink: 0;
   margin-top: 1px;
 }
 
 .warning-text-content strong {
-  color: #b45309;
+  color: #B45309;
   font-weight: 700;
 }
 
 .group-title {
   font-size: 11px;
   font-weight: 700;
-  color: #64748b;
+  color: var(--text-muted, #64748B);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 6px;
@@ -352,7 +353,7 @@
 .form-group label {
   font-size: 11px;
   font-weight: 700;
-  color: #64748b;
+  color: var(--text-muted, #64748B);
   text-transform: uppercase;
   letter-spacing: 0.4px;
   margin-bottom: 4px;
@@ -364,21 +365,21 @@
   font-size: 13.5px;
   width: 100%;
   box-sizing: border-box;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: #FFFFFF;
+  border: 1px solid var(--border-color, #D9E1EA);
   border-radius: 8px;
-  color: #0f172a;
+  color: var(--text-main, #172033);
 }
 
 .form-control:focus {
-  border-color: #4f46e5;
+  border-color: var(--primary, #2563EB);
   outline: none;
-  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
+  box-shadow: 0 0 0 2px var(--primary-glow);
 }
 
 .input-icon {
   left: 12px;
-  color: #94a3b8;
+  color: var(--text-muted, #64748B);
 }
 
 .range-selector-box {
@@ -400,7 +401,7 @@
 .dynamic-range-slider {
   flex: 1;
   width: 100%;
-  accent-color: #4f46e5;
+  accent-color: var(--primary, #2563EB);
   cursor: pointer;
   height: 6px;
 }
@@ -438,37 +439,37 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-card-subtle, #F0F6FB);
+  border: 1px solid var(--border-color, #D9E1EA);
   border-radius: 6px;
   padding: 5px 8px;
   font-size: 11px;
   font-weight: 500;
-  color: #475569;
+  color: var(--text-secondary, #475569);
 }
 
 .telemetry-pill svg {
-  color: #4f46e5;
+  color: var(--brand-navy, #10367D);
   flex-shrink: 0;
 }
 
 .telemetry-pill.highlight {
-  background: #ecfdf5;
-  border-color: #a7f3d0;
-  color: #047857;
+  background: var(--success-bg, #ECFDF5);
+  border-color: var(--success-border, #A7F3D0);
+  color: var(--success-text, #059669);
   font-weight: 600;
 }
 
 .telemetry-pill.highlight svg {
-  color: #059669;
+  color: var(--success, #10B981);
 }
 
 /* --------------------------------------------------------------------------
    PREPAID WALLET & COST ESTIMATOR - Clean Light SaaS Design
    -------------------------------------------------------------------------- */
 .lead-cost-summary-box {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-card-subtle, #F0F6FB);
+  border: 1px solid var(--border-color, #D9E1EA);
   border-radius: 10px;
   padding: 14px 16px;
   margin-top: 14px;
@@ -482,7 +483,7 @@
   align-items: center;
   justify-content: space-between;
   padding-bottom: 6px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-color, #D9E1EA);
 }
 
 .cost-summary-title {
@@ -490,13 +491,13 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #64748b;
+  color: var(--text-muted, #64748B);
 }
 
 .cost-plan-badge {
-  background: #eef2ff;
-  border: 1px solid #c7d2fe;
-  color: #4338ca;
+  background: var(--primary-light, #DCEAF5);
+  border: 1px solid #BAC7D5;
+  color: var(--brand-navy, #10367D);
   font-size: 9.5px;
   font-weight: 700;
   padding: 2px 7px;
@@ -514,23 +515,23 @@
   align-items: center;
   justify-content: space-between;
   font-size: 12.5px;
-  color: #475569;
+  color: var(--text-secondary, #475569);
 }
 
 .cost-row strong {
-  color: #0f172a;
+  color: var(--text-main, #172033);
 }
 
 .cost-row.total-row {
   padding-top: 6px;
-  border-top: 1px dashed #cbd5e1;
+  border-top: 1px dashed var(--border-hover, #BAC7D5);
   font-weight: 600;
-  color: #0f172a;
+  color: var(--text-main, #172033);
 }
 
 .cost-total-val {
   font-size: 14px;
-  color: #4f46e5;
+  color: var(--brand-navy, #10367D);
   font-weight: 700;
 }
 
@@ -539,21 +540,21 @@
 }
 
 .bal-good {
-  color: #059669;
+  color: var(--success-text, #059669);
   font-weight: 700;
 }
 
 .bal-short {
-  color: #dc2626;
+  color: var(--danger-text, #DC2626);
   font-weight: 700;
 }
 
 .shortfall-warning {
-  background: #fffbeb;
-  border: 1px solid #fef3c7;
+  background: var(--warning-bg, #FFFBEB);
+  border: 1px solid var(--warning-border, #FEF3C7);
   border-radius: 6px;
   padding: 8px 12px;
-  color: #92400e;
+  color: var(--warning-text, #92400E);
   font-size: 11.5px;
   font-weight: 600;
   display: flex;
@@ -568,22 +569,23 @@
   justify-content: center;
   gap: 8px;
   width: 100%;
-  background: #4f46e5;
-  color: #ffffff;
-  border: 1px solid #4338ca;
+  background: var(--primary, #2563EB);
+  color: #FFFFFF;
+  border: 1px solid #1D4ED8;
   border-radius: 8px;
   padding: 11px 20px;
   font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 1px 2px rgba(79, 70, 229, 0.2);
-  transition: background-color 0.15s ease;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
+  transition: background-color 0.15s ease, transform 0.15s ease;
   margin-top: 8px;
   box-sizing: border-box;
 }
 
 .submit-button:hover:not(:disabled) {
-  background: #4338ca;
+  background: var(--primary-hover, #1D4ED8);
+  transform: translateY(-1px);
 }
 
 .submit-button:disabled {
@@ -592,18 +594,18 @@
 }
 
 .submit-button.dispatched {
-  background: #059669;
+  background: var(--success-text, #059669);
   border-color: #047857;
 }
 
 .submit-button.recharge-btn {
-  background: #d97706;
-  border: 1px solid #b45309;
-  color: #ffffff;
+  background: var(--warning, #D97706);
+  border: 1px solid #B45309;
+  color: #FFFFFF;
 }
 
 .submit-button.recharge-btn:hover {
-  background: #b45309;
+  background: #B45309;
 }
 
 .spin-icon {
@@ -613,12 +615,12 @@
 .error-message-card {
   margin-top: 12px;
   padding: 10px 14px;
-  background-color: #fef2f2;
-  color: #b91c1c;
+  background-color: var(--danger-bg, #FEF2F2);
+  color: var(--danger-text, #DC2626);
   border-radius: 8px;
   font-size: 12.5px;
   font-weight: 600;
-  border: 1px solid #fecaca;
+  border: 1px solid var(--danger-border, #FECACA);
 }
 
 /* Toast Notification */
@@ -626,11 +628,11 @@
   position: fixed;
   bottom: 24px;
   right: 24px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: #FFFFFF;
+  border: 1px solid var(--border-color, #D9E1EA);
   border-radius: 10px;
   padding: 14px 18px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-lg);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -649,7 +651,7 @@
 }
 
 .toast-icon-wrapper {
-  color: #059669;
+  color: var(--success-text, #059669);
   flex-shrink: 0;
 }
 
@@ -657,13 +659,13 @@
   margin: 0 0 2px 0;
   font-size: 13.5px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-main, #172033);
 }
 
 .toast-body p {
   margin: 0;
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-muted, #64748B);
 }
 
 .toast-actions {
@@ -677,9 +679,9 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: #eef2ff;
-  color: #4338ca;
-  border: 1px solid #c7d2fe;
+  background: var(--primary-light, #DCEAF5);
+  color: var(--brand-navy, #10367D);
+  border: 1px solid #BAC7D5;
   padding: 5px 10px;
   border-radius: 6px;
   font-size: 12px;
@@ -688,18 +690,18 @@
 }
 
 .toast-view-btn:hover {
-  background: #e0e7ff;
+  background: #C8DDF0;
 }
 
 .toast-close-btn {
   background: transparent;
   border: none;
-  color: #94a3b8;
+  color: var(--text-muted, #64748B);
   cursor: pointer;
   padding: 4px;
   border-radius: 4px;
 }
 
 .toast-close-btn:hover {
-  color: #0f172a;
+  color: var(--text-main, #172033);
 }
