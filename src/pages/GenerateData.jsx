@@ -437,7 +437,7 @@ function GenerateData() {
                   <span>{targetCount} leads</span>
                 </div>
                 <div className="cost-row total-row">
-                  <span>Estimated Hold (Auto-refund on unfulfilled/duplicates):</span>
+                  <span>Estimated Total:</span>
                   <strong className="cost-total-val">₹{estimatedCost.toFixed(2)}</strong>
                 </div>
                 <div className="cost-row wallet-row">
