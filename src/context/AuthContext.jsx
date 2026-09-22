@@ -5,6 +5,25 @@ const AuthContext = createContext(null);
 
 const STORAGE_KEY = 'lead_os_auth_session';
 
+// Helper to safely parse API responses and handle HTML/server outage errors cleanly
+async function parseResponseJson(res) {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    if (text.includes('Service Suspended') || text.includes('suspended by its owner')) {
+      throw new Error('Backend service is currently suspended on Render. Please resume the service in your Render dashboard.');
+    }
+    if (res.status === 502 || res.status === 503 || res.status === 504) {
+      throw new Error('Backend server is waking up or temporarily busy. Please retry in 30 seconds.');
+    }
+    if (res.status === 404) {
+      throw new Error('Backend API endpoint not found (404). Please ensure backend service is running.');
+    }
+    throw new Error(!res.ok ? `Server returned error (${res.status}). Please check backend status.` : 'Invalid response from server.');
+  }
+}
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
@@ -35,7 +54,7 @@ export const AuthProvider = ({ children }) => {
       const headers = { 'Authorization': `Bearer ${activeToken}` };
       const res = await fetch(`${API_URL}/api/wallet/balance`, { headers });
       if (res.ok) {
-        const data = await res.json();
+        const data = await parseResponseJson(res);
         setWallet({
           balance: Number(data.balance || 0),
           currency: data.currency || 'INR',
@@ -94,7 +113,7 @@ export const AuthProvider = ({ children }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan: newPlan })
       });
-      const data = await res.json();
+      const data = await parseResponseJson(res);
       if (res.ok) {
         await refreshWallet();
         return { success: true, message: data.message };
@@ -119,32 +138,27 @@ export const AuthProvider = ({ children }) => {
                 headers: { 'Authorization': `Bearer ${session.token}` }
               });
               if (vRes.ok) {
-                const vData = await vRes.json();
-                const activeUser = vData.user || session.user;
-                setUser(activeUser);
-                setToken(session.token);
-                refreshWallet(session.token);
-
-                const timeRemaining = session.expiresAt - Date.now();
-                const updatedSession = {
-                  ...session,
-                  user: activeUser,
-                  expiresAt: timeRemaining < 36 * 60 * 60 * 1000 ? (Date.now() + 48 * 60 * 60 * 1000) : session.expiresAt
-                };
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSession));
-                return;
-              } else {
-                // Token rejected by server
-                localStorage.removeItem(STORAGE_KEY);
-                setUser(null);
-                setToken(null);
-                return;
+                const vData = await parseResponseJson(vRes);
+                if (vData.valid && vData.user) {
+                  setUser(vData.user);
+                  setToken(session.token);
+                  const renewalTimestamp = Date.now() + 48 * 60 * 60 * 1000;
+                  const renewedSession = {
+                    ...session,
+                    user: vData.user,
+                    expiresAt: renewalTimestamp
+                  };
+                  localStorage.setItem(STORAGE_KEY, JSON.stringify(renewedSession));
+                  await refreshWallet(session.token);
+                  setLoading(false);
+                  return;
+                }
               }
             } catch {
-              // Server temporary network error: retain local session if not expired
+              // Server verification offline; fallback to cached session
               setUser(session.user);
               setToken(session.token);
-              refreshWallet(session.token);
+              setLoading(false);
               return;
             }
           }
@@ -153,8 +167,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem(STORAGE_KEY);
         setUser(null);
         setToken(null);
-      } catch (err) {
-        console.error('Session load error:', err);
+      } catch {
         localStorage.removeItem(STORAGE_KEY);
         setUser(null);
         setToken(null);
@@ -174,7 +187,7 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({ email, password })
       });
 
-      const data = await res.json();
+      const data = await parseResponseJson(res);
       if (!res.ok) {
         throw new Error(data.error || 'Invalid credentials');
       }
@@ -208,7 +221,7 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({ name, email, password, country, plan, auth_provider: 'local' })
       });
 
-      const data = await res.json();
+      const data = await parseResponseJson(res);
       if (!res.ok) {
         throw new Error(data.error || 'Failed to create account');
       }
@@ -241,7 +254,7 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({ credential, plan })
       });
 
-      const data = await res.json();
+      const data = await parseResponseJson(res);
       if (!res.ok) {
         throw new Error(data.error || 'Google authentication failed.');
       }
