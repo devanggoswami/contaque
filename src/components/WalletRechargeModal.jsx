@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
-  X, Wallet, ShieldCheck, Zap, Sparkles, CheckCircle2, 
+  X, Wallet, ShieldCheck, Sparkles, CheckCircle2, 
   ArrowRight, AlertCircle, RefreshCw, Lock 
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -16,59 +16,131 @@ const PRESET_AMOUNTS = [
   { amount: 5000, label: '₹5,000' }
 ];
 
+const parseInitialAmountStr = (init) => {
+  if (init !== null && init !== undefined && String(init).trim() !== '') {
+    const num = Number(init);
+    if (!isNaN(num) && num > 0) {
+      return String(Math.max(Math.round(num), 100));
+    }
+  }
+  return '500';
+};
+
 export default function WalletRechargeModal({ isOpen, onClose, initialAmount = null, onSuccess }) {
-  const { user, token, walletBalance, refreshWallet, authFetch } = useAuth();
-  const [selectedAmount, setSelectedAmount] = useState(initialAmount ? Math.max(initialAmount, 100) : 500);
-  const [customAmount, setCustomAmount] = useState('');
+  const { user, walletBalance, refreshWallet, authFetch } = useAuth();
+  
+  // Amount kept strictly as a string state while typing
+  const [amount, setAmount] = useState(() => parseInitialAmountStr(initialAmount));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [successData, setSuccessData] = useState(null);
 
-  const activeAmount = customAmount ? parseFloat(customAmount) || 0 : selectedAmount;
+  // Sync state whenever modal opens or initialAmount changes
+  useEffect(() => {
+    if (isOpen) {
+      setAmount(parseInitialAmountStr(initialAmount));
+      setError(null);
+      setSuccessData(null);
+      setLoading(false);
+    }
+  }, [isOpen, initialAmount]);
 
-  // Approximate lead capacity estimate based on Google Maps rate (₹0.90 to ₹1.30)
-  const approxLeads = Math.floor(activeAmount / 1.10);
-
-  const handlePresetClick = (amt) => {
-    setSelectedAmount(amt);
-    setCustomAmount('');
+  // Handle preset selection
+  const handlePresetClick = (presetNum) => {
+    setAmount(String(presetNum));
     setError(null);
   };
 
-  const handleCustomChange = (e) => {
-    const val = e.target.value.replace(/[^0-9]/g, '');
-    setCustomAmount(val);
-    setSelectedAmount(null);
-    setError(null);
-  };
-
-  const handleProceedRecharge = async () => {
-    if (activeAmount < 10) {
-      setError('Minimum recharge amount is ₹10.00');
+  // Handle typing: keeps string state, allows empty string without calling Number() or parseInt()
+  const handleAmountChange = (e) => {
+    const rawVal = e.target.value;
+    // Allow empty string when user clears or backspaces
+    if (rawVal === '') {
+      setAmount('');
+      setError(null);
       return;
     }
-
-    setLoading(true);
+    // Only allow whole digits
+    const digitsOnly = rawVal.replace(/[^0-9]/g, '');
+    setAmount(digitsOnly);
     setError(null);
+  };
+
+  // Safe display derivations (Never call Number()/parseInt() when empty or invalid)
+  const trimmed = typeof amount === 'string' ? amount.trim() : String(amount || '').trim();
+  const hasDigits = trimmed.length > 0 && /^[0-9]+$/.test(trimmed);
+
+  let previewNumeric = null;
+  let approxLeads = 0;
+  let formattedAmount = '';
+
+  if (hasDigits) {
+    const parsed = parseInt(trimmed, 10);
+    if (!isNaN(parsed) && parsed >= 10) {
+      previewNumeric = parsed;
+      approxLeads = Math.round(parsed / 1.10);
+      formattedAmount = parsed.toLocaleString('en-IN');
+    }
+  }
+
+  // Handle payment initiation with strict validation and error handling
+  const handleProceedRecharge = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (loading) return;
 
     try {
+      setError(null);
+
+      // Rule: Never call Number(), parseInt(), payment API, or Razorpay checkout when input is empty or invalid
+      const currentVal = typeof amount === 'string' ? amount.trim() : String(amount || '').trim();
+
+      if (!currentVal) {
+        setError('Minimum amount is ₹10');
+        return;
+      }
+
+      if (!/^[0-9]+$/.test(currentVal)) {
+        setError('Minimum amount is ₹10');
+        return;
+      }
+
+      // Convert to number strictly on submit
+      const numericAmount = parseInt(currentVal, 10);
+      if (isNaN(numericAmount) || numericAmount < 10) {
+        setError('Minimum amount is ₹10');
+        return;
+      }
+
+      setLoading(true);
+
       // 1. Create Razorpay order on backend
       const orderRes = await authFetch(`${API_URL}/api/wallet/recharge/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: activeAmount })
+        body: JSON.stringify({ amount: numericAmount })
       });
 
-      const orderData = await orderRes.json();
+      let orderData = null;
+      try {
+        orderData = await orderRes.json();
+      } catch (_) {
+        orderData = {};
+      }
+
       if (!orderRes.ok) {
-        throw new Error(orderData.error || 'Failed to initialize recharge order');
+        throw new Error(orderData?.error || `Order creation failed (HTTP ${orderRes.status})`);
       }
 
-      // 2. Launch Razorpay native frame
-      if (!window.Razorpay) {
-        throw new Error('Razorpay SDK failed to load. Please check your internet connection.');
+      if (!orderData?.orderId || !orderData?.keyId) {
+        throw new Error('Payment order could not be generated. Please try again.');
       }
 
+      // 2. Ensure Razorpay SDK is loaded
+      if (typeof window === 'undefined' || !window.Razorpay) {
+        throw new Error('Razorpay payment gateway failed to load. Please verify your connection or disable ad blockers and try again.');
+      }
+
+      // 3. Configure Razorpay checkout
       const options = {
         key: orderData.keyId,
         amount: Math.round(orderData.amount * 100),
@@ -86,7 +158,7 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
         },
         handler: async (response) => {
           try {
-            // 3. Server-side verification with cryptographic signature check
+            setLoading(true);
             const verifyRes = await authFetch(`${API_URL}/api/wallet/recharge/verify`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -94,29 +166,42 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
-                amount: activeAmount
+                amount: numericAmount
               })
             });
 
-            const verifyData = await verifyRes.json();
-            if (!verifyRes.ok) {
-              throw new Error(verifyData.error || 'Payment verification failed');
+            let verifyData = null;
+            try {
+              verifyData = await verifyRes.json();
+            } catch (_) {
+              verifyData = {};
             }
 
-            // 4. Refresh wallet balance across the app
-            await refreshWallet();
+            if (!verifyRes.ok) {
+              throw new Error(verifyData?.error || 'Payment verification failed on server');
+            }
+
+            // Refresh wallet balance safely
+            if (refreshWallet) {
+              await refreshWallet().catch((wErr) => {
+                console.warn('Wallet refresh failed:', wErr);
+              });
+            }
 
             setSuccessData({
-              amount: activeAmount,
-              newBalance: verifyData.newBalance,
+              amount: numericAmount,
+              newBalance: typeof verifyData?.newBalance === 'number' 
+                ? verifyData.newBalance 
+                : ((Number(walletBalance) || 0) + numericAmount),
               paymentId: response.razorpay_payment_id
             });
 
             if (onSuccess) {
-              onSuccess(verifyData.newBalance);
+              onSuccess(verifyData?.newBalance);
             }
           } catch (vErr) {
-            setError(vErr.message || 'Payment verification failed on server');
+            console.error('Payment verification error:', vErr);
+            setError(vErr.message || 'Payment verification failed. If amount was deducted, please contact support.');
           } finally {
             setLoading(false);
           }
@@ -128,15 +213,23 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
         }
       };
 
-      const rzp = new window.Razorpay(options);
+      let rzp = null;
+      try {
+        rzp = new window.Razorpay(options);
+      } catch (initErr) {
+        throw new Error(`Failed to initialize payment gateway: ${initErr.message}`);
+      }
+
       rzp.on('payment.failed', (resp) => {
-        setError(resp.error?.description || 'Payment failed or was cancelled');
+        setError(resp.error?.description || 'Payment was cancelled or failed');
         setLoading(false);
       });
+
       rzp.open();
 
     } catch (err) {
-      setError(err.message || 'An unexpected error occurred');
+      console.error('Recharge initiation error:', err);
+      setError(err.message || 'An unexpected error occurred while initiating recharge');
       setLoading(false);
     }
   };
@@ -170,11 +263,11 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
             </div>
             <h3>Wallet Successfully Recharged!</h3>
             <p>
-              An amount of <strong>₹{successData.amount.toFixed(2)}</strong> has been credited to your prepaid account.
+              An amount of <strong>₹{Number(successData?.amount || 0).toFixed(2)}</strong> has been credited to your prepaid account.
             </p>
             <div className="wallet-balance-banner" style={{ width: '100%' }}>
               <span>Updated Balance:</span>
-              <strong>₹{successData.newBalance.toFixed(2)}</strong>
+              <strong>₹{Number(successData?.newBalance || 0).toFixed(2)}</strong>
             </div>
             <button className="wallet-pay-btn" style={{ width: '100%' }} onClick={onClose}>
               Continue to Dashboard <ArrowRight size={18} />
@@ -185,24 +278,27 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
             {/* Current Balance Banner */}
             <div className="wallet-balance-banner">
               <span>Current Available Balance:</span>
-              <strong>₹{walletBalance.toFixed(2)}</strong>
+              <strong>₹{Number(walletBalance || 0).toFixed(2)}</strong>
             </div>
 
             {/* Presets */}
             <div>
               <label className="section-sub-label">Select Top-Up Amount:</label>
               <div className="wallet-preset-grid">
-                {PRESET_AMOUNTS.map((item) => (
-                  <button
-                    key={item.amount}
-                    type="button"
-                    className={`wallet-preset-btn ${selectedAmount === item.amount ? 'active' : ''}`}
-                    onClick={() => handlePresetClick(item.amount)}
-                  >
-                    <span>{item.label}</span>
-                    <span className="lead-hint">~{Math.floor(item.amount / 1.10)} leads</span>
-                  </button>
-                ))}
+                {PRESET_AMOUNTS.map((item) => {
+                  const isPresetActive = trimmed === String(item.amount);
+                  return (
+                    <button
+                      key={item.amount}
+                      type="button"
+                      className={`wallet-preset-btn ${isPresetActive ? 'active' : ''}`}
+                      onClick={() => handlePresetClick(item.amount)}
+                    >
+                      <span>{item.label}</span>
+                      <span className="lead-hint">~{Math.round(item.amount / 1.10)} leads</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -214,20 +310,28 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
                 <input
                   id="custom-wallet-input"
                   type="text"
+                  inputMode="numeric"
                   placeholder="e.g. 750"
-                  value={customAmount}
-                  onChange={handleCustomChange}
+                  value={amount}
+                  onChange={handleAmountChange}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleProceedRecharge(e);
+                    }
+                  }}
+                  autoComplete="off"
                 />
               </div>
             </div>
 
             {/* Yield preview */}
-            {activeAmount > 0 && (
+            {previewNumeric !== null && (
               <div className="wallet-yield-preview">
                 <Sparkles size={16} style={{ flexShrink: 0 }} />
                 <span>
-                  <strong>₹{activeAmount.toLocaleString()}</strong> top-up powers extraction for approximately{' '}
-                  <strong>~{approxLeads.toLocaleString()}</strong> verified B2B leads.
+                  <strong>₹{formattedAmount}</strong> top-up powers extraction for approximately{' '}
+                  <strong>~{approxLeads.toLocaleString('en-IN')}</strong> verified B2B leads.
                 </span>
               </div>
             )}
@@ -242,9 +346,10 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
 
             {/* Pay Button */}
             <button
+              type="button"
               className="wallet-pay-btn"
               onClick={handleProceedRecharge}
-              disabled={loading || activeAmount < 10}
+              disabled={loading}
             >
               {loading ? (
                 <>
@@ -254,7 +359,11 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
               ) : (
                 <>
                   <Lock size={17} />
-                  <span>Proceed to Pay ₹{activeAmount.toLocaleString()}</span>
+                  <span>
+                    {previewNumeric !== null 
+                      ? `Proceed to Pay ₹${formattedAmount}` 
+                      : 'Proceed to Pay'}
+                  </span>
                 </>
               )}
             </button>
@@ -271,3 +380,4 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
     document.body
   );
 }
+
