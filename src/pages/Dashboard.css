@@ -271,23 +271,26 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 /* Segmented Timeframe Control */
 .time-range-pill-group {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   background: var(--bg-card-subtle, #F0F6FB);
   border: 1px solid var(--border-color, #D9E1EA);
   padding: 3px;
   border-radius: 8px;
   gap: 2px;
+  height: 38px;
+  box-sizing: border-box;
 }
 
 .time-range-pill {
   background: transparent;
   border: none;
-  padding: 5px 11px;
+  padding: 0 11px;
   border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
@@ -296,6 +299,11 @@
   transition: all 0.15s ease;
   font-family: inherit;
   white-space: nowrap;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .time-range-pill:hover {
@@ -309,19 +317,28 @@
   border: 1px solid var(--border-color, #D9E1EA);
 }
 
+.header-actions-row-mobile {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .auto-refresh-toggle {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 7px;
   background: #FFFFFF;
   border: 1px solid var(--border-color, #D9E1EA);
-  padding: 6px 12px;
+  padding: 0 12px;
+  height: 38px;
   border-radius: 8px;
   font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary, #475569);
   cursor: pointer;
   transition: all 0.15s ease;
+  box-sizing: border-box;
 }
 
 .auto-refresh-toggle:hover {
@@ -347,18 +364,19 @@
 }
 
 .refresh-icon-btn {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 8px;
   background: #FFFFFF;
   border: 1px solid var(--border-color, #D9E1EA);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--text-muted, #64748B);
   cursor: pointer;
   transition: all 0.15s ease;
   flex-shrink: 0;
+  box-sizing: border-box;
 }
 
 .refresh-icon-btn:hover {
@@ -373,13 +391,15 @@
 
 /* Primary Brand Action Button - Medium Blue */
 .primary-action-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
   background: var(--primary, #2563EB);
   color: #FFFFFF;
   border: 1px solid #1D4ED8;
-  padding: 8px 16px;
+  height: 38px;
+  padding: 0 16px;
   border-radius: 8px;
   font-size: 13px;
   font-weight: 600;
@@ -387,6 +407,8 @@
   box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
   transition: background-color 0.15s ease, transform 0.15s ease;
   white-space: nowrap;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .primary-action-btn:hover {
