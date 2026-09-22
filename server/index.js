@@ -3,6 +3,8 @@ require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const crypto = require('crypto');
+const Razorpay = require('razorpay');
 const cheerio = require('cheerio');
 const db = require('./db');
 const { extractEmailFromText, extractSocialLinks, extractMobile, extractWhatsApp, normalizePhoneNumber, detectCountryCode, isRelevantToKeyword } = require('./utils/email_extractor');
@@ -66,15 +68,16 @@ app.use(express.json());
 
 // Mount Routers
 const walletRouter = require('./routes/wallet');
+const plansRouter = require('./routes/plans');
 const { reserveBalance, settleJob } = require('./utils/wallet');
 const { getRatePerLead } = require('./utils/pricing');
 
 app.use('/api/campaigns', campaignsRouter);
 app.use('/api/inbox', inboxRouter);
 app.use('/api/wallet', walletRouter);
+app.use('/api/plans', plansRouter);
 
 // Authentication Endpoints (Credentials validated with 48-hour secure session)
-const crypto = require('crypto');
 const AUTH_USER = (process.env.ADMIN_USER || '').trim();
 const AUTH_PASS = process.env.ADMIN_PASSWORD || '';
 const ADMIN_NAME = process.env.ADMIN_NAME || 'Administrator';
@@ -246,14 +249,26 @@ app.post('/api/auth/signup', async (req, res) => {
       return res.status(400).json({ error: 'An account with this email already exists. Please log in.' });
     }
 
-    // Insert new user
+    // Insert new user with ₹50 free credits
     const isGoogle = auth_provider === 'google';
     const insertResult = await db.query(
-      `INSERT INTO users (name, email, password_hash, country, auth_provider, email_verified, plan)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      `INSERT INTO users (name, email, password_hash, country, auth_provider, email_verified, plan, wallet_balance)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 50.00) RETURNING *`,
       [cleanName, cleanEmail, password, cleanCountry, auth_provider, isGoogle, plan]
     );
     const newUser = insertResult.rows[0];
+
+    // Record welcome bonus in wallet_ledger
+    try {
+      await db.query(
+        `INSERT INTO wallet_ledger (user_id, amount, balance_after, type, reason, reference_id, metadata)
+         VALUES ($1, 50.00, 50.00, 'CREDIT', 'Welcome Free Credits (₹50)', 'WELCOME_BONUS', '{"bonus": true}'::jsonb)`,
+        [newUser.id]
+      );
+    } catch (lErr) {
+      console.warn('Welcome bonus ledger insert warning:', lErr.message);
+    }
+
     const token = generateAuthToken(cleanEmail);
 
     return res.json({
@@ -360,7 +375,7 @@ app.post('/api/auth/google', async (req, res) => {
       // New Google User Signup
       const isAdmin = AUTH_USER && cleanEmail === AUTH_USER.toLowerCase();
       const userPlan = isAdmin ? 'plus' : (req.body.plan || 'free');
-      const initialBalance = isAdmin ? 44830.00 : 0.00;
+      const initialBalance = isAdmin ? 44830.00 : 50.00;
 
       const insertRes = await db.query(
         `INSERT INTO users (name, email, password_hash, country, auth_provider, email_verified, plan, wallet_balance)
@@ -369,6 +384,17 @@ app.post('/api/auth/google', async (req, res) => {
         [cleanName, cleanEmail, userPlan, initialBalance]
       );
       userRow = insertRes.rows[0];
+
+      // Record welcome bonus in wallet_ledger
+      try {
+        await db.query(
+          `INSERT INTO wallet_ledger (user_id, amount, balance_after, type, reason, reference_id, metadata)
+           VALUES ($1, $2, $2, 'CREDIT', 'Welcome Free Credits (₹50)', 'WELCOME_BONUS', '{"bonus": true}'::jsonb)`,
+          [userRow.id, initialBalance]
+        );
+      } catch (lErr) {
+        console.warn('Google welcome bonus ledger warning:', lErr.message);
+      }
     }
 
     // 4. Issue 48-Hour Session Token
@@ -410,27 +436,113 @@ app.post('/api/auth/verify-email', async (req, res) => {
   }
 });
 
-// POST /api/checkout/razorpay (Handles Razorpay payments & activates plan)
-app.post('/api/checkout/razorpay', async (req, res) => {
+// POST /api/create-order - Razorpay Standard Order Creation
+app.post('/api/create-order', async (req, res) => {
   try {
-    const { email, planId, billingDetails, paymentId } = req.body;
-    if (!email || !planId) {
-      return res.status(400).json({ error: 'Email and plan are required' });
+    const rawAmount = req.body.amount;
+    const amountInPaise = parseInt(rawAmount, 10);
+
+    if (isNaN(amountInPaise) || amountInPaise < 100) {
+      return res.status(400).json({ 
+        error: 'Amount is required and must be at least 100 paise (₹1.00)' 
+      });
     }
-    const cleanEmail = email.trim().toLowerCase();
-    await db.query(
-      'UPDATE users SET plan = $1, billing_details = $2 WHERE LOWER(email) = $3',
-      [planId, JSON.stringify(billingDetails || {}), cleanEmail]
-    );
-    return res.json({
-      success: true,
-      paymentId: paymentId || 'pay_RPZ' + Math.random().toString(36).substring(2, 9),
-      message: `Plan ${planId} activated successfully via Razorpay`
+
+    const keyId = (process.env.RAZORPAY_KEY_ID || '').trim();
+    const keySecret = (process.env.RAZORPAY_KEY_SECRET || '').trim();
+
+    if (!keyId || !keySecret) {
+      return res.status(500).json({ 
+        error: 'Razorpay payment gateway credentials are not configured on the server.' 
+      });
+    }
+
+    const razorpay = new Razorpay({
+      key_id: keyId,
+      key_secret: keySecret
+    });
+
+    const currency = (req.body.currency || 'INR').toUpperCase();
+    const receipt = req.body.receipt || `rcpt_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const notes = req.body.notes || {};
+
+    const order = await razorpay.orders.create({
+      amount: amountInPaise,
+      currency,
+      receipt,
+      notes
+    });
+
+    return res.status(200).json({
+      order_id: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      key_id: keyId
     });
   } catch (err) {
-    console.error('Razorpay checkout error:', err);
-    return res.json({ success: true });
+    console.error('Razorpay Create Order Error:', err.response?.data || err.error || err);
+    const statusCode = err.statusCode === 401 ? 401 : 500;
+    return res.status(statusCode).json({ 
+      error: err.error?.description || err.message || 'Failed to create Razorpay order' 
+    });
   }
+});
+
+// POST /api/verify-payment - Razorpay Standard HMAC-SHA256 Signature Verification
+app.post('/api/verify-payment', async (req, res) => {
+  try {
+    const order_id = req.body.razorpay_order_id || req.body.order_id;
+    const payment_id = req.body.razorpay_payment_id || req.body.payment_id;
+    const signature = req.body.razorpay_signature || req.body.signature;
+
+    if (!order_id || !payment_id || !signature) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Missing required parameters: razorpay_order_id, razorpay_payment_id, and razorpay_signature are required' 
+      });
+    }
+
+    const keySecret = (process.env.RAZORPAY_KEY_SECRET || '').trim();
+    if (!keySecret) {
+      return res.status(500).json({ 
+        success: false,
+        error: 'Razorpay key secret not configured on the server.' 
+      });
+    }
+
+    // Cryptographic Signature check: HMAC-SHA256(order_id + "|" + payment_id, KEY_SECRET)
+    const expectedSignature = crypto
+      .createHmac('sha256', keySecret)
+      .update(`${order_id}|${payment_id}`)
+      .digest('hex');
+
+    if (expectedSignature !== signature) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Signature verification failed: Invalid signature' 
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Payment verified successfully',
+      order_id,
+      payment_id
+    });
+  } catch (err) {
+    console.error('Razorpay Verify Payment Error:', err);
+    return res.status(500).json({ 
+      success: false,
+      error: err.message || 'Payment verification failed' 
+    });
+  }
+});
+
+// POST /api/checkout/razorpay - Deprecated insecure bypass. Divert to /api/plans/verify
+app.post('/api/checkout/razorpay', (req, res) => {
+  return res.status(400).json({ 
+    error: 'Unverified plan updates are disabled. Please use the secure /api/plans/create-order and /api/plans/verify flow.' 
+  });
 });
 
 // GET /api/auth/verify - Verify session token against database

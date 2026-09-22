@@ -10,7 +10,7 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [wallet, setWallet] = useState({
-    balance: 0.00,
+    balance: 50.00,
     currency: 'INR',
     plan: 'free',
     rates: {}
@@ -125,6 +125,7 @@ export const AuthProvider = ({ children }) => {
                 setToken(session.token);
                 refreshWallet(session.token);
 
+                const timeRemaining = session.expiresAt - Date.now();
                 const updatedSession = {
                   ...session,
                   user: activeUser,
@@ -189,6 +190,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
       setUser(data.user);
       setToken(data.token);
+      await refreshWallet(data.token);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -218,6 +220,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
       setUser(data.user);
       setToken(data.token);
+      await refreshWallet(data.token);
       return { success: true, user: data.user };
     } catch (err) {
       return { success: false, error: err.message };

@@ -17,8 +17,6 @@ const PRESET_AMOUNTS = [
 ];
 
 export default function WalletRechargeModal({ isOpen, onClose, initialAmount = null, onSuccess }) {
-  if (!isOpen) return null;
-
   const { user, token, walletBalance, refreshWallet, authFetch } = useAuth();
   const [selectedAmount, setSelectedAmount] = useState(initialAmount ? Math.max(initialAmount, 100) : 500);
   const [customAmount, setCustomAmount] = useState('');
@@ -143,7 +141,7 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
     }
   };
 
-  if (typeof document === 'undefined') return null;
+  if (!isOpen || typeof document === 'undefined') return null;
 
   return createPortal(
     <div className="wallet-modal-overlay" onClick={onClose}>

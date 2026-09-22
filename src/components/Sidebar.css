@@ -278,6 +278,35 @@
   font-feature-settings: "tnum";
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
+  transition: color 0.2s ease;
+}
+
+/* Low Balance Warning Alert (< ₹100 or < $2) */
+.wallet-value.low-balance-alert {
+  color: #dc2626 !important;
+  font-weight: 800;
+}
+
+.wallet-icon-circle.low-balance-alert {
+  background: #fef2f2 !important;
+  color: #dc2626 !important;
+  border-color: #fca5a5 !important;
+}
+
+.sidebar-wallet-card.low-balance-alert {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: linear-gradient(135deg, #ffffff 0%, #fff5f5 100%);
+}
+
+.mobile-wallet-pill.low-balance-alert {
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  background: #fef2f2 !important;
+  color: #dc2626 !important;
+}
+
+.mobile-wallet-pill .low-balance-text {
+  color: #dc2626 !important;
+  font-weight: 800;
 }
 
 .wallet-topup-btn {

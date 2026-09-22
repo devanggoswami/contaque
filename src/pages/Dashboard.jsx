@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Users, Briefcase, BarChart3, Database, Activity, MapPin, 
   ArrowUpRight, RefreshCw, Zap, Sparkles, Globe, Search, 
@@ -48,14 +48,14 @@ function AnimatedNumber({ value, duration = 650 }) {
       if (!startTimestamp) startTimestamp = timestamp;
       const progress = Math.min((timestamp - startTimestamp) / duration, 1);
       const ease = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
-      const next = Math.round(startVal + (target - startVal) * ease);
-      setDisplay(next);
+      setDisplay(Math.floor(startVal + (target - startVal) * ease));
       if (progress < 1) {
         requestAnimationFrame(step);
+      } else {
+        setDisplay(target);
       }
     };
-    const req = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(req);
+    requestAnimationFrame(step);
   }, [target, duration]);
 
   return <>{display.toLocaleString()}</>;
@@ -63,12 +63,25 @@ function AnimatedNumber({ value, duration = 650 }) {
 
 function Dashboard() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, verifyEmail, walletBalance, refreshWallet, userPlan, updateUserPlan, authFetch } = useAuth();
   const [emailConfirmed, setEmailConfirmed] = useState(false);
   const [verifyingEmail, setVerifyingEmail] = useState(false);
   const [showUpgradeCheckout, setShowUpgradeCheckout] = useState(false);
   const [selectedUpgradePlan, setSelectedUpgradePlan] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
+
+  // Auto-open upgrade checkout modal if navigated from plan selection (?upgrade=pack / ?upgrade=plus)
+  useEffect(() => {
+    const upgradeTarget = searchParams.get('upgrade');
+    if (upgradeTarget && (upgradeTarget === 'pack' || upgradeTarget === 'plus')) {
+      if (UPGRADE_PLANS[upgradeTarget]) {
+        setSelectedUpgradePlan(UPGRADE_PLANS[upgradeTarget]);
+        setShowUpgradeCheckout(true);
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [searchParams, setSearchParams]);
 
   const handleConfirmEmailClick = async () => {
     setVerifyingEmail(true);
@@ -466,34 +479,42 @@ function Dashboard() {
         </div>
 
         {/* 4. Prepaid Wallet Balance Metric Card (Replaced Google Places Card) */}
-        <div className="metric-card interactive-hover" onClick={() => setDashboardTab('LEDGER')}>
-          <div className="metric-header">
-            <div className="metric-icon-box green">
-              <Wallet size={22} />
+        {(() => {
+          const activeBal = Number(walletBalance !== undefined && walletBalance !== null ? walletBalance : (billingSummary ? billingSummary.balance : 50));
+          const isLow = activeBal < 100;
+          return (
+            <div className={`metric-card interactive-hover ${isLow ? 'low-balance-card' : ''}`} onClick={() => setDashboardTab('LEDGER')}>
+              <div className="metric-header">
+                <div className={`metric-icon-box ${isLow ? 'red' : 'green'}`}>
+                  <Wallet size={22} />
+                </div>
+                <button 
+                  type="button" 
+                  className="metric-card-topup-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowRechargeModal(true);
+                  }}
+                  title="Add Prepaid Balance"
+                >
+                  <PlusCircle size={13} />
+                  <span>+ Top Up</span>
+                </button>
+              </div>
+              <div className="metric-body">
+                <span className="metric-label">Prepaid Wallet Balance</span>
+                <h2 className={`metric-value ${isLow ? 'low-balance-alert' : ''}`}>
+                  ₹<AnimatedNumber value={activeBal} />
+                </h2>
+                <div className="metric-footer">
+                  <span style={isLow ? { color: '#ef4444', fontWeight: 600 } : {}}>
+                    {isLow ? '⚠️ Low balance • ' : ''}Available for ~{Math.floor(activeBal / 1.10)} leads
+                  </span>
+                </div>
+              </div>
             </div>
-            <button 
-              type="button" 
-              className="metric-card-topup-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowRechargeModal(true);
-              }}
-              title="Add Prepaid Balance"
-            >
-              <PlusCircle size={13} />
-              <span>+ Top Up</span>
-            </button>
-          </div>
-          <div className="metric-body">
-            <span className="metric-label">Prepaid Wallet Balance</span>
-            <h2 className="metric-value">
-              ₹<AnimatedNumber value={walletBalance !== undefined && walletBalance !== null ? walletBalance : (billingSummary ? billingSummary.balance : 482)} />
-            </h2>
-            <div className="metric-footer">
-              <span>Available for ~{Math.floor(Number(walletBalance !== undefined && walletBalance !== null ? walletBalance : (billingSummary ? billingSummary.balance : 482)) / 1.10)} leads</span>
-            </div>
-          </div>
-        </div>
+          );
+        })()}
       </div>
 
       {/* Dynamic Source Engine Breakdown with Interactive Filter */}
@@ -775,10 +796,9 @@ function Dashboard() {
           currency="INR"
           onSuccess={async () => {
             setShowUpgradeCheckout(false);
-            if (updateUserPlan) {
-              await updateUserPlan(selectedUpgradePlan.id);
+            if (refreshWallet) {
+              await refreshWallet();
             }
-            refreshWallet();
             fetchDashboardData(true);
           }}
         />

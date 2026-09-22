@@ -41,44 +41,6 @@ function ProtectedLayout() {
   );
 }
 
-// Public Login: If already authenticated, redirect to /dashboard
-function PublicLoginRoute() {
-  const { isAuthenticated, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="auth-loading-screen">
-        <div className="loading-spinner"></div>
-      </div>
-    );
-  }
-
-  if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  return <Login />;
-}
-
-// Public Signup: If already authenticated, redirect to /dashboard
-function PublicSignupRoute() {
-  const { isAuthenticated, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="auth-loading-screen">
-        <div className="loading-spinner"></div>
-      </div>
-    );
-  }
-
-  if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  return <Signup />;
-}
-
 function App() {
   return (
     <AuthProvider>
@@ -94,9 +56,9 @@ function App() {
           <Route path="/contact" element={<ContactUs />} />
           <Route path="/contact-us" element={<ContactUs />} />
 
-          {/* Public Auth Routes */}
-          <Route path="/login" element={<PublicLoginRoute />} />
-          <Route path="/signup" element={<PublicSignupRoute />} />
+          {/* Public Auth Routes: Always accessible to allow multi-user login and signup */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
 
           {/* Strictly Protected Application Routes */}
           <Route element={<ProtectedLayout />}>

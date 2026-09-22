@@ -91,14 +91,12 @@ export default function ContactUs() {
       {/* Sticky Glass Navbar */}
       <header className="landing-navbar">
         <div className="navbar-inner">
-          <div className="brand-group" onClick={() => navigate('/landing')} style={{ cursor: 'pointer' }}>
-            <div className="brand-icon-box">
-              <Sparkles size={20} />
-            </div>
-            <div className="brand-text-col">
-              <span className="brand-name">Contaques</span>
-              <span className="brand-sub">PRO INTELLIGENCE</span>
-            </div>
+          <div className="brand-group" onClick={() => navigate('/landing')} style={{ cursor: 'pointer' }} title="Contaque - Find | Connect | Grow">
+            <img 
+              src="/contaque_logo.jpg" 
+              alt="Contaque" 
+              className="brand-logo-img" 
+            />
           </div>
 
           <nav className="nav-links-desktop">
@@ -401,14 +399,12 @@ export default function ContactUs() {
         <div className="footer-inner-v2">
           {/* Column 1: Brand & Mini Feature Cards */}
           <div className="footer-col-brand">
-            <div className="brand-group" onClick={() => navigate('/landing')} style={{ cursor: 'pointer' }}>
-              <div className="brand-icon-box">
-                <Sparkles size={20} />
-              </div>
-              <div className="brand-text-col">
-                <span className="brand-name">Contaques</span>
-                <span className="brand-sub">PRO INTELLIGENCE</span>
-              </div>
+            <div className="brand-group" onClick={() => navigate('/landing')} style={{ cursor: 'pointer' }} title="Contaque - Find | Connect | Grow">
+              <img 
+                src="/contaque_logo.jpg" 
+                alt="Contaque" 
+                className="brand-logo-img" 
+              />
             </div>
 
             <p className="footer-brand-bio">

@@ -147,7 +147,8 @@ const initDb = async () => {
       ALTER TABLE leads ADD COLUMN IF NOT EXISTS max_messenger TEXT;
 
       -- Prepaid Wallet & Billing Schema
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_balance NUMERIC(12, 2) DEFAULT 0.00;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_balance NUMERIC(12, 2) DEFAULT 50.00;
+      ALTER TABLE users ALTER COLUMN wallet_balance SET DEFAULT 50.00;
       DO $$ BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_wallet_balance_positive') THEN
           ALTER TABLE users ADD CONSTRAINT chk_wallet_balance_positive CHECK (wallet_balance >= 0);
@@ -213,6 +214,49 @@ const initDb = async () => {
       CREATE INDEX IF NOT EXISTS idx_queue_status ON email_queue(status);
       CREATE INDEX IF NOT EXISTS idx_email_queue_campaign_status ON email_queue(campaign_id, status);
       CREATE INDEX IF NOT EXISTS idx_inbox_threads_account ON inbox_threads(account_id);
+
+      -- Subscription & Payment Order Architecture
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_started_at TIMESTAMP;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMP;
+
+      CREATE TABLE IF NOT EXISTS payment_orders (
+        id SERIAL PRIMARY KEY,
+        order_id VARCHAR(255) UNIQUE NOT NULL,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        purpose VARCHAR(50) NOT NULL, -- 'PLAN_UPGRADE' | 'WALLET_TOPUP'
+        plan_id VARCHAR(50),          -- 'pack' | 'plus' (NULL for wallet topup)
+        amount_paise INTEGER NOT NULL,
+        currency VARCHAR(10) DEFAULT 'INR',
+        receipt VARCHAR(255),
+        status VARCHAR(50) DEFAULT 'CREATED', -- 'CREATED' | 'PAID' | 'FAILED'
+        payment_id VARCHAR(255),
+        signature VARCHAR(255),
+        billing_details JSONB DEFAULT '{}'::jsonb,
+        metadata JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        paid_at TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS plan_transactions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        order_id VARCHAR(255) REFERENCES payment_orders(order_id),
+        payment_id VARCHAR(255) UNIQUE NOT NULL,
+        plan_id VARCHAR(50) NOT NULL,
+        amount_paid NUMERIC(12, 2) NOT NULL,
+        currency VARCHAR(10) DEFAULT 'INR',
+        billing_details JSONB DEFAULT '{}'::jsonb,
+        started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_payment_orders_order_id ON payment_orders(order_id);
+      CREATE INDEX IF NOT EXISTS idx_payment_orders_user_id ON payment_orders(user_id);
+      CREATE INDEX IF NOT EXISTS idx_payment_orders_status ON payment_orders(status);
+      CREATE INDEX IF NOT EXISTS idx_payment_orders_purpose ON payment_orders(purpose);
+      CREATE INDEX IF NOT EXISTS idx_plan_transactions_user_id ON plan_transactions(user_id);
+      CREATE INDEX IF NOT EXISTS idx_plan_transactions_payment_id ON plan_transactions(payment_id);
     `);
 
     // Ensure Administrator / Default Admin exists in users table with plus plan & wallet balance

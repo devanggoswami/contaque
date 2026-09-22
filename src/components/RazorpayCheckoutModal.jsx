@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
-  X, ShieldCheck, CheckCircle2, Lock, ArrowRight, CreditCard,
-  Smartphone, Building, Check, Sparkles, AlertCircle, User, Mail
+  X, ShieldCheck, CheckCircle2, Lock, ArrowRight,
+  Check, Sparkles, AlertCircle, User, Mail
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { API_URL, RAZORPAY_KEY_ID } from '../config';
 import './RazorpayCheckoutModal.css';
 
 export default function RazorpayCheckoutModal({
@@ -13,11 +15,9 @@ export default function RazorpayCheckoutModal({
   currency = 'INR',
   onSuccess
 }) {
-  if (!isOpen || !plan) return null;
+  const { user, isAuthenticated, logout, signup, login, activatePlan, authFetch } = useAuth();
 
-  const { user, isAuthenticated, signup, login, activatePlan } = useAuth();
-
-  // Stepper: 1: Account, 2: Billing Details, 3: Razorpay Checkout, 4: Success
+  // Stepper: 1: Account (if guest), 2: Billing Details, 4: Success / Plan Activated
   const [step, setStep] = useState(isAuthenticated ? 2 : 1);
 
   // Step 1: Account Fields (if not authenticated)
@@ -43,14 +43,8 @@ export default function RazorpayCheckoutModal({
     gstin: ''
   });
 
-  // Step 3: Razorpay Payment Method
-  const [razorpayMethod, setRazorpayMethod] = useState('upi');
-  const [upiId, setUpiId] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvv, setCardCvv] = useState('');
-  const [selectedBank, setSelectedBank] = useState('HDFC Bank');
   const [paying, setPaying] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
 
   // Step 4: Payment Success Receipt
   const [paymentReceipt, setPaymentReceipt] = useState(null);
@@ -65,10 +59,19 @@ export default function RazorpayCheckoutModal({
       }));
       if (step === 1) setStep(2);
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, step]);
 
-  const displayPrice = currency === 'INR' ? plan.price?.INR || '₹299' : plan.price?.USD || '$3.12';
-  const numericAmount = currency === 'INR' ? (plan.id === 'plus' ? '499.00' : '299.00') : (plan.id === 'plus' ? '5.20' : '3.12');
+  useEffect(() => {
+    if (isOpen) {
+      setStep(isAuthenticated ? 2 : 1);
+      setPaymentError('');
+      setPaying(false);
+      setPaymentReceipt(null);
+    }
+  }, [isOpen, isAuthenticated]);
+
+  const displayPrice = plan ? (currency === 'INR' ? plan.price?.INR || '₹299' : plan.price?.USD || '$3.12') : '₹299';
+  const numericAmount = plan ? (currency === 'INR' ? (plan.id === 'plus' ? '499.00' : '299.00') : (plan.id === 'plus' ? '5.20' : '3.12')) : '299.00';
 
   // Handle Step 1 Submit (Account Creation or Login)
   const handleAuthSubmit = async (e) => {
@@ -106,42 +109,123 @@ export default function RazorpayCheckoutModal({
     }
   };
 
-  // Handle Step 2 Submit (Proceed to Razorpay)
-  const handleBillingSubmit = (e) => {
-    e.preventDefault();
+  // Handle Step 2 Submit: Directly launch OFFICIAL Razorpay Standard Web Checkout
+  const handleBillingSubmit = async (e) => {
+    if (e) e.preventDefault();
     if (!billingForm.name || !billingForm.email) {
       alert('Please provide your name and email for the invoice.');
       return;
     }
-    setStep(3); // Go to Razorpay Checkout
+    await handleRazorpayPay();
   };
 
   // Handle Step 3 Razorpay Payment
   const handleRazorpayPay = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setPaying(true);
+    setPaymentError('');
 
-    // Simulate Razorpay payment network latency
-    setTimeout(async () => {
-      const generatedPaymentId = 'pay_RPZ' + Math.random().toString(36).substring(2, 10).toUpperCase();
-      const generatedOrderId = 'order_KL' + Math.random().toString(36).substring(2, 9).toUpperCase();
+    try {
+      if (typeof window === 'undefined' || !window.Razorpay) {
+        throw new Error('Razorpay SDK failed to load. Please check your internet connection.');
+      }
 
-      const receipt = {
-        paymentId: generatedPaymentId,
-        orderId: generatedOrderId,
-        amount: displayPrice,
-        planName: plan.name,
-        date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
-        email: billingForm.email || user?.email
+      // 1. Create Razorpay order on backend using Authoritative Plan API
+      const orderRes = await authFetch(`${API_URL}/api/plans/create-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planId: plan.id,
+          billingDetails: billingForm
+        })
+      });
+
+      const orderData = await orderRes.json();
+      if (!orderRes.ok || !orderData.success) {
+        throw new Error(orderData.error || 'Failed to create plan payment order');
+      }
+
+      const activeKey = orderData.keyId || RAZORPAY_KEY_ID;
+
+      // 2. Launch Razorpay Standard Checkout
+      const options = {
+        key: activeKey,
+        amount: orderData.amountPaise,
+        currency: orderData.currency || 'INR',
+        name: 'ContaQue Technologies',
+        description: `${orderData.planName || plan.name} Subscription Upgrade`,
+        order_id: orderData.orderId,
+        prefill: {
+          name: billingForm.name || user?.name || '',
+          email: billingForm.email || user?.email || '',
+          contact: billingForm.phone || ''
+        },
+        theme: {
+          color: '#1f1d19'
+        },
+        handler: async (response) => {
+          try {
+            // 3. Cryptographic Signature & Razorpay Capture Verification on Backend
+            const verifyRes = await authFetch(`${API_URL}/api/plans/verify`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                billingDetails: billingForm
+              })
+            });
+
+            const verifyData = await verifyRes.json();
+            if (!verifyRes.ok || !verifyData.success) {
+              throw new Error(verifyData.error || 'Payment verification failed on server');
+            }
+
+            const receipt = {
+              paymentId: response.razorpay_payment_id,
+              orderId: response.razorpay_order_id,
+              amount: `₹${(orderData.amountPaise / 100).toFixed(2)}`,
+              planName: verifyData.planName || plan.name,
+              activePlan: verifyData.plan || plan.id,
+              date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+              email: billingForm.email || user?.email
+            };
+
+            setPaymentReceipt(receipt);
+            setPaying(false);
+            setStep(4); // Move to Payment Success
+
+            // Activate plan in local user state
+            if (activatePlan) {
+              await activatePlan(verifyData.plan || plan.id, billingForm);
+            }
+          } catch (vErr) {
+            console.error('[Razorpay Verify Error]:', vErr);
+            setPaymentError(vErr.message || 'Payment verification failed on the server.');
+            setPaying(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setPaying(false);
+          }
+        }
       };
 
-      setPaymentReceipt(receipt);
-      setPaying(false);
-      setStep(4); // Payment Success!
+      const rzpInstance = new window.Razorpay(options);
+      rzpInstance.on('payment.failed', (failResp) => {
+        console.error('[Razorpay Failed]:', failResp.error);
+        setPaymentError(failResp.error?.description || 'Payment was declined or cancelled.');
+        setPaying(false);
+      });
 
-      // Activate plan in AuthContext / DB
-      await activatePlan(plan.id, billingForm, generatedPaymentId);
-    }, 1600);
+      rzpInstance.open();
+    } catch (err) {
+      console.error('Razorpay checkout error:', err);
+      setPaymentError(err.message || 'Failed to initialize payment.');
+      setPaying(false);
+    }
   };
 
   const handleFinish = () => {
@@ -152,7 +236,8 @@ export default function RazorpayCheckoutModal({
     }
   };
 
-    if (typeof document === 'undefined') return null;
+  if (!isOpen || !plan) return null;
+  if (typeof document === 'undefined') return null;
 
   return createPortal(
     <div className="rp-modal-backdrop" onClick={onClose}>
@@ -166,10 +251,13 @@ export default function RazorpayCheckoutModal({
           </div>
 
           <div className="rp-step-crumbs">
-            <span className={`rp-crumb-dot ${step > 1 ? 'done' : step === 1 ? 'active' : ''}`} title="Account">1</span>
-            <span className={`rp-crumb-dot ${step > 2 ? 'done' : step === 2 ? 'active' : ''}`} title="Billing">2</span>
-            <span className={`rp-crumb-dot ${step > 3 ? 'done' : step === 3 ? 'active' : ''}`} title="Razorpay">3</span>
-            <span className={`rp-crumb-dot ${step === 4 ? 'done' : ''}`} title="Done">✓</span>
+            {!isAuthenticated && (
+              <span className={`rp-crumb-dot ${step > 1 ? 'done' : step === 1 ? 'active' : ''}`} title="Account">1</span>
+            )}
+            <span className={`rp-crumb-dot ${step === 4 ? 'done' : step === 2 ? 'active' : ''}`} title="Billing">
+              {!isAuthenticated ? '2' : '1'}
+            </span>
+            <span className={`rp-crumb-dot ${step === 4 ? 'done active' : ''}`} title="Plan Activated">✓</span>
           </div>
 
           <button className="rp-close-btn" onClick={onClose} title="Close">
@@ -287,6 +375,69 @@ export default function RazorpayCheckoutModal({
               =================================================================== */}
           {step === 2 && (
             <div>
+              {/* Authenticated Account Banner */}
+              {isAuthenticated && user && (
+                <div style={{
+                  background: 'rgba(99, 102, 241, 0.1)',
+                  border: '1px solid rgba(99, 102, 241, 0.3)',
+                  borderRadius: '12px',
+                  padding: '12px 16px',
+                  marginBottom: '18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                    <User size={16} style={{ color: '#818cf8', flexShrink: 0 }} />
+                    <div style={{ fontSize: '12.5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ color: '#94a3b8' }}>Upgrading account: </span>
+                      <strong style={{ color: '#ffffff' }}>{user.email}</strong>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      logout();
+                      setStep(1);
+                      setBillingForm({
+                        name: '',
+                        email: '',
+                        phone: '',
+                        company: '',
+                        address: '',
+                        city: '',
+                        country: 'India',
+                        gstin: ''
+                      });
+                      setAccountForm({
+                        name: '',
+                        email: '',
+                        password: '',
+                        country: 'India',
+                        isLoginMode: false
+                      });
+                    }}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      color: '#cbd5e1',
+                      borderRadius: '8px',
+                      padding: '5px 12px',
+                      fontSize: '11.5px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'; e.currentTarget.style.color = '#fca5a5'; }}
+                    onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'; e.currentTarget.style.color = '#cbd5e1'; }}
+                  >
+                    Switch Account
+                  </button>
+                </div>
+              )}
+
               <div className="rp-stage-title">
                 <h3>Billing & Invoice Information</h3>
                 <p>Plan selected: <strong>{plan.name} ({displayPrice}/month)</strong></p>
@@ -305,45 +456,46 @@ export default function RazorpayCheckoutModal({
                     />
                   </div>
                   <div className="rp-form-group">
-                    <label>Billing Email *</label>
+                    <label>
+                      Billing Email *
+                      {isAuthenticated && (
+                        <span style={{ color: '#818cf8', fontSize: '11px', fontWeight: 'normal', marginLeft: '6px' }}>
+                          (Linked to Account)
+                        </span>
+                      )}
+                    </label>
                     <input
                       type="email"
                       className="rp-input"
-                      value={billingForm.email}
-                      onChange={(e) => setBillingForm(p => ({ ...p, email: e.target.value }))}
+                      value={isAuthenticated ? (user?.email || billingForm.email) : billingForm.email}
+                      onChange={(e) => {
+                        if (!isAuthenticated) {
+                          setBillingForm(p => ({ ...p, email: e.target.value }));
+                        }
+                      }}
+                      readOnly={isAuthenticated}
+                      style={isAuthenticated ? { opacity: 0.85, cursor: 'not-allowed', backgroundColor: 'rgba(255,255,255,0.02)' } : {}}
+                      title={isAuthenticated ? `Subscription tied to ${user?.email}. Click 'Switch Account' above to change.` : ''}
                       required
                     />
                   </div>
                 </div>
 
-                <div className="rp-grid-2col">
-                  <div className="rp-form-group">
-                    <label>Mobile Phone *</label>
-                    <input
-                      type="tel"
-                      className="rp-input"
-                      placeholder="+91 98765 43210"
-                      value={billingForm.phone}
-                      onChange={(e) => setBillingForm(p => ({ ...p, phone: e.target.value }))}
-                      required
-                    />
-                  </div>
-                  <div className="rp-form-group">
-                    <label>Country *</label>
-                    <select
-                      className="rp-select"
-                      value={billingForm.country}
-                      onChange={(e) => setBillingForm(p => ({ ...p, country: e.target.value }))}
-                    >
-                      <option value="India">India</option>
-                      <option value="United States">United States</option>
-                      <option value="United Arab Emirates">United Arab Emirates</option>
-                      <option value="United Kingdom">United Kingdom</option>
-                      <option value="Canada">Canada</option>
-                      <option value="Australia">Australia</option>
-                      <option value="Singapore">Singapore</option>
-                    </select>
-                  </div>
+                <div className="rp-form-group">
+                  <label>Country *</label>
+                  <select
+                    className="rp-select"
+                    value={billingForm.country}
+                    onChange={(e) => setBillingForm(p => ({ ...p, country: e.target.value }))}
+                  >
+                    <option value="India">India</option>
+                    <option value="United States">United States</option>
+                    <option value="United Arab Emirates">United Arab Emirates</option>
+                    <option value="United Kingdom">United Kingdom</option>
+                    <option value="Canada">Canada</option>
+                    <option value="Australia">Australia</option>
+                    <option value="Singapore">Singapore</option>
+                  </select>
                 </div>
 
                 <div className="rp-form-group">
@@ -368,164 +520,41 @@ export default function RazorpayCheckoutModal({
                   />
                 </div>
 
-                <button type="submit" className="rp-primary-btn">
-                  <span>Proceed to Razorpay Checkout</span>
-                  <ArrowRight size={16} />
-                </button>
-              </form>
-            </div>
-          )}
-
-          {/* ===================================================================
-              STEP 3: Razorpay Native Frame Checkout
-              =================================================================== */}
-          {step === 3 && (
-            <div className="razorpay-frame-box">
-              {/* Razorpay Top Bar */}
-              <div className="razorpay-top-bar">
-                <div className="razorpay-brand">
-                  <span className="razorpay-brand-logo-text">Razorpay</span>
-                  <span className="razorpay-badge">TRUSTED BUSINESS</span>
-                </div>
-                <div className="razorpay-price-col">
-                  <span>Amount to Pay</span>
-                  <strong>{displayPrice}</strong>
-                </div>
-              </div>
-
-              {/* Razorpay Form Body */}
-              <div className="razorpay-body-content">
-                <div className="razorpay-method-nav">
-                  <button
-                    type="button"
-                    className={`razorpay-method-tab ${razorpayMethod === 'upi' ? 'active' : ''}`}
-                    onClick={() => setRazorpayMethod('upi')}
-                  >
-                    <Smartphone size={14} />
-                    <span>UPI / QR</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`razorpay-method-tab ${razorpayMethod === 'card' ? 'active' : ''}`}
-                    onClick={() => setRazorpayMethod('card')}
-                  >
-                    <CreditCard size={14} />
-                    <span>Card</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`razorpay-method-tab ${razorpayMethod === 'netbanking' ? 'active' : ''}`}
-                    onClick={() => setRazorpayMethod('netbanking')}
-                  >
-                    <Building size={14} />
-                    <span>NetBanking</span>
-                  </button>
-                </div>
-
-                <form onSubmit={handleRazorpayPay}>
-                  {razorpayMethod === 'upi' && (
-                    <div className="razorpay-upi-view">
-                      <div className="upi-app-badges">
-                        <span className="upi-pill">Google Pay</span>
-                        <span className="upi-pill">PhonePe</span>
-                        <span className="upi-pill">Paytm</span>
-                        <span className="upi-pill">BHIM</span>
-                      </div>
-                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155' }}>
-                        Enter UPI ID / VPA
-                      </label>
-                      <input
-                        type="text"
-                        className="razorpay-native-input"
-                        placeholder="yourname@okhdfcbank / paytm"
-                        value={upiId}
-                        onChange={(e) => setUpiId(e.target.value)}
-                      />
-                    </div>
-                  )}
-
-                  {razorpayMethod === 'card' && (
-                    <div className="razorpay-upi-view">
-                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155' }}>
-                        Card Number
-                      </label>
-                      <input
-                        type="text"
-                        className="razorpay-native-input"
-                        placeholder="4532 •••• •••• 9821"
-                        maxLength="19"
-                        value={cardNumber}
-                        onChange={(e) => setCardNumber(e.target.value)}
-                      />
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' }}>
-                        <div>
-                          <label style={{ fontSize: '11px', fontWeight: 700, color: '#334155' }}>Expiry (MM/YY)</label>
-                          <input
-                            type="text"
-                            className="razorpay-native-input"
-                            placeholder="08/28"
-                            maxLength="5"
-                            value={cardExpiry}
-                            onChange={(e) => setCardExpiry(e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <label style={{ fontSize: '11px', fontWeight: 700, color: '#334155' }}>CVV</label>
-                          <input
-                            type="password"
-                            className="razorpay-native-input"
-                            placeholder="•••"
-                            maxLength="4"
-                            value={cardCvv}
-                            onChange={(e) => setCardCvv(e.target.value)}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {razorpayMethod === 'netbanking' && (
-                    <div className="razorpay-upi-view">
-                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155' }}>
-                        Choose Bank
-                      </label>
-                      <select
-                        className="razorpay-native-input"
-                        value={selectedBank}
-                        onChange={(e) => setSelectedBank(e.target.value)}
-                      >
-                        <option>HDFC Bank</option>
-                        <option>State Bank of India</option>
-                        <option>ICICI Bank</option>
-                        <option>Axis Bank</option>
-                        <option>Kotak Mahindra Bank</option>
-                        <option>Bank of Baroda</option>
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Razorpay Action Button */}
-                  <button
-                    type="submit"
-                    className="razorpay-pay-button"
-                    disabled={paying}
-                  >
-                    {paying ? (
-                      <span>Connecting to Razorpay...</span>
-                    ) : (
-                      <>
-                        <Lock size={15} />
-                        <span>Pay {displayPrice}</span>
-                      </>
-                    )}
-                  </button>
-
-                  <div className="razorpay-security-bar">
-                    <ShieldCheck size={14} style={{ color: '#0c83fe' }} />
-                    <span>Secured by Razorpay • PCI-DSS 3.2.1 Certified</span>
+                {paymentError && (
+                  <div style={{
+                    background: 'rgba(239, 68, 68, 0.15)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    color: '#ef4444',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    fontSize: '12.5px',
+                    marginBottom: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <AlertCircle size={15} />
+                    <span>{paymentError}</span>
                   </div>
-                </form>
-              </div>
+                )}
+
+                <button type="submit" className="rp-primary-btn" disabled={paying}>
+                  {paying ? (
+                    <span>Opening Official Razorpay Checkout...</span>
+                  ) : (
+                    <>
+                      <Lock size={15} />
+                      <span>Proceed to Razorpay Checkout ({displayPrice})</span>
+                      <ArrowRight size={16} />
+                    </>
+                  )}
+                </button>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '12px', fontSize: '11.5px', color: '#94a3b8' }}>
+                  <ShieldCheck size={13} style={{ color: '#0c83fe' }} />
+                  <span>Secured by official Razorpay Web Checkout • 100% Encrypted</span>
+                </div>
+              </form>
             </div>
           )}
 
@@ -538,13 +567,22 @@ export default function RazorpayCheckoutModal({
                 <Check size={36} />
               </div>
 
-              <h3>Payment Successful!</h3>
+              <h3 style={{ color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                <Sparkles size={20} style={{ color: '#10b981' }} />
+                Plan Activated
+              </h3>
               <p>
-                Your <strong>{plan.name}</strong> subscription has been successfully activated via Razorpay.
+                Your <strong>{paymentReceipt?.planName || plan.name}</strong> subscription is now active!
               </p>
 
               {paymentReceipt && (
                 <div className="rp-receipt-box">
+                  <div className="rp-receipt-row">
+                    <span>Active Plan:</span>
+                    <strong style={{ color: '#818cf8', fontWeight: 800, fontSize: '14px' }}>
+                      {paymentReceipt.planName || plan.name}
+                    </strong>
+                  </div>
                   <div className="rp-receipt-row">
                     <span>Payment ID:</span>
                     <strong>{paymentReceipt.paymentId}</strong>

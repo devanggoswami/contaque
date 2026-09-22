@@ -52,26 +52,31 @@ function Sidebar() {
     return () => clearInterval(interval);
   }, [authFetch]);
 
+  // Balance under 100 INR (~$2) is considered low
+  const isLowBalance = Number(walletBalance ?? 0) < 100;
+
   return (
     <>
       {/* Mobile Top Navbar (visible only on <= 768px) */}
       <header className="mobile-top-bar">
-        <div className="mobile-brand">
-          <div className="mobile-brand-icon">
-            <Sparkles size={18} />
+        <div className="mobile-brand" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>
+          <div className="mobile-brand-icon" style={{ overflow: 'hidden', padding: 0 }}>
+            <img src="/contaque_logo.jpg" alt="Contaque" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
-          <span className="mobile-brand-name">Contaques</span>
+          <span className="mobile-brand-name">Contaque</span>
           <span className="mobile-brand-tag">PRO</span>
         </div>
 
         <div className="mobile-header-right">
           <button 
-            className="mobile-wallet-pill"
+            className={`mobile-wallet-pill ${isLowBalance ? 'low-balance-alert' : ''}`}
             onClick={() => setIsRechargeOpen(true)}
             title="Prepaid Balance - Tap to Top Up"
           >
             <Wallet size={13} />
-            <span>₹{Number(walletBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+            <span className={isLowBalance ? 'low-balance-text' : ''}>
+              ₹{Number(walletBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            </span>
           </button>
           {activeJobsCount > 0 && (
             <span className="mobile-live-badge">{activeJobsCount} live</span>
@@ -97,12 +102,12 @@ function Sidebar() {
       {/* Sidebar / Off-canvas Drawer */}
       <aside className={`sidebar ${mobileOpen ? 'mobile-open' : ''}`}>
         <div className="sidebar-header">
-          <div className="brand-logo">
-            <div className="brand-icon">
-              <Sparkles size={20} />
+          <div className="brand-logo" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>
+            <div className="brand-icon" style={{ overflow: 'hidden', padding: 0 }}>
+              <img src="/contaque_logo.jpg" alt="Contaque" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
             <div className="brand-info">
-              <h2>Contaques</h2>
+              <h2>Contaque</h2>
               <span className="brand-tag">PRO INTELLIGENCE</span>
             </div>
           </div>
@@ -193,14 +198,16 @@ function Sidebar() {
 
         <div className="sidebar-footer">
           {/* Wallet Balance Card */}
-          <div className="sidebar-wallet-card">
+          <div className={`sidebar-wallet-card ${isLowBalance ? 'low-balance-alert' : ''}`}>
             <div className="wallet-card-left">
-              <div className="wallet-icon-circle">
+              <div className={`wallet-icon-circle ${isLowBalance ? 'low-balance-alert' : ''}`}>
                 <Wallet size={14} />
               </div>
               <div className="wallet-card-text">
                 <span className="wallet-label">Prepaid Balance</span>
-                <span className="wallet-value">₹{Number(walletBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span className={`wallet-value ${isLowBalance ? 'low-balance-alert' : ''}`}>
+                  ₹{Number(walletBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
               </div>
             </div>
             <button 
@@ -223,7 +230,7 @@ function Sidebar() {
               </div>
               <div className="user-info-text">
                 <div className="user-name-plan-row">
-                  <span className="user-name">{user.name || 'Devang'}</span>
+                  <span className="user-name">{user.name || user.email?.split('@')[0] || 'Account'}</span>
                   <span className={`user-plan-badge ${(userPlan || 'plus').toLowerCase()}`}>
                     {(userPlan || 'plus').toUpperCase()}
                   </span>

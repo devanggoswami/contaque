@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { 
-  X, User, ShieldCheck, CheckCircle2, Lock, Zap, ArrowRight,
+  X, User, ShieldCheck, CheckCircle2, Check, Lock, Zap, ArrowRight,
   TrendingUp, Sparkles, AlertCircle, RefreshCw, Crown
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
+import RazorpayCheckoutModal from './RazorpayCheckoutModal';
 import './UserProfileModal.css';
 
 const PLAN_DEFINITIONS = {
@@ -120,12 +121,11 @@ const FEATURE_CATALOG = [
 ];
 
 export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
-  if (!isOpen) return null;
-
   const { user, wallet, walletBalance, updateUserPlan, refreshWallet } = useAuth();
   const [activeTab, setActiveTab] = useState('RATES_FEATURES'); // 'RATES_FEATURES' | 'ALL_PLANS'
   const [changingPlan, setChangingPlan] = useState(false);
   const [switchFeedback, setSwitchFeedback] = useState(null);
+  const [checkoutPlan, setCheckoutPlan] = useState(null);
 
   const currentPlanKey = (wallet?.plan || user?.plan || 'plus').toLowerCase().includes('plus')
     ? 'plus'
@@ -144,27 +144,39 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
 
   const handlePlanSwitch = async (targetPlanKey) => {
     if (targetPlanKey === currentPlanKey) return;
-    setChangingPlan(true);
-    setSwitchFeedback(null);
-    try {
-      if (updateUserPlan) {
-        const res = await updateUserPlan(targetPlanKey);
-        if (res.success) {
-          setSwitchFeedback(`Successfully activated ${PLAN_DEFINITIONS[targetPlanKey].name}!`);
+    if (targetPlanKey === 'free') {
+      setChangingPlan(true);
+      setSwitchFeedback(null);
+      try {
+        if (updateUserPlan) {
+          const res = await updateUserPlan(targetPlanKey);
+          if (res.success) {
+            setSwitchFeedback(`Successfully switched to ${PLAN_DEFINITIONS[targetPlanKey].name}!`);
+          } else {
+            setSwitchFeedback(`Error: ${res.error || 'Failed to switch plan'}`);
+          }
         } else {
-          setSwitchFeedback(`Error: ${res.error || 'Failed to switch plan'}`);
+          await refreshWallet();
         }
-      } else {
-        await refreshWallet();
+      } catch (err) {
+        setSwitchFeedback(`Error: ${err.message}`);
+      } finally {
+        setChangingPlan(false);
       }
-    } catch (err) {
-      setSwitchFeedback(`Error: ${err.message}`);
-    } finally {
-      setChangingPlan(false);
+    } else {
+      // Trigger unified checkout flow for paid plans
+      setCheckoutPlan({
+        id: targetPlanKey,
+        name: PLAN_DEFINITIONS[targetPlanKey].name,
+        price: {
+          INR: PLAN_DEFINITIONS[targetPlanKey].price,
+          USD: targetPlanKey === 'plus' ? '$5.20' : '$3.12'
+        }
+      });
     }
   };
 
-    if (typeof document === 'undefined') return null;
+  if (!isOpen || typeof document === 'undefined') return null;
 
   return createPortal(
     <div className="profile-modal-backdrop" onClick={onClose}>
@@ -178,12 +190,12 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
             </div>
             <div className="profile-user-titles">
               <div className="profile-user-name-row">
-                <h3>{user?.name || 'Devang Goswami'}</h3>
+                <h3>{user?.name || 'User Account'}</h3>
                 <span className={`plan-badge-pill ${currentPlanKey}`}>
                   {planInfo.name}
                 </span>
               </div>
-              <span className="profile-user-email">{user?.email || 'gdevang950@gmail.com'}</span>
+              <span className="profile-user-email">{user?.email || ''}</span>
             </div>
           </div>
 
@@ -467,6 +479,19 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
         </div>
 
       </div>
+
+      {checkoutPlan && (
+        <RazorpayCheckoutModal
+          isOpen={!!checkoutPlan}
+          onClose={() => setCheckoutPlan(null)}
+          plan={checkoutPlan}
+          currency="INR"
+          onSuccess={async () => {
+            setCheckoutPlan(null);
+            if (refreshWallet) await refreshWallet();
+          }}
+        />
+      )}
     </div>,
     document.body
   );

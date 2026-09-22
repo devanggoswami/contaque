@@ -43,7 +43,7 @@ export default function Signup() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const { signup, loginWithGoogle } = useAuth();
+  const { user, isAuthenticated, signup, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const handleGoogleSuccess = async (credential) => {
@@ -52,7 +52,11 @@ export default function Signup() {
     const res = await loginWithGoogle(credential, requestedPlan);
     setSubmitting(false);
     if (res.success) {
-      navigate('/dashboard', { replace: true });
+      if (requestedPlan && requestedPlan !== 'free') {
+        navigate(`/dashboard?upgrade=${requestedPlan}`, { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     } else {
       setError(res.error || 'Google authentication failed. Please try again.');
     }
@@ -98,11 +102,17 @@ export default function Signup() {
     setSubmitting(false);
 
     if (res.success) {
-      navigate('/dashboard', { replace: true });
+      if (requestedPlan && requestedPlan !== 'free') {
+        navigate(`/dashboard?upgrade=${requestedPlan}`, { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     } else {
       setError(res.error || 'Failed to create account. Please try again.');
     }
   };
+
+  const planTitle = requestedPlan === 'plus' ? 'Value Plus' : requestedPlan === 'pack' ? 'Value Pack' : null;
 
   return (
     <div className="signup-screen-container">
@@ -115,20 +125,62 @@ export default function Signup() {
       {/* Main Signup Form Card */}
       <div className="signup-card-wrapper">
         {/* Brand Header */}
-        <div className="signup-brand-header" onClick={() => navigate('/landing')}>
-          <div className="signup-brand-logo">
-            <Sparkles size={22} />
+        <div className="signup-brand-header" onClick={() => navigate('/landing')} style={{ cursor: 'pointer' }}>
+          <div className="signup-brand-logo" style={{ overflow: 'hidden', padding: 0 }}>
+            <img src="/contaque_logo.jpg" alt="Contaque" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div className="signup-brand-text">
-            <h2>Contaques</h2>
+            <h2>Contaque</h2>
             <span className="signup-pro-tag">PRO INTELLIGENCE</span>
           </div>
         </div>
 
+        {/* Active Session Notice if another user is currently logged in */}
+        {isAuthenticated && user && (
+          <div style={{
+            background: 'rgba(99, 102, 241, 0.08)',
+            border: '1px solid rgba(99, 102, 241, 0.25)',
+            borderRadius: '10px',
+            padding: '10px 14px',
+            marginBottom: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '10px',
+            fontSize: '12.5px',
+            color: '#cbd5e1'
+          }}>
+            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              Currently signed in: <strong style={{ color: '#818cf8' }}>{user.email}</strong>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/dashboard')}
+              style={{
+                background: 'rgba(99, 102, 241, 0.2)',
+                border: '1px solid rgba(99, 102, 241, 0.4)',
+                color: '#e0e7ff',
+                borderRadius: '6px',
+                padding: '4px 10px',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                flexShrink: 0
+              }}
+            >
+              Dashboard →
+            </button>
+          </div>
+        )}
+
         {/* Heading Box */}
         <div className="signup-heading-box">
-          <h3>Create your Free Account</h3>
-          <p>Sign up with Google or complete your details to launch your dashboard.</p>
+          <h3>{planTitle ? `Create Account for ${planTitle}` : 'Create your Free Account'}</h3>
+          <p>
+            {planTitle 
+              ? `Sign up to complete setup and activate ${planTitle}.` 
+              : 'Sign up with Google or complete your details to launch your dashboard.'}
+          </p>
         </div>
 
         {error && (

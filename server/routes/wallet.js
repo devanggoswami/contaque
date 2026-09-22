@@ -173,7 +173,7 @@ router.post('/recharge/create-order', async (req, res) => {
         notes: {
           userId: String(user.id),
           email: user.email,
-          purpose: 'Wallet Recharge'
+          purpose: 'WALLET_TOPUP'
         }
       },
       {
@@ -183,6 +183,22 @@ router.post('/recharge/create-order', async (req, res) => {
         }
       }
     );
+
+    // Record order in payment_orders
+    await db.query(`
+      INSERT INTO payment_orders (
+        order_id, user_id, purpose, plan_id, amount_paise, currency, 
+        receipt, status, metadata
+      )
+      VALUES ($1, $2, 'WALLET_TOPUP', NULL, $3, 'INR', $4, 'CREATED', $5)
+      ON CONFLICT (order_id) DO NOTHING
+    `, [
+      orderResponse.data.id,
+      user.id,
+      amountInPaise,
+      receiptId,
+      JSON.stringify({ notes: { userId: String(user.id), purpose: 'WALLET_TOPUP' } })
+    ]);
 
     return res.json({
       success: true,
@@ -220,6 +236,18 @@ router.post('/recharge/verify', async (req, res) => {
     const keySecret = (process.env.RAZORPAY_KEY_SECRET || '').trim();
     if (!keySecret) {
       return res.status(503).json({ error: 'Payment gateway configuration error' });
+    }
+
+    // Verify order in payment_orders if exists
+    const orderCheck = await db.query('SELECT * FROM payment_orders WHERE order_id = $1', [razorpay_order_id]);
+    if (orderCheck.rows.length > 0) {
+      const ord = orderCheck.rows[0];
+      if (ord.user_id !== user.id) {
+        return res.status(403).json({ error: 'Security violation: Order does not belong to authenticated user' });
+      }
+      if (ord.purpose !== 'WALLET_TOPUP') {
+        return res.status(400).json({ error: 'Invalid order purpose: expected WALLET_TOPUP' });
+      }
     }
 
     // Cryptographic HMAC SHA256 Verification
@@ -270,6 +298,13 @@ router.post('/recharge/verify', async (req, res) => {
       [idempotencyKey, user.id, JSON.stringify(creditResult)]
     );
 
+    // Update payment_orders status
+    await db.query(`
+      UPDATE payment_orders 
+      SET status = 'PAID', payment_id = $1, signature = $2, paid_at = NOW() 
+      WHERE order_id = $3
+    `, [razorpay_payment_id, razorpay_signature, razorpay_order_id]);
+
     return res.json({
       success: true,
       message: `Successfully credited ₹${rechargeAmount.toFixed(2)} to your wallet!`,
@@ -283,7 +318,8 @@ router.post('/recharge/verify', async (req, res) => {
 });
 
 // ------------------------------------------------------------------------------
-// 6. POST /api/wallet/webhook - Razorpay Webhook with Idempotency & Signature Check
+// 6. POST /api/wallet/webhook - Razorpay Webhook with Idempotency, Signature Check
+// Decouples PLAN_UPGRADE and WALLET_TOPUP - Never accidentally credit wallet for plans
 // ------------------------------------------------------------------------------
 router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   try {
@@ -307,30 +343,74 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
     const event = JSON.parse(bodyBuffer.toString('utf-8'));
     const eventType = event.event;
 
+    // Handle payment.failed
+    if (eventType === 'payment.failed') {
+      const payment = event.payload.payment?.entity;
+      const orderId = payment?.order_id;
+      if (orderId) {
+        await db.query("UPDATE payment_orders SET status = 'FAILED' WHERE order_id = $1", [orderId]);
+      }
+      return res.json({ status: 'ok', handled: 'payment.failed' });
+    }
+
+    // Handle payment.captured or order.paid
     if (eventType === 'payment.captured' || eventType === 'order.paid') {
       const payment = event.payload.payment?.entity;
+      const orderEntity = event.payload.order?.entity;
       const paymentId = payment?.id;
-      const amountPaise = payment?.amount;
+      const orderId = payment?.order_id || orderEntity?.id;
+      const amountPaise = payment?.amount || orderEntity?.amount;
       const amountINR = amountPaise ? amountPaise / 100 : 0;
-      const userId = payment?.notes?.userId;
 
-      if (paymentId && userId && amountINR > 0) {
-        const idempotencyKey = `recharge_${paymentId}`;
-        const existing = await db.query('SELECT * FROM idempotency_keys WHERE key = $1', [idempotencyKey]);
-        if (existing.rows.length === 0) {
-          const creditRes = await creditBalance(
-            parseInt(userId, 10),
-            amountINR,
-            `Webhook credit for payment ${paymentId}`,
+      // Check order in payment_orders
+      let storedOrder = null;
+      if (orderId) {
+        const ordRes = await db.query('SELECT * FROM payment_orders WHERE order_id = $1', [orderId]);
+        if (ordRes.rows.length > 0) {
+          storedOrder = ordRes.rows[0];
+        }
+      }
+
+      const purpose = storedOrder?.purpose || payment?.notes?.purpose || orderEntity?.notes?.purpose || 'WALLET_TOPUP';
+      const userId = storedOrder?.user_id || payment?.notes?.userId || orderEntity?.notes?.userId;
+
+      if (purpose === 'PLAN_UPGRADE') {
+        // ACTIVATE SUBSCRIPTION PLAN - NEVER TOUCH WALLET
+        const planId = storedOrder?.plan_id || payment?.notes?.planId || orderEntity?.notes?.planId;
+        const { activateUserPlan } = require('../utils/plans');
+        if (userId && planId) {
+          await activateUserPlan({
+            userId: parseInt(userId, 10),
+            planId,
+            orderId,
             paymentId,
-            { event: eventType, webhook: true }
-          );
-          await db.query(
-            `INSERT INTO idempotency_keys (key, user_id, action, response_data)
-             VALUES ($1, $2, 'WALLET_WEBHOOK', $3)
-             ON CONFLICT (key) DO NOTHING`,
-            [idempotencyKey, parseInt(userId, 10), JSON.stringify(creditRes)]
-          );
+            billingDetails: storedOrder?.billing_details || {},
+            amountPaid: amountINR
+          });
+        }
+      } else if (purpose === 'WALLET_TOPUP') {
+        // CREDIT PREPAID WALLET
+        if (paymentId && userId && amountINR > 0) {
+          const idempotencyKey = `recharge_${paymentId}`;
+          const existing = await db.query('SELECT * FROM idempotency_keys WHERE key = $1', [idempotencyKey]);
+          if (existing.rows.length === 0) {
+            const creditRes = await creditBalance(
+              parseInt(userId, 10),
+              amountINR,
+              `Webhook credit for payment ${paymentId}`,
+              paymentId,
+              { event: eventType, webhook: true }
+            );
+            await db.query(
+              `INSERT INTO idempotency_keys (key, user_id, action, response_data)
+               VALUES ($1, $2, 'WALLET_WEBHOOK', $3)
+               ON CONFLICT (key) DO NOTHING`,
+              [idempotencyKey, parseInt(userId, 10), JSON.stringify(creditRes)]
+            );
+            if (orderId) {
+              await db.query("UPDATE payment_orders SET status = 'PAID', paid_at = NOW() WHERE order_id = $1", [orderId]);
+            }
+          }
         }
       }
     }

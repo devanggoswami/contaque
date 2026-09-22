@@ -212,7 +212,7 @@ const ENGINES_DATA = [
     ],
     sampleLeads: [
       { name: 'Target: 1,420 Enriched Leads', phone: 'Batch #12 Active', loc: 'Auto-Spam Protection', cat: 'Template: Cold Pitch', status: 'SENDING' },
-      { name: 'Sender: devang@agency.io', phone: '48 Sent / 0 Bounced', loc: 'Gmail SMTP Pool', cat: 'Queue: 180 Pending', status: 'ACTIVE' }
+      { name: 'Sender: outreach@growthhub.io', phone: '48 Sent / 0 Bounced', loc: 'Gmail SMTP Pool', cat: 'Queue: 180 Pending', status: 'ACTIVE' }
     ]
   }
 ];
@@ -275,7 +275,7 @@ const PRICING_PLANS = [
     theme: 'subtle'
   },
   {
-    id: 'value',
+    id: 'pack',
     name: 'Value Pack',
     icon: '🚀',
     badge: 'MOST POPULAR',
@@ -344,8 +344,13 @@ function LandingPage() {
     if (plan.id === 'free') {
       navigate('/signup?plan=free');
     } else {
-      setSelectedCheckoutPlan(plan);
-      setIsCheckoutOpen(true);
+      if (!isAuthenticated) {
+        // Direct unauthenticated users to create their account first with the chosen plan
+        navigate(`/signup?plan=${plan.id}`);
+      } else {
+        setSelectedCheckoutPlan(plan);
+        setIsCheckoutOpen(true);
+      }
     }
   };
 
@@ -424,14 +429,12 @@ function LandingPage() {
       {/* Sticky Glass Navbar */}
       <header className="landing-navbar">
         <div className="navbar-inner">
-          <div className="brand-group" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            <div className="brand-icon-box">
-              <Sparkles size={20} />
-            </div>
-            <div className="brand-text-col">
-              <span className="brand-name">Contaques</span>
-              <span className="brand-sub">PRO INTELLIGENCE</span>
-            </div>
+          <div className="brand-group" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} title="Contaque - Find | Connect | Grow">
+            <img 
+              src="/contaque_logo.jpg" 
+              alt="Contaque" 
+              className="brand-logo-img" 
+            />
           </div>
 
           <nav className="nav-links-desktop">
@@ -483,7 +486,7 @@ function LandingPage() {
             <button 
               type="button" 
               className="hero-cta-btn hero-cta-large"
-              onClick={() => navigate(isAuthenticated ? '/dashboard' : '/signup')}
+              onClick={() => navigate('/signup')}
             >
               <span>Get Started Free</span>
               <ArrowRight size={18} />
@@ -992,14 +995,12 @@ function LandingPage() {
         <div className="footer-inner-v2">
           {/* Column 1: Brand & Mini Feature Cards */}
           <div className="footer-col-brand">
-            <div className="brand-group" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-              <div className="brand-icon-box glow-purple">
-                <Sparkles size={20} />
-              </div>
-              <div className="brand-text-col">
-                <span className="brand-name">Contaques</span>
-                <span className="brand-sub">PRO INTELLIGENCE</span>
-              </div>
+            <div className="brand-group" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} title="Contaque - Find | Connect | Grow">
+              <img 
+                src="/contaque_logo.jpg" 
+                alt="Contaque" 
+                className="brand-logo-img" 
+              />
             </div>
 
             <p className="footer-tagline-lead">Find. Enrich. Reach. Grow.</p>

@@ -75,55 +75,6 @@ function GenerateData() {
     return () => clearTimeout(timer);
   }, [successToast]);
 
-  // Dynamic Region Intelligence Auto-Detector
-  const detectRegionInfo = (loc) => {
-    if (!loc) return null;
-    const l = loc.toLowerCase().trim();
-    if (l.includes('russia') || l.includes('moscow') || l.includes('petersburg') || l.includes('казань') || l.includes('москва') || l.includes('россия') || l.includes('kazan') || l.includes('novosibirsk')) {
-      return {
-        country: 'Russia',
-        flag: '🇷🇺',
-        code: '+7',
-        recommendedSource: 'yandex',
-        sourceLabel: 'Yandex + MAX Messenger',
-        tip: 'Yandex indexed data includes direct MAX Messenger (+7) 1-click chat integration!'
-      };
-    }
-    if (l.includes('dubai') || l.includes('uae') || l.includes('abu dhabi') || l.includes('sharjah') || l.includes('emirates')) {
-      return {
-        country: 'United Arab Emirates',
-        flag: '🇦🇪',
-        code: '+971',
-        recommendedSource: 'whatsapp',
-        sourceLabel: 'WhatsApp Radar',
-        tip: 'WhatsApp Radar yields 100% verified mobile numbers across UAE businesses!'
-      };
-    }
-    if (l.includes('india') || l.includes('mumbai') || l.includes('delhi') || l.includes('bangalore') || l.includes('pune') || l.includes('hyderabad') || l.includes('chennai') || l.includes('kolkata')) {
-      return {
-        country: 'India',
-        flag: '🇮🇳',
-        code: '+91',
-        recommendedSource: 'maps',
-        sourceLabel: 'Google Business Data',
-        tip: 'Google Maps directory provides richest business listings & direct phone numbers.'
-      };
-    }
-    if (l.includes('usa') || l.includes('united states') || l.includes('york') || l.includes('california') || l.includes('texas') || l.includes('chicago') || l.includes('miami') || l.includes('florida')) {
-      return {
-        country: 'United States',
-        flag: '🇺🇸',
-        code: '+1',
-        recommendedSource: 'dorking',
-        sourceLabel: 'Business Index (LinkedIn)',
-        tip: 'B2B executive emails and corporate phone records verified via LinkedIn platform.'
-      };
-    }
-    return null;
-  };
-
-  const detectedRegion = detectRegionInfo(location);
-
   const applyPreset = (preset) => {
     setKeyword(preset.keyword);
     setLocation(preset.location);
@@ -417,27 +368,6 @@ function GenerateData() {
                     required
                   />
                 </div>
-                {detectedRegion && (
-                  <div className="dynamic-region-pill-box animate-slide-up">
-                    <div className="region-meta">
-                      <span className="region-flag">{detectedRegion.flag}</span>
-                      <div className="region-text-group">
-                        <span className="region-name">{detectedRegion.country} ({detectedRegion.code})</span>
-                        <span className="region-tip">{detectedRegion.tip}</span>
-                      </div>
-                    </div>
-                    {source !== detectedRegion.recommendedSource && (
-                      <button 
-                        type="button" 
-                        className="region-switch-action-btn"
-                        onClick={() => setSource(detectedRegion.recommendedSource)}
-                      >
-                        <Zap size={12} />
-                        <span>Switch to {detectedRegion.sourceLabel}</span>
-                      </button>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
 

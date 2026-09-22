@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, Lock, Mail, Eye, EyeOff, ShieldCheck, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -12,7 +12,12 @@ function Login() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const { login, loginWithGoogle } = useAuth();
+  useEffect(() => {
+    setEmail('');
+    setPassword('');
+  }, []);
+
+  const { user, isAuthenticated, login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const handleGoogleSuccess = async (credential) => {
@@ -48,15 +53,53 @@ function Login() {
 
       <div className="login-card-wrapper animate-slide-up">
         {/* Brand Header */}
-        <div className="login-brand-header">
-          <div className="login-brand-logo">
-            <Sparkles size={24} />
+        <div className="login-brand-header" onClick={() => navigate('/landing')} style={{ cursor: 'pointer' }}>
+          <div className="login-brand-logo" style={{ overflow: 'hidden', padding: 0 }}>
+            <img src="/contaque_logo.jpg" alt="Contaque" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div className="login-brand-text">
-            <h2>Contaques</h2>
+            <h2>Contaque</h2>
             <span className="login-pro-tag">ENTERPRISE CLOUD</span>
           </div>
         </div>
+
+        {/* Active Session Notice if a user is currently logged in */}
+        {isAuthenticated && user && (
+          <div style={{
+            background: 'rgba(99, 102, 241, 0.08)',
+            border: '1px solid rgba(99, 102, 241, 0.25)',
+            borderRadius: '10px',
+            padding: '10px 14px',
+            marginBottom: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '10px',
+            fontSize: '12.5px',
+            color: '#cbd5e1'
+          }}>
+            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              Currently signed in: <strong style={{ color: '#818cf8' }}>{user.email}</strong>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/dashboard')}
+              style={{
+                background: 'rgba(99, 102, 241, 0.2)',
+                border: '1px solid rgba(99, 102, 241, 0.4)',
+                color: '#e0e7ff',
+                borderRadius: '6px',
+                padding: '4px 10px',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                flexShrink: 0
+              }}
+            >
+              Dashboard →
+            </button>
+          </div>
+        )}
 
         <div className="login-welcome-box">
           <h3>Welcome Back</h3>
@@ -93,35 +136,44 @@ function Login() {
           <div className="signup-divider-line"></div>
         </div>
 
-        <form onSubmit={handleSubmit} className="login-form">
+        <form onSubmit={handleSubmit} className="login-form" autoComplete="off">
+          {/* Decoy fields to intercept aggressive browser credential autofill */}
+          <input type="text" name="decoy_username" style={{ display: 'none' }} tabIndex="-1" autoComplete="off" />
+          <input type="password" name="decoy_password" style={{ display: 'none' }} tabIndex="-1" autoComplete="off" />
+
           <div className="form-group">
-            <label htmlFor="email">Administrator Email</label>
+            <label htmlFor="login_email">Work Email</label>
             <div className="login-input-box">
               <Mail size={18} className="input-leading-icon" />
               <input 
                 type="email" 
-                id="email"
+                id="login_email"
+                name="contaques_account_email"
                 placeholder="name@company.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                autoComplete="off"
+                data-lpignore="true"
                 required
-                autoFocus
               />
             </div>
           </div>
 
           <div className="form-group">
             <div className="label-row">
-              <label htmlFor="password">Security Password</label>
+              <label htmlFor="login_password">Password</label>
             </div>
             <div className="login-input-box">
               <Lock size={18} className="input-leading-icon" />
               <input 
                 type={showPassword ? "text" : "password"} 
-                id="password"
+                id="login_password"
+                name="contaques_account_secret"
                 placeholder="••••••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+                data-lpignore="true"
                 required
               />
               <button 

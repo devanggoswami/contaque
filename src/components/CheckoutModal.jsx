@@ -13,8 +13,6 @@ export default function CheckoutModal({
   userEmail = '', 
   onSuccess 
 }) {
-  if (!isOpen || !plan) return null;
-
   const [paymentMethod, setPaymentMethod] = useState('upi');
   const [email, setEmail] = useState(userEmail || '');
   const [name, setName] = useState('');
@@ -26,6 +24,8 @@ export default function CheckoutModal({
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvv, setCardCvv] = useState('');
   const [upiId, setUpiId] = useState('');
+
+  if (!isOpen || !plan) return null;
 
   const displayPrice = currency === 'INR' ? plan.price?.INR || '₹299' : plan.price?.USD || '$3.12';
 
