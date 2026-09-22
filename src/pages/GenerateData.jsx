@@ -39,7 +39,7 @@ function GenerateData() {
   const [source, setSource] = useState('maps');
   const [location, setLocation] = useState('');
   const [keyword, setKeyword] = useState('');
-  const [targetCount, setTargetCount] = useState(40);
+  const [targetCount, setTargetCount] = useState(20);
   const [platform, setPlatform] = useState('linkedin.com');
   const [customDomain, setCustomDomain] = useState('');
   
@@ -124,7 +124,7 @@ function GenerateData() {
           source,
           location: location.trim(),
           keyword: keyword.trim(),
-          targetCount: parseInt(targetCount, 10) || 30,
+          targetCount: parseInt(targetCount, 10) || 20,
           platform: source === 'dorking' ? targetPlatform : undefined
         })
       });
@@ -153,7 +153,7 @@ function GenerateData() {
         jobId: data.jobId,
         keyword: keyword.trim(),
         location: location.trim(),
-        count: parseInt(targetCount, 10) || 30
+        count: parseInt(targetCount, 10) || 20
       });
     } catch (err) {
       setError(err.message || "Failed to connect to backend server.");
