@@ -5,6 +5,7 @@
      - Green: Success / Active states only
      - Orange: Warnings / Upgrade actions only
      - Red: Errors / Critical alerts only
+   Fully responsive across 360px, 390px, 430px mobile, tablet, and desktop screens.
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
@@ -293,6 +294,7 @@
   cursor: pointer;
   transition: all 0.15s ease;
   font-family: inherit;
+  white-space: nowrap;
 }
 
 .time-range-pill:hover {
@@ -355,6 +357,7 @@
   color: #64748b;
   cursor: pointer;
   transition: all 0.15s ease;
+  flex-shrink: 0;
 }
 
 .refresh-icon-btn:hover {
@@ -382,6 +385,7 @@
   cursor: pointer;
   box-shadow: 0 1px 2px rgba(79, 70, 229, 0.2);
   transition: background-color 0.15s ease;
+  white-space: nowrap;
 }
 
 .primary-action-btn:hover {
@@ -416,12 +420,6 @@
 @media (max-width: 1100px) {
   .metrics-grid {
     grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 600px) {
-  .metrics-grid {
-    grid-template-columns: 1fr;
   }
 }
 
@@ -463,18 +461,8 @@
   justify-content: center;
 }
 
-.metric-icon-box.blue {
-  background-color: #f8fafc;
-  color: #4f46e5;
-  border: 1px solid #e2e8f0;
-}
-
-.metric-icon-box.purple {
-  background-color: #f8fafc;
-  color: #4f46e5;
-  border: 1px solid #e2e8f0;
-}
-
+.metric-icon-box.blue,
+.metric-icon-box.purple,
 .metric-icon-box.green {
   background-color: #f8fafc;
   color: #4f46e5;
@@ -501,13 +489,9 @@
   border-radius: 4px;
 }
 
-.metric-badge.positive {
-  background-color: #ecfdf5;
-  color: #047857;
-  border: 1px solid #a7f3d0;
-}
-
-.metric-badge.success {
+.metric-badge.positive,
+.metric-badge.success,
+.metric-badge.live-pulse {
   background-color: #ecfdf5;
   color: #047857;
   border: 1px solid #a7f3d0;
@@ -517,12 +501,6 @@
   background-color: #f1f5f9;
   color: #475569;
   border: 1px solid #e2e8f0;
-}
-
-.metric-badge.live-pulse {
-  background-color: #ecfdf5;
-  color: #047857;
-  border: 1px solid #a7f3d0;
 }
 
 .metric-label {
@@ -579,7 +557,7 @@
 }
 
 /* --------------------------------------------------------------------------
-   4. Source Engine Distribution - Executive Tonal Palette (No Rainbows)
+   4. Source Engine Distribution - Executive Tonal Palette
    -------------------------------------------------------------------------- */
 .source-distribution-card {
   background: #ffffff;
@@ -595,6 +573,8 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .title-with-icon {
@@ -651,12 +631,6 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 12px;
-}
-
-@media (max-width: 768px) {
-  .source-stats-legend {
-    grid-template-columns: repeat(2, 1fr);
-  }
 }
 
 .legend-interactive-btn {
@@ -850,6 +824,7 @@
   cursor: pointer;
   transition: all 0.15s ease;
   font-family: inherit;
+  white-space: nowrap;
 }
 
 .tab-pill-btn:hover {
@@ -944,10 +919,13 @@
   border: 1px solid #e2e8f0;
 }
 
-.source-micro-tag.maps { background: #f1f5f9; color: #475569; }
-.source-micro-tag.dorking { background: #f1f5f9; color: #475569; }
-.source-micro-tag.yellowpages { background: #f1f5f9; color: #475569; }
-.source-micro-tag.yandex { background: #f1f5f9; color: #475569; }
+.source-micro-tag.maps,
+.source-micro-tag.dorking,
+.source-micro-tag.yellowpages,
+.source-micro-tag.yandex {
+  background: #f1f5f9;
+  color: #475569;
+}
 
 .job-meta-line {
   margin: 2px 0 0 0;
@@ -1057,6 +1035,7 @@
 .ledger-table-wrap {
   width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   max-height: 380px;
   overflow-y: auto;
   border: 1px solid #e2e8f0;
@@ -1068,6 +1047,7 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;
+  min-width: 500px;
 }
 
 .ledger-table th {
@@ -1208,75 +1188,198 @@
 }
 
 /* --------------------------------------------------------------------------
-   8. Clean Mobile CRM View
+   8. INTENTIONAL RESPONSIVE MOBILE CRM VIEW (360px – 430px & Tablets)
    -------------------------------------------------------------------------- */
 @media (max-width: 768px) {
   .dashboard-header-bar {
     flex-direction: column;
     align-items: stretch;
-    gap: 10px;
-    margin-bottom: 14px;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .dashboard-title-group {
+    width: 100%;
   }
 
   .dashboard-title {
-    font-size: 20px;
+    font-size: 21px;
     letter-spacing: -0.3px;
+  }
+
+  .dashboard-plan-highlight {
+    width: 100%;
+  }
+
+  .plan-pill-group {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
 
   .dashboard-header-actions {
     width: 100%;
     display: flex;
-    gap: 6px;
+    flex-direction: column;
+    gap: 8px;
   }
 
+  /* Scrollable Time Range Pills without squeezing */
   .time-range-pill-group {
+    width: 100%;
+    display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    box-sizing: border-box;
+    padding: 3px;
+  }
+
+  .time-range-pill-group::-webkit-scrollbar {
+    display: none;
+  }
+
+  .time-range-pill {
     flex: 1;
-    justify-content: space-around;
+    text-align: center;
+    padding: 6px 8px;
+    font-size: 11.5px;
+  }
+
+  /* Bottom Actions Row */
+  .header-actions-row-mobile {
+    display: flex;
+    gap: 8px;
+    width: 100%;
   }
 
   .primary-action-btn {
     flex: 1;
+    min-height: 42px;
     justify-content: center;
-    padding: 7px 10px;
-    font-size: 12px;
+    padding: 8px 12px;
+    font-size: 13px;
   }
 
+  .refresh-icon-btn {
+    width: 42px;
+    height: 42px;
+  }
+
+  /* Tablet 2-column metrics grid */
   .metrics-grid {
-    grid-template-columns: 1fr 1fr !important;
-    gap: 8px !important;
-    margin-bottom: 12px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
   }
 
   .metric-card {
-    padding: 12px !important;
-    border-radius: 10px !important;
-  }
-
-  .metric-icon-box {
-    width: 30px !important;
-    height: 30px !important;
+    padding: 16px;
+    border-radius: 12px;
   }
 
   .metric-value {
-    font-size: 20px !important;
+    font-size: 24px;
   }
 
   .metric-footer {
-    display: none !important;
+    display: block;
+    font-size: 11.5px;
+    color: #64748b;
+    margin-top: 2px;
   }
 
   .source-distribution-card {
-    padding: 14px !important;
-    margin-bottom: 14px;
+    padding: 16px;
+    margin-bottom: 16px;
+    border-radius: 12px;
+  }
+
+  .source-stats-legend {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
   }
 
   .dashboard-grid-dual {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 16px;
   }
 
   .surface-card {
-    padding: 14px !important;
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .tab-pill-switcher {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .tab-pill-switcher::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab-pill-btn {
+    flex: 1;
+    text-align: center;
+    padding: 6px 10px;
+    font-size: 11.5px;
+  }
+}
+
+/* Small Mobile Screens (360px - 520px) */
+@media (max-width: 520px) {
+  /* Stack metrics cards to 1 column to avoid squeezed cramped cards */
+  .metrics-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  .metric-card {
+    padding: 16px !important;
+  }
+
+  .metric-header {
+    margin-bottom: 10px;
+  }
+
+  .metric-value {
+    font-size: 26px !important;
+  }
+
+  .metric-footer {
+    font-size: 12px !important;
+  }
+
+  .source-stats-legend {
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
+  }
+
+  .ledger-summary-strip {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  .email-verify-alert-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .alert-right-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .alert-confirm-btn {
+    flex: 1;
   }
 }

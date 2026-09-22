@@ -414,18 +414,20 @@ function Dashboard() {
             ))}
           </div>
 
-          <button 
-            className={`refresh-icon-btn ${isRefreshing ? 'spinning' : ''}`} 
-            onClick={() => fetchDashboardData(true)}
-            title="Refresh Now"
-          >
-            <RefreshCw size={16} />
-          </button>
+          <div className="header-actions-row-mobile">
+            <button 
+              className={`refresh-icon-btn ${isRefreshing ? 'spinning' : ''}`} 
+              onClick={() => fetchDashboardData(true)}
+              title="Refresh Now"
+            >
+              <RefreshCw size={16} />
+            </button>
 
-          <button className="primary-action-btn" onClick={() => navigate('/generate')}>
-            <Zap size={16} />
-            <span>New Scrape Job</span>
-          </button>
+            <button className="primary-action-btn" onClick={() => navigate('/generate')}>
+              <Zap size={16} />
+              <span>New Scrape Job</span>
+            </button>
+          </div>
         </div>
       </div>
 
