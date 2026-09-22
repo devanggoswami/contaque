@@ -83,6 +83,11 @@ export default function RazorpayPayButton({
         },
         handler: async (response) => {
           try {
+            // Strict pre-validation: ensure all required payment parameters are present
+            if (!response || !response.razorpay_payment_id || !response.razorpay_order_id || !response.razorpay_signature) {
+              throw new Error('Incomplete payment parameters returned from payment gateway.');
+            }
+
             // Step 3: Backend Signature Verification
             const verifyRes = await fetch(`${API_URL}/api/verify-payment`, {
               method: 'POST',
@@ -95,8 +100,8 @@ export default function RazorpayPayButton({
             });
 
             const verifyData = await verifyRes.json();
-            if (!verifyRes.ok || !verifyData.success) {
-              throw new Error(verifyData.error || 'Cryptographic payment verification failed.');
+            if (!verifyRes.ok || !verifyData?.success) {
+              throw new Error(verifyData?.error || 'Cryptographic payment verification failed.');
             }
 
             setLoading(false);

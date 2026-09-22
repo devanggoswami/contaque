@@ -165,7 +165,12 @@ export default function RazorpayCheckoutModal({
         },
         handler: async (response) => {
           try {
-            // 3. Cryptographic Signature & Razorpay Capture Verification on Backend
+            // Strict pre-validation: ensure all required payment parameters are present
+            if (!response || !response.razorpay_payment_id || !response.razorpay_order_id || !response.razorpay_signature) {
+              throw new Error('Incomplete payment response received from payment gateway.');
+            }
+
+            // Cryptographic Signature & Razorpay Capture Verification on Backend
             const verifyRes = await authFetch(`${API_URL}/api/plans/verify`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -178,8 +183,8 @@ export default function RazorpayCheckoutModal({
             });
 
             const verifyData = await verifyRes.json();
-            if (!verifyRes.ok || !verifyData.success) {
-              throw new Error(verifyData.error || 'Payment verification failed on server');
+            if (!verifyRes.ok || !verifyData?.success) {
+              throw new Error(verifyData?.error || 'Payment verification failed on server');
             }
 
             const receipt = {

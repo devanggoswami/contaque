@@ -158,6 +158,11 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
         },
         handler: async (response) => {
           try {
+            // Strict pre-validation: ensure all required payment parameters are present
+            if (!response || !response.razorpay_payment_id || !response.razorpay_order_id || !response.razorpay_signature) {
+              throw new Error('Incomplete payment response received from payment gateway.');
+            }
+
             setLoading(true);
             const verifyRes = await authFetch(`${API_URL}/api/wallet/recharge/verify`, {
               method: 'POST',
@@ -177,11 +182,11 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
               verifyData = {};
             }
 
-            if (!verifyRes.ok) {
+            if (!verifyRes.ok || !verifyData?.success) {
               throw new Error(verifyData?.error || 'Payment verification failed on server');
             }
 
-            // Refresh wallet balance safely
+            // ONLY after successful backend verification: execute existing actions
             if (refreshWallet) {
               await refreshWallet().catch((wErr) => {
                 console.warn('Wallet refresh failed:', wErr);
@@ -209,6 +214,7 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
         modal: {
           ondismiss: () => {
             setLoading(false);
+            setSuccessData(null);
           }
         }
       };

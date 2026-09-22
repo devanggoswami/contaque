@@ -171,13 +171,16 @@ router.post('/verify', async (req, res) => {
       return res.status(503).json({ error: 'Payment gateway configuration error' });
     }
 
-    // 1. Cryptographic HMAC-SHA256 Signature Verification
+    // 1. Cryptographic HMAC-SHA256 Signature Verification (Constant-Time Safe)
     const generatedSignature = crypto
       .createHmac('sha256', keySecret)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest('hex');
 
-    if (generatedSignature !== razorpay_signature) {
+    const expectedBuf = Buffer.from(generatedSignature, 'utf8');
+    const receivedBuf = Buffer.from(String(razorpay_signature), 'utf8');
+
+    if (expectedBuf.length !== receivedBuf.length || !crypto.timingSafeEqual(expectedBuf, receivedBuf)) {
       return res.status(400).json({ 
         error: 'Payment verification failed: Invalid cryptographic signature' 
       });

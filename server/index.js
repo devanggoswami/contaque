@@ -654,13 +654,16 @@ app.post('/api/verify-payment', async (req, res) => {
       });
     }
 
-    // Cryptographic Signature check: HMAC-SHA256(order_id + "|" + payment_id, KEY_SECRET)
+    // Cryptographic Signature check: HMAC-SHA256(order_id + "|" + payment_id, KEY_SECRET) (Constant-Time Safe)
     const expectedSignature = crypto
       .createHmac('sha256', keySecret)
       .update(`${order_id}|${payment_id}`)
       .digest('hex');
 
-    if (expectedSignature !== signature) {
+    const expectedBuf = Buffer.from(expectedSignature, 'utf8');
+    const receivedBuf = Buffer.from(String(signature), 'utf8');
+
+    if (expectedBuf.length !== receivedBuf.length || !crypto.timingSafeEqual(expectedBuf, receivedBuf)) {
       return res.status(400).json({ 
         success: false,
         error: 'Signature verification failed: Invalid signature' 
