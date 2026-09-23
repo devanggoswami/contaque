@@ -60,5 +60,6 @@ Thumbs.db
 server/set_test_balance.js
 server/test_*.js
 !server/test_entitlements.js
+!server/test_campaign_safety.js
 server/alter_db.js
 scratch/

@@ -35,7 +35,8 @@ async function alterDb() {
         total_leads INTEGER DEFAULT 0,
         sent_count INTEGER DEFAULT 0,
         failed_count INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        sender_account_id INTEGER REFERENCES email_accounts(id) ON DELETE SET NULL
       );
     `);
     console.log("Created campaigns table.");

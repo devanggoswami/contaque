@@ -8,6 +8,7 @@
     "server": "node server/index.js",
     "build": "vite build",
     "test:entitlements": "node server/test_entitlements.js",
+    "test:campaign:safety": "node server/test_campaign_safety.js",
     "lint": "oxlint",
     "preview": "vite preview"
   },

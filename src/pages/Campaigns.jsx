@@ -56,11 +56,21 @@ function Campaigns() {
   
   // Form States
   const [newAccount, setNewAccount] = useState({ email: '', app_password: '' });
-  const [newCampaign, setNewCampaign] = useState({ name: '', subject: '', body_html: '', target_mode: 'ALL', target_job_ids: [], manual_emails: '', image_link: '' });
+  const [newCampaign, setNewCampaign] = useState({ 
+    name: '', 
+    subject: '', 
+    body_html: '', 
+    target_mode: 'SPECIFIC', 
+    target_job_ids: [], 
+    manual_emails: '', 
+    image_link: '',
+    sender_account_id: ''
+  });
   const [attachmentFile, setAttachmentFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [jobSearch, setJobSearch] = useState('');
   const [gmailOnly, setGmailOnly] = useState(true);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -91,6 +101,16 @@ function Campaigns() {
     const int = setInterval(fetchData, 10000);
     return () => clearInterval(int);
   }, [hasAccess, fetchData]);
+
+  // Auto-bind first active sending account if none selected
+  useEffect(() => {
+    if (accounts.length > 0 && !newCampaign.sender_account_id) {
+      const firstActive = accounts.find(a => a.status === 'ACTIVE') || accounts[0];
+      if (firstActive) {
+        setNewCampaign(prev => ({ ...prev, sender_account_id: firstActive.id }));
+      }
+    }
+  }, [accounts, newCampaign.sender_account_id]);
 
   // Robust Text Sanitizer to eliminate crashed / mojibake characters and unwanted domain slugs
   const sanitizeText = (text) => {
@@ -208,8 +228,30 @@ function Campaigns() {
     } catch (e) {}
   };
 
-  const handleCreateCampaign = async (e) => {
+  // Pre-submit validation and opening the confirmation modal
+  const handlePreSubmit = (e) => {
     e.preventDefault();
+    if (!newCampaign.name.trim()) {
+      alert("Please enter a campaign name.");
+      return;
+    }
+    if (!newCampaign.sender_account_id) {
+      alert("Please select a Gmail sending account. If you haven't added one, please go to the Sending Accounts tab.");
+      return;
+    }
+    if (newCampaign.target_mode === 'SPECIFIC' && (!newCampaign.target_job_ids || newCampaign.target_job_ids.length === 0)) {
+      alert("Please select at least one job for targeting.");
+      return;
+    }
+    if (newCampaign.target_mode === 'MANUAL' && (!newCampaign.manual_emails || !newCampaign.manual_emails.trim())) {
+      alert("Please enter at least one manual email recipient.");
+      return;
+    }
+    setShowConfirmModal(true);
+  };
+
+  const executeCreateCampaign = async () => {
+    setShowConfirmModal(false);
     setLoading(true);
     try {
       let attachment_filename = null;
@@ -248,8 +290,17 @@ function Campaigns() {
       if (data.error) {
         alert(data.error);
       } else {
-        alert(`Campaign created! Queued ${data.queuedCount} emails.`);
-        setNewCampaign({ name: '', subject: '', body_html: '', target_mode: 'ALL', target_job_ids: [], manual_emails: '', image_link: '' });
+        alert(`Campaign created successfully!\n\n• Sending from: ${data.senderEmail || 'Selected Gmail'}\n• Queued: ${data.queuedCount} unique recipients\n\nYou can start outreach from the Live Dashboard.`);
+        setNewCampaign({ 
+          name: '', 
+          subject: '', 
+          body_html: '', 
+          target_mode: 'SPECIFIC', 
+          target_job_ids: [], 
+          manual_emails: '', 
+          image_link: '',
+          sender_account_id: accounts.length > 0 ? accounts[0].id : ''
+        });
         setAttachmentFile(null);
         setActiveTab('DASHBOARD');
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -264,13 +315,37 @@ function Campaigns() {
   const handleToggleStatus = async (id, currentStatus) => {
     const newStatus = currentStatus === 'RUNNING' ? 'PAUSED' : 'RUNNING';
     try {
-      await authFetch(`${API_URL}/api/campaigns/${id}/status`, {
+      const res = await authFetch(`${API_URL}/api/campaigns/${id}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       });
+      const data = await res.json();
+      if (data.error) {
+        alert(data.error);
+      }
       fetchData();
-    } catch(e) {}
+    } catch(e) {
+      alert("Error updating campaign status");
+    }
+  };
+
+  const handleStopCampaign = async (id) => {
+    if (!window.confirm("Stop this campaign? This will pause outreach and cancel all remaining pending emails in the queue so they will never send.")) return;
+    try {
+      const res = await authFetch(`${API_URL}/api/campaigns/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'STOPPED' })
+      });
+      const data = await res.json();
+      if (data.error) {
+        alert(data.error);
+      }
+      fetchData();
+    } catch(e) {
+      alert("Error stopping campaign");
+    }
   };
 
   const handleDeleteCampaign = async (id) => {
@@ -355,27 +430,65 @@ function Campaigns() {
       {activeTab === 'STUDIO' && (
         <div className="card">
           <h2>Create New Campaign</h2>
-          <form onSubmit={handleCreateCampaign}>
+          <form onSubmit={handlePreSubmit}>
+            {/* 1. Explicit Sender Account Selector */}
             <div className="form-group">
-              <label>Campaign Internal Name</label>
+              <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Send From Gmail Account <strong style={{color: '#ef4444'}}>*</strong></span>
+                <span 
+                  onClick={() => setActiveTab('ACCOUNTS')} 
+                  style={{ fontSize: '12px', color: 'var(--primary)', cursor: 'pointer', fontWeight: 600, textDecoration: 'underline' }}
+                >
+                  Manage Accounts ({accounts.length}) ↗
+                </span>
+              </label>
+
+              {accounts.length === 0 ? (
+                <div style={{ background: 'rgba(234, 179, 8, 0.08)', border: '1px solid rgba(234, 179, 8, 0.3)', borderRadius: '8px', padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#b45309', fontSize: '13px' }}>
+                    <AlertCircle size={16} />
+                    <span>No Gmail sending account connected yet.</span>
+                  </div>
+                  <button type="button" className="btn-primary" style={{ padding: '4px 10px', fontSize: '12px' }} onClick={() => setActiveTab('ACCOUNTS')}>
+                    + Add Gmail Account
+                  </button>
+                </div>
+              ) : (
+                <select 
+                  className="form-input" 
+                  required 
+                  value={newCampaign.sender_account_id} 
+                  onChange={e => setNewCampaign({ ...newCampaign, sender_account_id: e.target.value })}
+                >
+                  <option value="">-- Select Your Connected Gmail Account --</option>
+                  {accounts.map(acc => (
+                    <option key={acc.id} value={acc.id} disabled={acc.status !== 'ACTIVE'}>
+                      {acc.email} {acc.status !== 'ACTIVE' ? `(${acc.status})` : `(${acc.daily_sent_count || 0}/400 safe limit)`}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <span className="help-text">Every email in this campaign will strictly be sent from this account. No silent rotation to other accounts.</span>
+            </div>
+
+            {/* 2. Campaign Name */}
+            <div className="form-group">
+              <label>Campaign Internal Name <strong style={{color: '#ef4444'}}>*</strong></label>
               <input type="text" className="form-input" required value={newCampaign.name} onChange={e => setNewCampaign({...newCampaign, name: e.target.value})} placeholder="e.g., Q3 Software Companies Outreach" />
             </div>
 
+            {/* 3. Explicit Target Audience Selection (ALL removed; explicit selection required) */}
             <div className="form-group">
-              <label>Target Audience</label>
+              <label>Target Audience Source <strong style={{color: '#ef4444'}}>*</strong></label>
               
               <div className="target-mode-options">
                 <label className="target-mode-label">
-                  <input type="radio" name="targetMode" value="ALL" checked={newCampaign.target_mode === 'ALL'} onChange={() => setNewCampaign({...newCampaign, target_mode: 'ALL', target_job_ids: []})} />
-                  <span>All Valid Emails</span>
-                </label>
-                <label className="target-mode-label">
                   <input type="radio" name="targetMode" value="SPECIFIC" checked={newCampaign.target_mode === 'SPECIFIC'} onChange={() => setNewCampaign({...newCampaign, target_mode: 'SPECIFIC'})} />
-                  <span>Specific Jobs</span>
+                  <span>Specific Scraped Jobs</span>
                 </label>
                 <label className="target-mode-label">
                   <input type="radio" name="targetMode" value="MANUAL" checked={newCampaign.target_mode === 'MANUAL'} onChange={() => setNewCampaign({...newCampaign, target_mode: 'MANUAL', target_job_ids: []})} />
-                  <span>Manual Emails</span>
+                  <span>Manual Email List</span>
                 </label>
               </div>
 
@@ -407,9 +520,9 @@ function Campaigns() {
                   
                   <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {jobs.filter(j => 
-                      j.keyword.toLowerCase().includes(jobSearch.toLowerCase()) || 
-                      j.location.toLowerCase().includes(jobSearch.toLowerCase()) ||
-                      j.id.toString().includes(jobSearch)
+                      j.keyword?.toLowerCase().includes(jobSearch.toLowerCase()) || 
+                      j.location?.toLowerCase().includes(jobSearch.toLowerCase()) ||
+                      j.id?.toString().includes(jobSearch)
                     ).map(j => (
                       <label key={j.id} style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'normal'}}>
                         <input 
@@ -422,15 +535,20 @@ function Campaigns() {
                             setNewCampaign({...newCampaign, target_job_ids: ids});
                           }}
                         />
-                        Job #{j.id}: {j.keyword} in {j.location} <span style={{color: 'var(--text-muted)', fontSize: '12px'}}>({j.valid_emails_count || 0} emails)</span>
+                        Job #{j.id}: {j.keyword} in {j.location} <span style={{color: 'var(--text-muted)', fontSize: '12px'}}>({j.valid_emails_count || 0} valid emails)</span>
                       </label>
                     ))}
                   </div>
 
-                  <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--border)', fontWeight: 'bold', color: 'var(--primary)' }}>
-                    Total Valid Emails Selected: {
-                      jobs.filter(j => newCampaign.target_job_ids.includes(j.id)).reduce((acc, curr) => acc + parseInt(curr.valid_emails_count || 0), 0)
-                    }
+                  <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>
+                      Selected Jobs: <strong>{newCampaign.target_job_ids.length}</strong>
+                    </span>
+                    <span style={{ fontWeight: 'bold', color: 'var(--primary)' }}>
+                      Total Selected Emails: {
+                        jobs.filter(j => newCampaign.target_job_ids.includes(j.id)).reduce((acc, curr) => acc + parseInt(curr.valid_emails_count || 0), 0)
+                      }
+                    </span>
                   </div>
                 </div>
               )}
@@ -443,18 +561,15 @@ function Campaigns() {
                     value={newCampaign.manual_emails}
                     onChange={e => setNewCampaign({...newCampaign, manual_emails: e.target.value})}
                     placeholder="john@example.com, alice@company.com"
-                    style={{ minHeight: '60px' }}
+                    style={{ minHeight: '70px' }}
                   />
+                  <span className="help-text">Duplicate email addresses are automatically deduplicated before sending.</span>
                 </div>
-              )}
-              
-              {newCampaign.target_mode === 'ALL' && (
-                <span className="help-text" style={{marginTop: '5px'}}>Will queue all valid extracted emails from the database.</span>
               )}
             </div>
 
             <div className="form-group">
-              <label>Email Subject</label>
+              <label>Email Subject <strong style={{color: '#ef4444'}}>*</strong></label>
               <input type="text" className="form-input" required value={newCampaign.subject} onChange={e => setNewCampaign({...newCampaign, subject: e.target.value})} placeholder="Exclusive partnership with {{Business Name}}" />
             </div>
 
@@ -496,8 +611,8 @@ function Campaigns() {
               )}
             </div>
 
-            <button type="submit" className="btn-primary" disabled={loading}>
-              <Mail size={16} /> {loading ? 'Queuing Leads...' : 'Queue Campaign Engine'}
+            <button type="submit" className="btn-primary" disabled={loading || accounts.length === 0}>
+              <Send size={16} /> {loading ? 'Processing...' : 'Review & Launch Campaign'}
             </button>
           </form>
         </div>
@@ -675,11 +790,19 @@ function Campaigns() {
                   <tbody>
                     {campaigns.map(camp => (
                       <tr key={camp.id}>
-                        <td><strong>{camp.name}</strong><br/><span style={{fontSize:'12px', color:'#64748b'}}>{camp.subject}</span></td>
+                        <td>
+                          <strong>{camp.name}</strong><br/>
+                          <span style={{fontSize:'12px', color:'#64748b'}}>{camp.subject}</span>
+                          {camp.sender_email && (
+                            <div style={{ marginTop: '4px' }}>
+                              <span className="sender-pill">✉️ {camp.sender_email}</span>
+                            </div>
+                          )}
+                        </td>
                         <td>
                           {(() => {
                             if (camp.is_manual) return 'Manual Upload';
-                            if (!camp.target_job_id) return 'All Leads';
+                            if (!camp.target_job_id) return 'Specific Leads';
                             const ids = camp.target_job_id.toString().split(',');
                             if (ids.length <= 3) return `Job #${ids.join(', ')}`;
                             return <span title={`Jobs: ${camp.target_job_id}`} style={{ cursor: 'help', borderBottom: '1px dotted #94a3b8' }}>{ids.length} Jobs Selected</span>;
@@ -723,13 +846,13 @@ function Campaigns() {
                         <td>
                           <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
                             <div style={{flex: 1, background: '#e2e8f0', height: '6px', borderRadius: '3px', overflow: 'hidden'}}>
-                               <div style={{width: `${((camp.sent_count + camp.failed_count) / camp.total_leads) * 100}%`, background: '#4f46e5', height: '100%'}}></div>
+                               <div style={{width: `${((camp.sent_count + camp.failed_count) / (camp.total_leads || 1)) * 100}%`, background: '#4f46e5', height: '100%'}}></div>
                             </div>
                             <span style={{fontSize: '13px', fontWeight: 600}}>{camp.sent_count} <span style={{color: '#ef4444'}}>({camp.failed_count})</span> / {camp.total_leads}</span>
                           </div>
                         </td>
                         <td>
-                          <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                          <div style={{display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap'}}>
                             {camp.status !== 'COMPLETED' && (
                               <button 
                                 className="btn-primary" 
@@ -737,6 +860,15 @@ function Campaigns() {
                                 onClick={() => handleToggleStatus(camp.id, camp.status)}
                               >
                                 {camp.status === 'RUNNING' ? <><Pause size={14}/> Pause</> : <><Play size={14}/> Start</>}
+                              </button>
+                            )}
+                            {camp.status === 'RUNNING' && (
+                              <button 
+                                className="btn-stop-campaign"
+                                onClick={() => handleStopCampaign(camp.id)}
+                                title="Stop outreach and cancel remaining pending queue items"
+                              >
+                                Stop
                               </button>
                             )}
                             <button 
@@ -809,7 +941,7 @@ function Campaigns() {
                           <span className="meta-val">
                             {(() => {
                               if (camp.is_manual) return 'Manual Upload';
-                              if (!camp.target_job_id) return 'All Leads';
+                              if (!camp.target_job_id) return 'Specific Leads';
                               const ids = camp.target_job_id.toString().split(',');
                               if (ids.length <= 3) return `Job #${ids.join(', ')}`;
                               return `${ids.length} Jobs Selected`;
@@ -821,6 +953,12 @@ function Campaigns() {
                           <span className="meta-val"><strong>{camp.sent_count}</strong> / {camp.total_leads}</span>
                         </div>
                       </div>
+
+                      {camp.sender_email && (
+                        <div style={{ marginTop: '4px' }}>
+                          <span className="sender-pill">✉️ {camp.sender_email}</span>
+                        </div>
+                      )}
 
                       {/* Progress Bar */}
                       <div className="mobile-camp-progress-section">
@@ -851,6 +989,14 @@ function Campaigns() {
                             {camp.status === 'RUNNING' ? <><Pause size={13}/> Pause Outreach</> : <><Play size={13}/> Start Outreach</>}
                           </button>
                         )}
+                        {camp.status === 'RUNNING' && (
+                          <button 
+                            className="btn-stop-campaign mobile-action-btn"
+                            onClick={() => handleStopCampaign(camp.id)}
+                          >
+                            Stop Outreach
+                          </button>
+                        )}
                         <button 
                           className="btn-danger mobile-action-btn delete-btn"
                           onClick={() => handleDeleteCampaign(camp.id)}
@@ -865,6 +1011,84 @@ function Campaigns() {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* Confirmation Modal Before Launching Campaign */}
+      {showConfirmModal && (
+        <div className="campaign-confirm-overlay" onClick={() => setShowConfirmModal(false)}>
+          <div className="campaign-confirm-modal" onClick={e => e.stopPropagation()}>
+            <div className="confirm-modal-header">
+              <h3><Mail size={18} style={{ color: 'var(--primary)' }} /> Review Campaign Outreach</h3>
+              <button 
+                type="button" 
+                onClick={() => setShowConfirmModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                aria-label="Close modal"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="confirm-modal-body">
+              <div className="confirm-details-list">
+                <div className="confirm-detail-row">
+                  <span className="detail-label">Campaign Name:</span>
+                  <span className="detail-value">{newCampaign.name}</span>
+                </div>
+
+                <div className="confirm-detail-row">
+                  <span className="detail-label">Sending Account:</span>
+                  <span className="detail-value" style={{ color: '#2563eb' }}>
+                    {accounts.find(a => String(a.id) === String(newCampaign.sender_account_id))?.email || 'None selected'}
+                  </span>
+                </div>
+
+                <div className="confirm-detail-row">
+                  <span className="detail-label">Target Audience:</span>
+                  <span className="detail-value">
+                    {newCampaign.target_mode === 'MANUAL' 
+                      ? `Manual List (${newCampaign.manual_emails.split(',').filter(e => e.trim()).length} recipients)`
+                      : `${newCampaign.target_job_ids.length} Jobs selected (${jobs.filter(j => newCampaign.target_job_ids.includes(j.id)).reduce((acc, curr) => acc + parseInt(curr.valid_emails_count || 0), 0)} leads)`
+                    }
+                  </span>
+                </div>
+
+                <div className="confirm-detail-row">
+                  <span className="detail-label">Daily Quota Left:</span>
+                  <span className="detail-value">
+                    {Math.max(0, (limits?.dailyEmailLimit || 400) - (limits?.dailySentToday || 0)).toLocaleString('en-IN')} emails remaining
+                  </span>
+                </div>
+              </div>
+
+              <div className="confirm-warning-box">
+                <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
+                <div>
+                  <strong>Strict Safe Delivery:</strong> Emails will only be sent from the selected Gmail account at human-like 45–90 second intervals. Unrelated leads will not be touched, and duplicates are automatically filtered out.
+                </div>
+              </div>
+            </div>
+
+            <div className="confirm-modal-footer">
+              <button 
+                type="button" 
+                className="btn-secondary" 
+                onClick={() => setShowConfirmModal(false)}
+                disabled={loading}
+              >
+                Cancel / Edit
+              </button>
+              <button 
+                type="button" 
+                className="btn-primary" 
+                onClick={executeCreateCampaign}
+                disabled={loading}
+              >
+                <Play size={15} /> {loading ? 'Queueing Leads...' : 'Confirm & Launch Campaign'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

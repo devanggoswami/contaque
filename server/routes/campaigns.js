@@ -204,10 +204,11 @@ router.delete('/accounts/:id', async (req, res) => {
 router.get('/list', async (req, res) => {
   try {
     const result = await db.query(`
-      SELECT * 
-      FROM campaigns 
-      WHERE user_id = $1
-      ORDER BY created_at DESC
+      SELECT c.*, ea.email as sender_email, ea.status as sender_status
+      FROM campaigns c
+      LEFT JOIN email_accounts ea ON c.sender_account_id = ea.id
+      WHERE c.user_id = $1
+      ORDER BY c.created_at DESC
     `, [req.user.id]);
     res.json(result.rows);
   } catch (err) {
@@ -226,10 +227,21 @@ router.post('/upload', upload.single('attachment'), (req, res) => {
 });
 
 router.post('/create', async (req, res) => {
-  const { name, subject, body_html, target_mode, target_job_ids, manual_emails, attachment_filename, attachment_type, image_link } = req.body;
+  const { 
+    name, 
+    subject, 
+    body_html, 
+    target_mode, 
+    target_job_ids, 
+    manual_emails, 
+    attachment_filename, 
+    attachment_type, 
+    image_link,
+    sender_account_id 
+  } = req.body;
   
   try {
-    // Authoritative Server-Side Plan Check
+    // 1. Authoritative Server-Side Plan Check
     const entitlement = await getUserPlanEntitlement(req.user.id);
     if (!entitlement.emailCampaignsEnabled) {
       return res.status(403).json({ 
@@ -237,75 +249,112 @@ router.post('/create', async (req, res) => {
       });
     }
 
+    // 2. Validate Sender Account
+    if (!sender_account_id) {
+      return res.status(400).json({ error: 'Please select a Gmail sending account for this campaign.' });
+    }
+
+    const accCheck = await db.query(
+      'SELECT id, email, status FROM email_accounts WHERE id = $1 AND user_id = $2',
+      [sender_account_id, req.user.id]
+    );
+
+    if (accCheck.rows.length === 0) {
+      return res.status(400).json({ error: 'Selected Gmail sending account does not exist or does not belong to you.' });
+    }
+
+    if (accCheck.rows[0].status !== 'ACTIVE') {
+      return res.status(400).json({ 
+        error: `Selected sending account (${accCheck.rows[0].email}) is not active (${accCheck.rows[0].status}). Please check account connection.` 
+      });
+    }
+
+    // 3. Target Source Validation (Explicit selection required; no silent mass defaults)
+    if (target_mode !== 'MANUAL' && target_mode !== 'SPECIFIC') {
+      return res.status(400).json({ error: 'Please select an explicit targeting method (Specific Jobs or Manual Emails).' });
+    }
+
+    if (target_mode === 'SPECIFIC') {
+      if (!Array.isArray(target_job_ids) || target_job_ids.length === 0) {
+        return res.status(400).json({ error: 'Please select at least one specific job for this campaign.' });
+      }
+    }
+
     await db.query('BEGIN');
     
-    let validLeads = [];
+    let rawLeads = [];
     let isManual = false;
     let finalTargetJobId = null;
 
-    if (target_mode === 'MANUAL' && manual_emails) {
+    if (target_mode === 'MANUAL') {
       isManual = true;
-      // Parse comma separated manual emails
-      const emailsList = manual_emails.split(',').map(e => e.trim()).filter(e => e);
-      if (emailsList.length === 0) {
-         await db.query('ROLLBACK');
-         return res.status(400).json({ error: 'No valid manual emails provided.' });
+      if (!manual_emails || !manual_emails.trim()) {
+        await db.query('ROLLBACK');
+        return res.status(400).json({ error: 'No manual email addresses provided.' });
       }
-      // Create mock validLeads objects so the loop below works the same way
-      validLeads = emailsList.map(email => ({ id: null, emails: email }));
+      const emailsList = manual_emails.split(',').map(e => e.trim()).filter(Boolean);
+      rawLeads = emailsList.map(email => ({ id: null, emails: email }));
     } else {
-      // 1. Find leads with valid emails, strictly isolated to req.user.id
-      let leadsQuery = `
+      // SPECIFIC mode: strictly fetch leads from selected jobs belonging to this user
+      const leadsRes = await db.query(`
         SELECT l.id, l.emails 
         FROM leads l
         WHERE l.emails IS NOT NULL AND l.emails != '-' AND l.emails != 'None'
           AND l.user_id = $1
-      `;
-      let queryParams = [req.user.id];
-      
-      if (target_mode === 'SPECIFIC' && Array.isArray(target_job_ids) && target_job_ids.length > 0) {
-        leadsQuery += ` AND l.job_id = ANY($2::int[]) AND l.job_id IN (SELECT id FROM jobs WHERE user_id = $1)`;
-        queryParams.push(target_job_ids);
-        finalTargetJobId = target_job_ids.join(',');
-      }
-      
-      const leadsRes = await db.query(leadsQuery, queryParams);
-      validLeads = leadsRes.rows;
+          AND l.job_id = ANY($2::int[])
+          AND l.job_id IN (SELECT id FROM jobs WHERE user_id = $1)
+      `, [req.user.id, target_job_ids]);
+      rawLeads = leadsRes.rows;
+      finalTargetJobId = target_job_ids.join(',');
     }
 
-    if (validLeads.length === 0) {
-      await db.query('ROLLBACK');
-      return res.status(400).json({ error: 'No leads with valid emails found for this selection.' });
-    }
+    // 4. Strict Per-Campaign Recipient Deduplication & Validation
+    const seenEmails = new Set();
+    const uniqueRecipients = [];
 
-    // 2. Create Campaign (strictly assigned to req.user.id)
-    const campRes = await db.query(
-      `INSERT INTO campaigns (name, subject, body_html, target_job_id, total_leads, status, attachment_path, attachment_type, image_link, is_manual, user_id) 
-       VALUES ($1, $2, $3, $4, $5, 'DRAFT', $6, $7, $8, $9, $10) RETURNING id`,
-      [name, subject, body_html || '', finalTargetJobId, validLeads.length, attachment_filename || null, attachment_type || null, image_link || null, isManual, req.user.id]
-    );
-    const campaignId = campRes.rows[0].id;
-
-    // 3. Queue Emails (Valid business emails only)
-    for (const lead of validLeads) {
-      const primaryEmail = lead.emails.split(',')[0].trim();
-      if (primaryEmail && isValidEmailAddress(primaryEmail)) {
-        if (isManual) {
-          await db.query(
-            `INSERT INTO email_queue (campaign_id, target_email) VALUES ($1, $2)`,
-            [campaignId, primaryEmail]
-          );
-        } else {
-          await db.query(
-            `INSERT INTO email_queue (campaign_id, lead_id, target_email) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
-            [campaignId, lead.id, primaryEmail]
-          );
+    for (const lead of rawLeads) {
+      if (!lead.emails) continue;
+      const splitEmails = lead.emails.split(',').map(e => e.trim()).filter(Boolean);
+      for (const email of splitEmails) {
+        const lower = email.toLowerCase();
+        if (isValidEmailAddress(email) && !seenEmails.has(lower)) {
+          seenEmails.add(lower);
+          uniqueRecipients.push({
+            lead_id: lead.id || null,
+            target_email: email
+          });
         }
       }
     }
 
+    if (uniqueRecipients.length === 0) {
+      await db.query('ROLLBACK');
+      return res.status(400).json({ error: 'No valid, distinct email recipients found in the selected source.' });
+    }
+
+    // 5. Create Campaign (bound to req.user.id and selected sender_account_id)
+    const campRes = await db.query(
+      `INSERT INTO campaigns (name, subject, body_html, target_job_id, total_leads, status, attachment_path, attachment_type, image_link, is_manual, user_id, sender_account_id) 
+       VALUES ($1, $2, $3, $4, $5, 'DRAFT', $6, $7, $8, $9, $10, $11) RETURNING id`,
+      [name, subject, body_html || '', finalTargetJobId, uniqueRecipients.length, attachment_filename || null, attachment_type || null, image_link || null, isManual, req.user.id, sender_account_id]
+    );
+    const campaignId = campRes.rows[0].id;
+
+    // 6. Queue Verified Recipients
+    for (const item of uniqueRecipients) {
+      await db.query(
+        `INSERT INTO email_queue (campaign_id, lead_id, target_email, status) VALUES ($1, $2, $3, 'PENDING')`,
+        [campaignId, item.lead_id, item.target_email]
+      );
+    }
+
     await db.query('COMMIT');
-    res.json({ success: true, campaignId, queuedCount: validLeads.length });
+    res.json({ 
+      success: true, 
+      campaignId, 
+      queuedCount: uniqueRecipients.length,
+      senderEmail: accCheck.rows[0].email 
+    });
   } catch (err) {
     await db.query('ROLLBACK');
     res.status(500).json({ error: err.message });
@@ -313,8 +362,25 @@ router.post('/create', async (req, res) => {
 });
 
 router.put('/:id/status', async (req, res) => {
-  const { status } = req.body; // 'RUNNING', 'PAUSED'
+  const { status } = req.body; // 'RUNNING', 'PAUSED', 'STOPPED'
   try {
+    // 1. Verify campaign exists and belongs to current user
+    const campCheck = await db.query(
+      `SELECT c.id, c.sender_account_id, c.status as current_status,
+              ea.status as account_status, ea.email as sender_email
+       FROM campaigns c
+       LEFT JOIN email_accounts ea ON c.sender_account_id = ea.id AND ea.user_id = c.user_id
+       WHERE c.id = $1 AND c.user_id = $2`,
+      [req.params.id, req.user.id]
+    );
+
+    if (campCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Campaign not found or access denied.' });
+    }
+
+    const camp = campCheck.rows[0];
+
+    // 2. Strict Pre-Run Checks when starting or resuming
     if (status === 'RUNNING') {
       const entitlement = await getUserPlanEntitlement(req.user.id);
       if (!entitlement.emailCampaignsEnabled) {
@@ -322,16 +388,37 @@ router.put('/:id/status', async (req, res) => {
           error: 'Your current plan does not allow running email campaigns. Please upgrade to Value Plus or Value Pack.' 
         });
       }
+
+      if (!camp.sender_account_id) {
+        return res.status(400).json({ 
+          error: 'This campaign does not have an assigned sending account. Please assign a Gmail sending account.' 
+        });
+      }
+
+      if (camp.account_status !== 'ACTIVE') {
+        return res.status(400).json({ 
+          error: `Assigned sending account (${camp.sender_email || 'Unknown'}) is not active (${camp.account_status || 'Disconnected'}). Please reconnect account before starting.` 
+        });
+      }
     }
 
-    const updateRes = await db.query(
-      `UPDATE campaigns SET status = $1 WHERE id = $2 AND user_id = $3 RETURNING id`, 
-      [status, req.params.id, req.user.id]
+    // 3. Update Campaign Status
+    const newStatus = (status === 'STOPPED') ? 'PAUSED' : status;
+    await db.query(
+      `UPDATE campaigns SET status = $1 WHERE id = $2 AND user_id = $3`, 
+      [newStatus, req.params.id, req.user.id]
     );
-    if (updateRes.rowCount === 0) {
-      return res.status(404).json({ error: 'Campaign not found or access denied' });
+
+    // If explicitly STOPPED by user, cancel remaining pending queue items so they never send later
+    if (status === 'STOPPED') {
+      await db.query(
+        `UPDATE email_queue SET status = 'CANCELLED', error_msg = 'Campaign stopped by user' 
+         WHERE campaign_id = $1 AND status = 'PENDING'`,
+        [req.params.id]
+      );
     }
-    res.json({ success: true });
+
+    res.json({ success: true, status: newStatus });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
