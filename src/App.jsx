@@ -63,10 +63,14 @@ function App() {
           {/* Public Legal & Policy Pages */}
           <Route path="/terms" element={<TermsAndConditions />} />
           <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+          <Route path="/terms-of-service" element={<TermsAndConditions />} />
+          <Route path="/terms-of-use" element={<TermsAndConditions />} />
+          <Route path="/tos" element={<TermsAndConditions />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/refund-policy" element={<PaymentRefundPolicy />} />
           <Route path="/payment-refund-policy" element={<PaymentRefundPolicy />} />
+          <Route path="/refund" element={<PaymentRefundPolicy />} />
 
           {/* Public Auth Routes: Always accessible to allow multi-user login and signup */}
           <Route path="/login" element={<Login />} />

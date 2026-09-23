@@ -5,6 +5,7 @@ import {
   Mail, Calendar, MapPin, CheckCircle2, ChevronRight, Globe, Database, Send, BarChart3 
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import '../pages/LandingPage.css';
 import '../pages/LegalPage.css';
 
 export default function LegalLayout({ 

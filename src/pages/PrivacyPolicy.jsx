@@ -1,9 +1,6 @@
 import React, { useEffect } from 'react';
 import LegalLayout from '../components/LegalLayout';
-import { 
-  ShieldCheck, Lock, Eye, Database, Server, CreditCard, 
-  Share2, UserCheck, HardDrive, Cookie, RefreshCw, Mail, MapPin 
-} from 'lucide-react';
+import { ShieldCheck, CreditCard, Mail, MapPin } from 'lucide-react';
 
 export default function PrivacyPolicy() {
   useEffect(() => {

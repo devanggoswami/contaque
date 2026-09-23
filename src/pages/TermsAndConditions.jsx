@@ -1,8 +1,7 @@
 import React, { useEffect } from 'react';
 import LegalLayout from '../components/LegalLayout';
 import { 
-  FileText, Shield, UserCheck, AlertTriangle, CreditCard, 
-  Wallet, Ban, Copyright, Server, Scale, RefreshCw, Mail, MapPin 
+  FileText, AlertTriangle, Calendar, Scale, Mail, MapPin 
 } from 'lucide-react';
 
 export default function TermsAndConditions() {

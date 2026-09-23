@@ -1,9 +1,6 @@
 import React, { useEffect } from 'react';
 import LegalLayout from '../components/LegalLayout';
-import { 
-  CreditCard, ShieldCheck, CheckCircle2, Clock, AlertTriangle, 
-  HelpCircle, RefreshCw, FileText, Wallet, ArrowRight, Mail, MapPin 
-} from 'lucide-react';
+import { CreditCard, ShieldCheck, Clock, Mail, MapPin } from 'lucide-react';
 
 export default function PaymentRefundPolicy() {
   useEffect(() => {
