@@ -248,54 +248,98 @@
   gap: 24px;
 }
 
-/* Entitlement & Quota Banner */
-.campaign-entitlement-banner {
+/* Entitlement & Quota 2-Card Grid */
+.campaign-entitlement-grid {
   grid-column: 1 / -1;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(168, 85, 247, 0.08));
-  border: 1px solid rgba(99, 102, 241, 0.25);
-  border-radius: 14px;
-  padding: 16px 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 16px;
   width: 100%;
   box-sizing: border-box;
 }
 
-.campaign-entitlement-info {
+.entitlement-stat-box {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.06), rgba(147, 197, 253, 0.08));
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  border-radius: 12px;
+  padding: 14px 18px;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
+  box-sizing: border-box;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
 }
 
-.campaign-entitlement-sub,
-.campaign-quota-sub {
-  font-size: 11px;
+.entitlement-stat-box.quota-box {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(59, 130, 246, 0.06));
+  border-color: rgba(59, 130, 246, 0.22);
+}
+
+.entitlement-stat-box.quota-exhausted {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.06), rgba(249, 115, 22, 0.06));
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.entitlement-box-label {
+  font-size: 10.5px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
+  font-weight: 700;
   color: var(--text-muted, #64748b);
-  font-weight: 700;
+  margin-bottom: 4px;
 }
 
-.campaign-entitlement-title {
-  font-size: 18px;
+.entitlement-box-main {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 2px 0 6px 0;
+}
+
+.entitlement-count {
+  font-size: 22px;
   font-weight: 800;
-  color: var(--text-main, #1e293b);
-  margin-top: 2px;
+  color: var(--text-main, #0f172a);
+  letter-spacing: -0.5px;
+  line-height: 1;
 }
 
-.campaign-quota-info {
-  text-align: right;
-}
-
-.campaign-quota-value {
-  font-size: 15px;
-  font-weight: 700;
+.entitlement-count.quota-num {
   color: var(--primary, #2563eb);
 }
 
-.campaign-quota-value.limit-reached {
+.entitlement-entity {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.entitlement-box-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #ffffff;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 9999px;
+  padding: 3px 10px;
+  font-size: 11.5px;
+  color: #334155;
+  width: fit-content;
+  font-weight: 500;
+}
+
+.entitlement-box-pill.pill-active {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.25);
+  color: #059669;
+  font-weight: 600;
+}
+
+.entitlement-box-pill.pill-alert {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.25);
   color: #ef4444;
+  font-weight: 600;
 }
 
 /* Card Header & Account Form */
@@ -1158,18 +1202,23 @@ input.form-input:focus, select.form-select:focus, textarea.form-textarea:focus {
   .campaigns-header {
     flex-direction: column;
     align-items: stretch;
-    gap: 12px;
-    margin-bottom: 16px;
+    gap: 6px;
+    margin-bottom: 8px;
   }
 
   .campaigns-title-group h1 {
-    font-size: 22px;
-    line-height: 1.25;
+    font-size: 18px;
+    line-height: 1.2;
+    margin: 0 0 2px 0;
   }
 
   .campaigns-title-group p {
-    font-size: 13px;
-    line-height: 1.4;
+    font-size: 11px;
+    line-height: 1.3;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .gmail-rotating-badge-container {
@@ -1177,13 +1226,49 @@ input.form-input:focus, select.form-select:focus, textarea.form-textarea:focus {
     max-width: 100%;
     box-sizing: border-box;
     display: block;
+    padding: 1.5px;
   }
 
   .gmail-rotating-badge-inner {
     width: 100%;
     box-sizing: border-box;
     justify-content: space-between;
-    padding: 7px 12px;
+    padding: 4px 10px;
+    gap: 6px;
+  }
+
+  .gmail-blink-dot {
+    width: 6px;
+    height: 6px;
+  }
+
+  .gmail-icon-badge svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  .gmail-title {
+    font-size: 10.5px;
+  }
+
+  .gmail-status-sub {
+    font-size: 8.5px;
+  }
+
+  .gmail-toggle-track {
+    width: 26px;
+    height: 15px;
+    padding: 1.5px;
+  }
+
+  .gmail-toggle-thumb {
+    width: 11px;
+    height: 11px;
+    transform: translateX(11px);
+  }
+
+  .gmail-toggle-track.off .gmail-toggle-thumb {
+    transform: translateX(0px);
   }
 
   .tabs-container {
@@ -1194,9 +1279,9 @@ input.form-input:focus, select.form-select:focus, textarea.form-textarea:focus {
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
-    gap: 6px;
-    padding-bottom: 6px;
-    margin-bottom: 14px;
+    gap: 4px;
+    padding-bottom: 4px;
+    margin-bottom: 8px;
     scrollbar-width: none;
   }
 
@@ -1207,11 +1292,17 @@ input.form-input:focus, select.form-select:focus, textarea.form-textarea:focus {
   .tab-btn {
     flex-shrink: 0;
     white-space: nowrap;
-    padding: 8px 12px;
-    font-size: 12px;
-    gap: 5px;
+    padding: 5px 9px;
+    font-size: 11px;
+    gap: 4px;
+    border-radius: 6px;
     display: inline-flex;
     align-items: center;
+  }
+
+  .tab-btn svg {
+    width: 13px;
+    height: 13px;
   }
 
   .tab-text-desktop {
@@ -1222,50 +1313,124 @@ input.form-input:focus, select.form-select:focus, textarea.form-textarea:focus {
     display: inline;
   }
 
-  .campaign-entitlement-banner {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-    padding: 14px 14px;
-    border-radius: 12px;
+  /* Entitlement Grid on Mobile: Clean 2-box side-by-side */
+  .campaign-entitlement-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    margin-bottom: 6px !important;
   }
 
-  .campaign-entitlement-title {
-    font-size: 15px;
-    line-height: 1.35;
+  .entitlement-stat-box {
+    padding: 8px 10px !important;
+    border-radius: 9px !important;
   }
 
-  .campaign-quota-info {
-    text-align: left;
-    padding-top: 10px;
-    border-top: 1px dashed rgba(99, 102, 241, 0.25);
+  .entitlement-box-label {
+    font-size: 8.5px !important;
+    letter-spacing: 0.04em !important;
+    margin-bottom: 2px !important;
   }
 
-  .campaign-quota-value {
-    font-size: 14px;
-    margin-top: 2px;
+  .entitlement-box-main {
+    gap: 4px !important;
+    margin: 1px 0 3px 0 !important;
+  }
+
+  .entitlement-count {
+    font-size: 17px !important;
+  }
+
+  .entitlement-entity {
+    font-size: 10px !important;
+  }
+
+  .entitlement-box-pill {
+    padding: 2px 6px !important;
+    font-size: 9px !important;
+    border-radius: 9999px !important;
   }
 
   .card {
-    padding: 16px 12px;
-    border-radius: 12px;
+    padding: 10px 10px !important;
+    border-radius: 10px !important;
     width: 100%;
     box-sizing: border-box;
   }
 
+  .card h2 {
+    font-size: 14px !important;
+    margin: 0 0 6px 0 !important;
+  }
+
+  .card-header-flex {
+    margin-bottom: 6px !important;
+    gap: 6px !important;
+  }
+
   .card-header-flex h2 {
-    font-size: 17px;
+    font-size: 14px !important;
+    margin: 0 !important;
+  }
+
+  .card-header-flex .badge {
+    font-size: 9.5px !important;
+    padding: 2px 6px !important;
+  }
+
+  .form-group {
+    margin-bottom: 7px !important;
+    gap: 3px !important;
+  }
+
+  .form-group label {
+    font-size: 10px !important;
+    margin-bottom: 2px !important;
+    letter-spacing: 0.2px !important;
+  }
+
+  .form-input, .form-select {
+    padding: 6px 9px !important;
+    font-size: 12px !important;
+    height: 33px !important;
+    min-height: 33px !important;
+    border-radius: 6px !important;
+  }
+
+  .form-textarea {
+    padding: 6px 9px !important;
+    font-size: 12px !important;
+    min-height: 52px !important;
+    border-radius: 6px !important;
+  }
+
+  .target-mode-options {
+    margin-bottom: 6px !important;
+    gap: 4px !important;
+  }
+
+  .target-mode-label {
+    padding: 4px 7px !important;
+    font-size: 10.5px !important;
+    border-radius: 6px !important;
+    gap: 4px !important;
+  }
+
+  .btn-primary {
+    height: 36px !important;
+    font-size: 12px !important;
+    border-radius: 6px !important;
+    padding: 6px 12px !important;
   }
 
   .studio-grid {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 12px;
   }
 
   .account-form {
     flex-direction: column;
     align-items: stretch;
-    gap: 12px;
+    gap: 8px;
   }
 
   .account-form-group {
@@ -1277,11 +1442,16 @@ input.form-input:focus, select.form-select:focus, textarea.form-textarea:focus {
   .account-submit-btn {
     width: 100%;
     justify-content: center;
-    height: 44px;
-    margin-top: 4px;
+    height: 35px !important;
+    font-size: 12px !important;
+    margin-top: 2px;
+    border-radius: 6px !important;
   }
 
   .help-text {
+    font-size: 9.5px !important;
+    line-height: 1.3 !important;
+    margin-top: 2px !important;
     word-break: break-word;
     overflow-wrap: anywhere;
   }

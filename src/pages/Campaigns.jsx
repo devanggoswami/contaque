@@ -506,17 +506,26 @@ function Campaigns() {
       {activeTab === 'ACCOUNTS' && (
         <div className="grid-layout">
           {/* Plan Entitlement & Daily Quota Banner */}
-          <div className="campaign-entitlement-banner">
-            <div className="campaign-entitlement-info">
-              <div className="campaign-entitlement-sub">Current Plan Entitlement</div>
-              <div className="campaign-entitlement-title">
-                {limits?.entitlementLabel || (userPlan === 'pack' ? '4 Gmail accounts · 1,600 emails/day' : '1 Gmail account · 400 emails/day')}
+          <div className="campaign-entitlement-grid">
+            <div className="entitlement-stat-box">
+              <div className="entitlement-box-label">PLAN ALLOCATION</div>
+              <div className="entitlement-box-main">
+                <span className="entitlement-count">{limits?.maxAccounts || (userPlan === 'pack' ? 4 : 1)}</span>
+                <span className="entitlement-entity">Gmail {limits?.maxAccounts === 1 ? 'Account' : 'Accounts'}</span>
+              </div>
+              <div className="entitlement-box-pill">
+                ⚡ <strong>{Number(limits?.dailyEmailLimit || (userPlan === 'pack' ? 1600 : 400)).toLocaleString('en-IN')}</strong> emails/day
               </div>
             </div>
-            <div className="campaign-quota-info">
-              <div className="campaign-quota-sub">Daily Campaign Quota</div>
-              <div className={`campaign-quota-value ${limits?.dailyLimitReached ? 'limit-reached' : ''}`}>
-                {limits?.usageLabel || `${limits?.dailySentToday || 0} / ${limits?.dailyEmailLimit || 400} emails used today`}
+
+            <div className={`entitlement-stat-box quota-box ${limits?.dailyLimitReached ? 'quota-exhausted' : ''}`}>
+              <div className="entitlement-box-label">TODAY'S USAGE</div>
+              <div className="entitlement-box-main">
+                <span className="entitlement-count quota-num">{Number(limits?.dailySentToday || 0).toLocaleString('en-IN')}</span>
+                <span className="entitlement-entity">/ {Number(limits?.dailyEmailLimit || (userPlan === 'pack' ? 1600 : 400)).toLocaleString('en-IN')}</span>
+              </div>
+              <div className={`entitlement-box-pill ${limits?.dailyLimitReached ? 'pill-alert' : 'pill-active'}`}>
+                {limits?.dailyLimitReached ? '⚠️ Quota limit reached' : '✓ emails sent today'}
               </div>
             </div>
           </div>

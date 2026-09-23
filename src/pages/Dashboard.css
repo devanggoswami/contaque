@@ -1358,26 +1358,72 @@
 
 /* Small Mobile Screens (360px - 520px) */
 @media (max-width: 520px) {
-  /* Stack metrics cards to 1 column to avoid squeezed cramped cards */
+  /* 2x2 grid for metrics cards (2 top, 2 bottom) */
   .metrics-grid {
-    grid-template-columns: 1fr !important;
-    gap: 10px !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
   }
 
   .metric-card {
-    padding: 16px !important;
+    padding: 11px 9px !important;
+    border-radius: 10px !important;
   }
 
   .metric-header {
-    margin-bottom: 10px;
+    margin-bottom: 6px !important;
+    gap: 4px !important;
+  }
+
+  .metric-icon-box {
+    width: 30px !important;
+    height: 30px !important;
+    border-radius: 7px !important;
+  }
+
+  .metric-icon-box svg {
+    width: 15px !important;
+    height: 15px !important;
+  }
+
+  .metric-badge {
+    font-size: 9px !important;
+    padding: 2px 5px !important;
+    white-space: nowrap !important;
+  }
+
+  .metric-card-topup-btn {
+    padding: 2px 5px !important;
+    font-size: 9px !important;
+    gap: 3px !important;
+    white-space: nowrap !important;
+  }
+
+  .metric-card-topup-btn svg {
+    width: 10px !important;
+    height: 10px !important;
+  }
+
+  .metric-label {
+    font-size: 11px !important;
+    line-height: 1.2 !important;
+    display: block !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
 
   .metric-value {
-    font-size: 26px !important;
+    font-size: 19px !important;
+    margin: 2px 0 !important;
   }
 
   .metric-footer {
-    font-size: 12px !important;
+    font-size: 9.5px !important;
+    line-height: 1.2 !important;
+    display: block !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
 
   .source-stats-legend {
