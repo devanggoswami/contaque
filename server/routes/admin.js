@@ -8,7 +8,7 @@ const router = express.Router();
 const crypto = require('crypto');
 const db = require('../db');
 const { syncUserToGoogleSheets } = require('../utils/googleSheetsService');
-const { getPlanConfig, normalizePlanId } = require('../utils/plans');
+const { getPlanConfig, normalizePlanId, calculateCalendarExpiry } = require('../utils/plans');
 
 const AUTH_USER = (process.env.ADMIN_USER || process.env.AUTH_USER || '').trim();
 const JWT_SECRET = process.env.JWT_SECRET || 'contaque_jwt_development_secret_key_change_in_production';
@@ -268,8 +268,8 @@ router.post('/override/plan', requireAdmin, async (req, res) => {
     const previousPlan = targetUser.plan || 'free';
     const previousExpiresAt = targetUser.plan_expires_at;
 
-    const days = parseInt(extendDays, 10) || 30;
-    const planExpiresAt = cleanPlan === 'free' ? null : new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+    const days = parseInt(extendDays, 10) || 1; // months (default 1 month)
+    const planExpiresAt = cleanPlan === 'free' ? null : calculateCalendarExpiry(days);
 
     const isFree = cleanPlan === 'free';
     const planStartedAt = isFree ? null : new Date();

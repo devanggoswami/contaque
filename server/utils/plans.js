@@ -5,6 +5,45 @@
 
 const db = require('../db');
 
+/**
+ * Calculate strict calendar-based plan expiry.
+ * Monthly plan: same calendar day next month, 11:59:59 PM IST.
+ * Handles month-end edge cases (e.g. 31 Jan → 28/29 Feb).
+ * @param {number} months - Number of months to add (default 1)
+ * @param {Date} [fromDate] - Activation date (default: now)
+ * @returns {Date} Expiry timestamp as a JS Date object (UTC representation of 23:59:59 IST)
+ */
+function calculateCalendarExpiry(months = 1, fromDate = null) {
+  // Get current time in IST
+  const now = fromDate || new Date();
+  // Convert to IST components
+  const istOffset = 5.5 * 60 * 60 * 1000; // +05:30 in ms
+  const istTime = new Date(now.getTime() + istOffset);
+  const year = istTime.getUTCFullYear();
+  const month = istTime.getUTCMonth(); // 0-indexed
+  const day = istTime.getUTCDate();
+
+  // Calculate target month/year
+  const targetMonth = month + months;
+  const targetYear = year + Math.floor(targetMonth / 12);
+  const targetMonthNorm = targetMonth % 12;
+
+  // Get last valid day of the target month
+  const lastDayOfTargetMonth = new Date(Date.UTC(targetYear, targetMonthNorm + 1, 0)).getUTCDate();
+  const targetDay = Math.min(day, lastDayOfTargetMonth);
+
+  // Build expiry as 23:59:59 IST on the target date
+  // 23:59:59 IST = 18:29:59 UTC (23:59:59 - 05:30)
+  const expiryUTC = new Date(Date.UTC(
+    targetYear,
+    targetMonthNorm,
+    targetDay,
+    18, 29, 59, 0  // 23:59:59 IST = 18:29:59 UTC
+  ));
+
+  return expiryUTC;
+}
+
 const SUBSCRIPTION_PLANS = {
   pack: {
     id: 'pack',
@@ -110,16 +149,17 @@ async function activateUserPlan({
 
     const previousWalletBalance = userRes.rows[0].wallet_balance;
 
-    // 3. Update User Plan & Expiration
+    // 3. Update User Plan & Expiration (Strict Calendar-Month Expiry)
+    const calendarExpiry = calculateCalendarExpiry(1);
     const userUpdateRes = await client.query(`
       UPDATE users 
       SET plan = $1,
           plan_started_at = NOW(),
-          plan_expires_at = NOW() + INTERVAL '30 days',
-          billing_details = $2
-      WHERE id = $3
+          plan_expires_at = $2,
+          billing_details = $3
+      WHERE id = $4
       RETURNING id, name, email, plan, plan_started_at, plan_expires_at, wallet_balance
-    `, [normalized, JSON.stringify(billingDetails), userId]);
+    `, [normalized, calendarExpiry, JSON.stringify(billingDetails), userId]);
 
     // 4. Record Immutable Plan Transaction
     const txRes = await client.query(`
@@ -127,7 +167,7 @@ async function activateUserPlan({
         user_id, order_id, payment_id, plan_id, amount_paid, currency, 
         billing_details, started_at, expires_at
       )
-      VALUES ($1, $2, $3, $4, $5, 'INR', $6, NOW(), NOW() + INTERVAL '30 days')
+      VALUES ($1, $2, $3, $4, $5, 'INR', $6, NOW(), $7)
       RETURNING *
     `, [
       userId,
@@ -135,7 +175,8 @@ async function activateUserPlan({
       paymentId || `manual_act_${Date.now()}`,
       normalized,
       finalAmount,
-      JSON.stringify(billingDetails)
+      JSON.stringify(billingDetails),
+      calendarExpiry
     ]);
 
     // 5. Update payment_orders record if orderId provided
@@ -189,5 +230,6 @@ module.exports = {
   SUBSCRIPTION_PLANS,
   normalizePlanId,
   getPlanConfig,
-  activateUserPlan
+  activateUserPlan,
+  calculateCalendarExpiry
 };
