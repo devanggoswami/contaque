@@ -101,6 +101,7 @@ router.get('/balance', async (req, res) => {
       balance: currentBalance,
       currency: 'INR',
       plan: normalizePlanKey(user.plan),
+      plan_expires_at: user.plan_expires_at || null,
       rates: engineRates.rates,
       allTiers: engineRates.allTiers
     });

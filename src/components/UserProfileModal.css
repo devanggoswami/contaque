@@ -117,6 +117,41 @@
   border: 1px solid var(--border-color, #D9E1EA);
 }
 
+/* Plan Expiry Badges */
+.profile-plan-expiry-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2.5px 9px;
+  border-radius: 9999px;
+  letter-spacing: 0.15px;
+  white-space: nowrap;
+}
+
+.profile-plan-expiry-tag.active {
+  background: #ECFDF5;
+  color: #047857;
+  border: 1px solid #A7F3D0;
+}
+
+.profile-plan-expiry-tag.expired {
+  background: #FEF2F2;
+  color: #B91C1C;
+  border: 1px solid #FECACA;
+}
+
+.profile-plan-expiry-tag.free {
+  background: #F1F5F9;
+  color: #64748B;
+  border: 1px solid #CBD5E1;
+}
+
+.expiry-tag-icon {
+  flex-shrink: 0;
+}
+
 .profile-user-email {
   font-size: 12px;
   color: var(--text-muted, #64748B);
@@ -152,12 +187,14 @@
   flex-shrink: 0;
 }
 
+.status-stat-item,
 .status-item {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
+.stat-label,
 .status-item-label {
   font-size: 10px;
   font-weight: 700;
@@ -166,10 +203,67 @@
   letter-spacing: 0.3px;
 }
 
+.stat-val,
 .status-item-val {
   font-size: 13px;
   font-weight: 800;
   color: var(--text-main, #172033);
+}
+
+.stat-expiry-subtext {
+  font-size: 10.5px;
+  font-weight: 600;
+  margin-top: 2px;
+  letter-spacing: 0.1px;
+  line-height: 1.2;
+}
+
+.stat-expiry-subtext.active {
+  color: #047857;
+}
+
+.stat-expiry-subtext.expired {
+  color: #DC2626;
+  font-weight: 700;
+}
+
+.stat-expiry-subtext.free {
+  color: #64748B;
+}
+
+.current-plan-ribbon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.plan-card-expiry-tag {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.2px;
+}
+
+.plan-card-expiry-tag.active {
+  background: #ECFDF5;
+  color: #047857;
+  border: 1px solid #A7F3D0;
+}
+
+.plan-card-expiry-tag.expired {
+  background: #FEF2F2;
+  color: #B91C1C;
+  border: 1px solid #FECACA;
+}
+
+.plan-card-expiry-tag.free {
+  background: #F1F5F9;
+  color: #64748B;
+  border: 1px solid #CBD5E1;
 }
 
 .status-item-val.green {

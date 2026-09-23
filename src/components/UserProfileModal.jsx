@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   X, User, ShieldCheck, CheckCircle2, Check, Lock, Zap, ArrowRight,
-  TrendingUp, Sparkles, AlertCircle, RefreshCw, Crown
+  TrendingUp, Sparkles, AlertCircle, RefreshCw, Crown, Calendar
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
+import { getPlanExpiryInfo } from '../utils/planExpiry';
 import RazorpayCheckoutModal from './RazorpayCheckoutModal';
 import './UserProfileModal.css';
 
@@ -164,6 +165,8 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
       : 'free';
 
   const planInfo = PLAN_DEFINITIONS[currentPlanKey] || PLAN_DEFINITIONS.plus;
+  const effectiveExpiresAt = user?.plan_expires_at || wallet?.plan_expires_at;
+  const expiryInfo = getPlanExpiryInfo(currentPlanKey, effectiveExpiresAt);
   const rates = wallet?.rates || {
     maps: currentPlanKey === 'pack' ? 1.00 : currentPlanKey === 'plus' ? 1.10 : 1.30,
     dorking: currentPlanKey === 'pack' ? 0.80 : currentPlanKey === 'plus' ? 0.80 : 1.00,
@@ -224,6 +227,10 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
                 <span className={`plan-badge-pill ${currentPlanKey}`}>
                   {planInfo.name}
                 </span>
+                <span className={`profile-plan-expiry-tag ${expiryInfo.status}`}>
+                  <Calendar size={12} className="expiry-tag-icon" />
+                  <span>{expiryInfo.displayText}</span>
+                </span>
               </div>
               <span className="profile-user-email">{user?.email || ''}</span>
             </div>
@@ -245,6 +252,9 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
           <div className="status-stat-item">
             <span className="stat-label">Active Plan</span>
             <strong className="stat-val plan">{planInfo.name}</strong>
+            <span className={`stat-expiry-subtext ${expiryInfo.status}`}>
+              {expiryInfo.displayText}
+            </span>
           </div>
           <div className="status-stat-item">
             <span className="stat-label">Maps Rate</span>
@@ -414,8 +424,13 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
                     className={`plan-card-option ${isCurrent ? 'active-plan' : ''} ${p.id === 'pack' ? 'pack-card' : ''} ${p.id === 'plus' ? 'plus-card' : ''}`}
                   >
                     {isCurrent && (
-                      <div className="current-plan-ribbon">
-                        <span>YOUR ACTIVE PLAN</span>
+                      <div className="current-plan-ribbon-wrap">
+                        <div className="current-plan-ribbon">
+                          <span>YOUR ACTIVE PLAN</span>
+                        </div>
+                        <div className={`plan-card-expiry-tag ${expiryInfo.status}`}>
+                          {expiryInfo.displayText}
+                        </div>
                       </div>
                     )}
 

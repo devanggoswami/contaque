@@ -184,7 +184,8 @@ app.post('/api/auth/login', async (req, res) => {
           role: 'Administrator',
           country: adminUser.country || 'India',
           email_verified: true,
-          plan: adminUser.plan || 'plus'
+          plan: adminUser.plan || 'plus',
+          plan_expires_at: adminUser.plan_expires_at || null
         },
         expiresInHours: 48
       });
@@ -207,6 +208,7 @@ app.post('/api/auth/login', async (req, res) => {
             country: u.country || 'India',
             email_verified: !!u.email_verified,
             plan: u.plan || 'free',
+            plan_expires_at: u.plan_expires_at || null,
             wallet_balance: parseFloat(u.wallet_balance ?? 50.00),
             auth_provider: u.auth_provider,
             role: isUserAdmin ? 'Administrator' : 'User',
@@ -336,6 +338,7 @@ app.post('/api/auth/signup', async (req, res) => {
         country: newUser.country,
         email_verified: !!newUser.email_verified,
         plan: newUser.plan,
+        plan_expires_at: newUser.plan_expires_at || null,
         wallet_balance: parseFloat(newUser.wallet_balance || 50.00),
         auth_provider: newUser.auth_provider,
         referral_code: newUser.referral_code || newReferralCode,
@@ -489,6 +492,7 @@ app.post('/api/auth/google', async (req, res) => {
         country: userRow.country || 'India',
         email_verified: true,
         plan: userRow.plan || 'free',
+        plan_expires_at: userRow.plan_expires_at || null,
         wallet_balance: parseFloat(userRow.wallet_balance || 0),
         auth_provider: 'google',
         role: isUserAdmin ? 'Administrator' : 'User',
@@ -762,7 +766,7 @@ app.get('/api/auth/verify', async (req, res) => {
 
   try {
     const uRes = await db.query(
-      'SELECT id, name, email, plan, wallet_balance, email_verified, country, referral_code, referral_claimed, referral_prompt_dismissed FROM users WHERE LOWER(email) = $1',
+      'SELECT id, name, email, plan, plan_expires_at, plan_started_at, wallet_balance, email_verified, country, referral_code, referral_claimed, referral_prompt_dismissed FROM users WHERE LOWER(email) = $1',
       [verified.email.toLowerCase()]
     );
     if (uRes.rows.length === 0) {
@@ -781,6 +785,8 @@ app.get('/api/auth/verify', async (req, res) => {
         name: u.name || verified.email.split('@')[0],
         email: u.email,
         plan: u.plan || 'free',
+        plan_expires_at: u.plan_expires_at || null,
+        plan_started_at: u.plan_started_at || null,
         wallet_balance: parseFloat(u.wallet_balance || 0),
         email_verified: !!u.email_verified,
         country: u.country || 'India',

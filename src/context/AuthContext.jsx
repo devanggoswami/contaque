@@ -53,15 +53,22 @@ export const AuthProvider = ({ children }) => {
           balance: Number(data.balance || 0),
           currency: data.currency || 'INR',
           plan: data.plan || 'free',
+          plan_expires_at: data.plan_expires_at || null,
           rates: data.rates || {},
           allTiers: data.allTiers || {}
         });
 
-        // Always sync user object plan with server wallet plan
+        // Always sync user object plan and plan_expires_at with server wallet plan
         setUser(prev => {
           if (!prev) return prev;
-          if (data.plan && prev.plan !== data.plan) {
-            const upd = { ...prev, plan: data.plan };
+          const planChanged = data.plan && prev.plan !== data.plan;
+          const expiryChanged = data.plan_expires_at !== undefined && prev.plan_expires_at !== data.plan_expires_at;
+          if (planChanged || expiryChanged) {
+            const upd = { 
+              ...prev, 
+              ...(data.plan ? { plan: data.plan } : {}),
+              ...(data.plan_expires_at !== undefined ? { plan_expires_at: data.plan_expires_at } : {})
+            };
             try {
               const s = localStorage.getItem(STORAGE_KEY);
               if (s) {
@@ -350,6 +357,7 @@ export const AuthProvider = ({ children }) => {
       walletRates: wallet.rates,
       walletAllTiers: wallet.allTiers,
       userPlan: wallet.plan || (user && user.plan) || 'free',
+      planExpiresAt: wallet.plan_expires_at || (user && user.plan_expires_at) || null,
       updateUserPlan,
       refreshWallet,
       authFetch,

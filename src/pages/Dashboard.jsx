@@ -5,7 +5,7 @@ import {
   ArrowUpRight, RefreshCw, Zap, Sparkles, Globe, Search, 
   CheckCircle2, Clock, AlertCircle, Layers, CreditCard, 
   DollarSign, ShieldCheck, HelpCircle, Info, ChevronRight, X, Mail,
-  Wallet, PlusCircle, ArrowDownLeft, Crown, ArrowRight
+  Wallet, PlusCircle, ArrowDownLeft, Crown, ArrowRight, Calendar
 } from 'lucide-react';
 import { API_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
@@ -13,6 +13,7 @@ import WalletRechargeModal from '../components/WalletRechargeModal';
 import RazorpayCheckoutModal from '../components/RazorpayCheckoutModal';
 import UserProfileModal from '../components/UserProfileModal';
 import ReferralModal from '../components/ReferralModal';
+import { getPlanExpiryInfo } from '../utils/planExpiry';
 import './Dashboard.css';
 
 const UPGRADE_PLANS = {
@@ -65,7 +66,9 @@ function AnimatedNumber({ value, duration = 650 }) {
 function Dashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user, resendVerificationEmail, walletBalance, refreshWallet, userPlan, updateUserPlan, authFetch } = useAuth();
+  const { user, resendVerificationEmail, walletBalance, refreshWallet, userPlan, planExpiresAt, updateUserPlan, authFetch } = useAuth();
+  const effectiveExpiresAt = planExpiresAt || user?.plan_expires_at;
+  const expiryInfo = getPlanExpiryInfo(userPlan, effectiveExpiresAt);
   const [emailDismissed, setEmailDismissed] = useState(false);
   const [resendStatus, setResendStatus] = useState({ sending: false, message: '', isError: false });
   const [showUpgradeCheckout, setShowUpgradeCheckout] = useState(false);
@@ -422,6 +425,16 @@ function Dashboard() {
                 </button>
               </div>
             )}
+
+            {/* Plan Expiry Indicator */}
+            <div 
+              className={`dashboard-plan-expiry-pill ${expiryInfo.status} interactive`}
+              onClick={() => setShowProfileModal(true)}
+              title="Click to view subscription details"
+            >
+              <Calendar size={13} className="dashboard-expiry-icon" />
+              <span>{expiryInfo.displayText}</span>
+            </div>
           </div>
         </div>
 
