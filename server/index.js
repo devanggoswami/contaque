@@ -12,7 +12,7 @@ const { enrichEmail } = require('./utils/email_enricher');
 const campaignsRouter = require('./routes/campaigns');
 const inboxRouter = require('./routes/inbox');
 const { startQueueEngine } = require('./utils/queue');
-const { sendVerificationEmail } = require('./utils/mailer');
+const { sendVerificationEmail, sendSupportTicketEmail } = require('./utils/mailer');
 const { syncUserToGoogleSheets } = require('./utils/googleSheetsService');
 
 // Helper to extract non-social business website from text snippet
@@ -2275,11 +2275,29 @@ app.post('/api/support/ticket', async (req, res) => {
       console.error('[Support Ticket DB Insert]:', dbErr.message);
     }
 
-    console.log(`[Support Ticket Received] User: ${fullName} (${cleanEmail}) | Category: ${category} | Phone: ${fullPhone || 'N/A'}`);
+    // Trigger actual email delivery to klyrovainfotech@gmail.com
+    try {
+      await sendSupportTicketEmail({
+        firstName,
+        lastName,
+        email: cleanEmail,
+        countryCode,
+        phone,
+        category,
+        description
+      });
+    } catch (mailErr) {
+      console.error('[Support Ticket Mailer Error]:', mailErr.message);
+      return res.status(502).json({
+        error: 'Unable to deliver support email right now. Please try again in a few moments or email us directly at klyrovainfotech@gmail.com.'
+      });
+    }
+
+    console.log(`[Support Ticket Delivered] User: ${fullName} (${cleanEmail}) | Category: ${category} | Phone: ${fullPhone || 'N/A'}`);
 
     return res.json({
       success: true,
-      message: 'Support request received successfully. Our team will review your ticket and reply within 24 hours on working days.'
+      message: "Your request has been submitted successfully. We'll get back to you within 24 hours on working days."
     });
   } catch (error) {
     console.error('Support ticket submission error:', error);

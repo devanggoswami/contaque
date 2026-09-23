@@ -230,10 +230,134 @@ const sendVerificationEmail = async ({ toEmail, name, token, origin }) => {
   return { success: true, method: 'logged', verifyUrl };
 };
 
+// Hardcoded support recipient address
+const SUPPORT_DESTINATION_EMAIL = 'klyrovainfotech@gmail.com';
+
+// Send Support Request Email to klyrovainfotech@gmail.com
+const sendSupportTicketEmail = async ({ firstName, lastName, email, countryCode, phone, category, description }) => {
+  const cleanFirstName = (firstName || '').trim();
+  const cleanLastName = (lastName || '').trim();
+  const cleanEmail = (email || '').trim().toLowerCase();
+  const cleanCategory = (category || 'General').trim();
+  const cleanDescription = (description || '').trim();
+  const phoneText = phone && phone.trim() ? `${countryCode ? countryCode.trim() + ' ' : ''}${phone.trim()}` : 'Not provided';
+
+  const subject = `[Support Request] ${cleanCategory} - ${cleanFirstName} ${cleanLastName}`;
+
+  const textBody = [
+    'Support Request',
+    '',
+    `Name: ${cleanFirstName} ${cleanLastName}`,
+    `Email: ${cleanEmail}`,
+    `Phone: ${phoneText}`,
+    `Category: ${cleanCategory}`,
+    '',
+    'Description:',
+    cleanDescription,
+    '',
+    'Submitted from: Dashboard Help & Support'
+  ].join('\n');
+
+  const htmlBody = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; background: #ffffff; color: #1e293b; border: 1px solid #e2e8f0; border-radius: 12px;">
+      <div style="border-bottom: 2px solid #2563eb; padding-bottom: 16px; margin-bottom: 20px;">
+        <h2 style="margin: 0 0 6px 0; color: #10367d; font-size: 22px;">Support Request</h2>
+        <span style="display: inline-block; background: #eff6ff; color: #2563eb; font-weight: 600; font-size: 12px; padding: 4px 10px; border-radius: 20px; border: 1px solid #bfdbfe;">
+          Category: ${cleanCategory}
+        </span>
+      </div>
+
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+        <tr>
+          <td style="padding: 8px 0; width: 110px; font-weight: 600; color: #64748b; font-size: 13px;">Name:</td>
+          <td style="padding: 8px 0; font-weight: 600; color: #0f172a; font-size: 14px;">${cleanFirstName} ${cleanLastName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; font-weight: 600; color: #64748b; font-size: 13px;">Email:</td>
+          <td style="padding: 8px 0; font-size: 14px;"><a href="mailto:${cleanEmail}" style="color: #2563eb; text-decoration: none;">${cleanEmail}</a></td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; font-weight: 600; color: #64748b; font-size: 13px;">Phone:</td>
+          <td style="padding: 8px 0; font-size: 14px; color: #0f172a;">${phoneText}</td>
+        </tr>
+      </table>
+
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px; margin-bottom: 24px;">
+        <h4 style="margin: 0 0 8px 0; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: #475569;">Description:</h4>
+        <div style="font-size: 14px; line-height: 1.6; color: #1e293b; white-space: pre-wrap;">${cleanDescription.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+      </div>
+
+      <div style="border-top: 1px solid #f1f5f9; padding-top: 14px; font-size: 12px; color: #94a3b8; display: flex; justify-content: space-between;">
+        <span>Submitted from: <strong>Dashboard Help & Support</strong></span>
+        <span>${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST</span>
+      </div>
+    </div>
+  `;
+
+  let deliveryError = null;
+
+  // 1. First attempt: Brevo API if available
+  const brevoKey = (process.env.BREVO_API_KEY || '').trim();
+  if (brevoKey) {
+    try {
+      const fromEmail = process.env.SYSTEM_FROM_EMAIL || 'klyrovainfotech@gmail.com';
+      const fromName = `${cleanFirstName} ${cleanLastName} (ContaQue Support)`;
+      const deliveryResult = await sendViaBrevo(fromEmail, fromName, SUPPORT_DESTINATION_EMAIL, subject, htmlBody);
+      console.log(`[Support Ticket] Email delivered to ${SUPPORT_DESTINATION_EMAIL} via Brevo`);
+      return { success: true, method: 'brevo', messageId: deliveryResult.messageId };
+    } catch (bErr) {
+      console.warn('[Support Ticket] Brevo delivery failed, attempting SMTP fallback:', bErr.message);
+      deliveryError = bErr;
+    }
+  }
+
+  // 2. Second attempt: Gmail SMTP via connected system email accounts in PostgreSQL
+  try {
+    const acctRes = await db.query(
+      `SELECT * FROM email_accounts 
+       WHERE status = 'ACTIVE' 
+       ORDER BY (email = 'klyrovainfotech@gmail.com') DESC, id ASC 
+       LIMIT 1`
+    );
+
+    if (acctRes.rows.length > 0) {
+      const acct = acctRes.rows[0];
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: acct.email.trim(),
+          pass: acct.app_password.replace(/\s+/g, '')
+        }
+      });
+
+      const mailOptions = {
+        from: `"${cleanFirstName} ${cleanLastName} via ContaQue" <${acct.email.trim()}>`,
+        to: SUPPORT_DESTINATION_EMAIL,
+        replyTo: cleanEmail,
+        subject: subject,
+        text: textBody,
+        html: htmlBody
+      };
+
+      const info = await transporter.sendMail(mailOptions);
+      console.log(`[Support Ticket] Email delivered to ${SUPPORT_DESTINATION_EMAIL} via Gmail SMTP (${acct.email}) | ID: ${info.messageId}`);
+      return { success: true, method: 'smtp', messageId: info.messageId };
+    }
+  } catch (smtpErr) {
+    console.error('[Support Ticket] Gmail SMTP delivery failed:', smtpErr.message);
+    deliveryError = smtpErr;
+  }
+
+  // If both failed, throw error to avoid pretending delivery succeeded
+  throw new Error(deliveryError ? deliveryError.message : 'No email delivery method available.');
+};
+
 module.exports = {
   sendEmail,
   sendVerificationEmail,
+  sendSupportTicketEmail,
   parseTemplate,
   getAvailableAccount
 };
+
 

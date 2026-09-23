@@ -136,12 +136,13 @@ export default function HelpSupport() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        setErrorMessage(data.error || 'Failed to submit support request. Please try again.');
+        setSuccessMessage('');
+        setErrorMessage(data.error || 'Failed to deliver support request. Please try again or email us directly at klyrovainfotech@gmail.com.');
         setLoading(false);
         return;
       }
 
-      setSuccessMessage(data.message || 'Your support request has been submitted successfully! We will get back to you shortly.');
+      setSuccessMessage(data.message || "Your request has been submitted successfully. We'll get back to you within 24 hours on working days.");
       // Reset form description & category, keep contact details
       setFormData(prev => ({
         ...prev,
@@ -151,6 +152,7 @@ export default function HelpSupport() {
       }));
     } catch (err) {
       console.error('Support ticket submission failed:', err);
+      setSuccessMessage('');
       setErrorMessage('Network error while submitting support ticket. Please check your connection or reach out via email directly.');
     } finally {
       setLoading(false);
