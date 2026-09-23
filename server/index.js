@@ -13,6 +13,7 @@ const campaignsRouter = require('./routes/campaigns');
 const inboxRouter = require('./routes/inbox');
 const { startQueueEngine } = require('./utils/queue');
 const { sendVerificationEmail } = require('./utils/mailer');
+const { syncUserToGoogleSheets } = require('./utils/googleSheetsService');
 
 // Helper to extract non-social business website from text snippet
 function extractDomainFromSnippet(snippet) {
@@ -293,6 +294,18 @@ app.post('/api/auth/signup', async (req, res) => {
       }).catch(mErr => console.warn('[Signup Verification Email Warning]:', mErr.message));
     }
 
+    // Asynchronously sync new user to Google Sheets (Non-blocking / Fault-tolerant)
+    syncUserToGoogleSheets({
+      id: newUser.id,
+      name: newUser.name,
+      email: newUser.email,
+      created_at: newUser.created_at || new Date(),
+      auth_provider: newUser.auth_provider || auth_provider,
+      plan: newUser.plan || initialPlan,
+      email_verified: !!newUser.email_verified,
+      payment_status: (newUser.plan === 'plus' || newUser.plan === 'pack') ? 'ACTIVE' : 'FREE'
+    }).catch(gsErr => console.warn('[Google Sheets Sync Background Warning]:', gsErr.message));
+
     const token = generateAuthToken(cleanEmail);
 
     return res.json({
@@ -420,6 +433,18 @@ app.post('/api/auth/google', async (req, res) => {
       } catch (lErr) {
         console.warn('Google welcome bonus ledger warning:', lErr.message);
       }
+
+      // Asynchronously sync new Google OAuth user to Google Sheets (Non-blocking / Fault-tolerant)
+      syncUserToGoogleSheets({
+        id: userRow.id,
+        name: userRow.name || cleanName,
+        email: userRow.email,
+        created_at: userRow.created_at || new Date(),
+        auth_provider: 'google',
+        plan: userRow.plan || userPlan,
+        email_verified: true,
+        payment_status: (userRow.plan === 'plus' || userRow.plan === 'pack') ? 'ACTIVE' : 'FREE'
+      }).catch(gsErr => console.warn('[Google Sheets Sync Background Warning]:', gsErr.message));
     }
 
     // 4. Issue 48-Hour Session Token
