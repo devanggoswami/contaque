@@ -64,7 +64,6 @@ function Sidebar() {
             <img src="/contaque_logo.jpg" alt="Contaque" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <span className="mobile-brand-name">Contaque</span>
-          <span className="mobile-brand-tag">PRO</span>
         </div>
 
         <div className="mobile-header-right">

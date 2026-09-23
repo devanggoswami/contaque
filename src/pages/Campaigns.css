@@ -234,10 +234,99 @@
   box-shadow: 0 2px 8px rgba(16, 54, 125, 0.08);
 }
 
+.tab-text-mobile {
+  display: none;
+}
+
+.tab-text-desktop {
+  display: inline;
+}
+
 .grid-layout {
   display: grid;
   grid-template-columns: 1fr;
   gap: 24px;
+}
+
+/* Entitlement & Quota Banner */
+.campaign-entitlement-banner {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(168, 85, 247, 0.08));
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 14px;
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.campaign-entitlement-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.campaign-entitlement-sub,
+.campaign-quota-sub {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted, #64748b);
+  font-weight: 700;
+}
+
+.campaign-entitlement-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-main, #1e293b);
+  margin-top: 2px;
+}
+
+.campaign-quota-info {
+  text-align: right;
+}
+
+.campaign-quota-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--primary, #2563eb);
+}
+
+.campaign-quota-value.limit-reached {
+  color: #ef4444;
+}
+
+/* Card Header & Account Form */
+.card-header-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.account-form {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.account-form-group {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.account-submit-btn {
+  height: 42px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .studio-grid {
@@ -1059,18 +1148,52 @@ input.form-input:focus, select.form-select:focus, textarea.form-textarea:focus {
   }
 
   .campaigns-container {
-    padding: 12px 8px;
+    padding: 0;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
   }
 
-  .campaigns-header h1 {
-    font-size: 21px;
+  .campaigns-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 16px;
   }
 
-  .campaigns-header p {
-    font-size: 12.5px;
+  .campaigns-title-group h1 {
+    font-size: 22px;
+    line-height: 1.25;
+  }
+
+  .campaigns-title-group p {
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .gmail-rotating-badge-container {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    display: block;
+  }
+
+  .gmail-rotating-badge-inner {
+    width: 100%;
+    box-sizing: border-box;
+    justify-content: space-between;
+    padding: 7px 12px;
   }
 
   .tabs-container {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
     gap: 6px;
     padding-bottom: 6px;
     margin-bottom: 14px;
@@ -1082,14 +1205,56 @@ input.form-input:focus, select.form-select:focus, textarea.form-textarea:focus {
   }
 
   .tab-btn {
-    padding: 7px 11px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: 8px 12px;
     font-size: 12px;
     gap: 5px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .tab-text-desktop {
+    display: none;
+  }
+
+  .tab-text-mobile {
+    display: inline;
+  }
+
+  .campaign-entitlement-banner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 14px 14px;
+    border-radius: 12px;
+  }
+
+  .campaign-entitlement-title {
+    font-size: 15px;
+    line-height: 1.35;
+  }
+
+  .campaign-quota-info {
+    text-align: left;
+    padding-top: 10px;
+    border-top: 1px dashed rgba(99, 102, 241, 0.25);
+  }
+
+  .campaign-quota-value {
+    font-size: 14px;
+    margin-top: 2px;
   }
 
   .card {
-    padding: 14px 10px;
-    border-radius: 10px;
+    padding: 16px 12px;
+    border-radius: 12px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .card-header-flex h2 {
+    font-size: 17px;
   }
 
   .studio-grid {
@@ -1100,11 +1265,25 @@ input.form-input:focus, select.form-select:focus, textarea.form-textarea:focus {
   .account-form {
     flex-direction: column;
     align-items: stretch;
-    gap: 10px;
+    gap: 12px;
   }
 
-  .account-form button {
+  .account-form-group {
+    flex: none !important;
+    width: 100% !important;
+    margin-bottom: 0 !important;
+  }
+
+  .account-submit-btn {
     width: 100%;
+    justify-content: center;
+    height: 44px;
+    margin-top: 4px;
+  }
+
+  .help-text {
+    word-break: break-word;
+    overflow-wrap: anywhere;
   }
 
   .get-data-master-card {

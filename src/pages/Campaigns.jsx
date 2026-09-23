@@ -336,13 +336,19 @@ function Campaigns() {
 
       <div className="tabs-container">
         <button className={`tab-btn ${activeTab === 'STUDIO' ? 'active' : ''}`} onClick={() => setActiveTab('STUDIO')}>
-          <Send size={16} /> Compose Campaign
+          <Send size={15} /> 
+          <span className="tab-text-desktop">Compose Campaign</span>
+          <span className="tab-text-mobile">Compose</span>
         </button>
         <button className={`tab-btn ${activeTab === 'DASHBOARD' ? 'active' : ''}`} onClick={() => setActiveTab('DASHBOARD')}>
-          <Activity size={16} /> Live Dashboard
+          <Activity size={15} /> 
+          <span className="tab-text-desktop">Live Dashboard</span>
+          <span className="tab-text-mobile">Dashboard</span>
         </button>
         <button className={`tab-btn ${activeTab === 'ACCOUNTS' ? 'active' : ''}`} onClick={() => setActiveTab('ACCOUNTS')}>
-          <Settings size={16} /> Sending Accounts ({accounts.length})
+          <Settings size={15} /> 
+          <span className="tab-text-desktop">Sending Accounts ({accounts.length})</span>
+          <span className="tab-text-mobile">Accounts ({accounts.length})</span>
         </button>
       </div>
 
@@ -500,25 +506,23 @@ function Campaigns() {
       {activeTab === 'ACCOUNTS' && (
         <div className="grid-layout">
           {/* Plan Entitlement & Daily Quota Banner */}
-          <div className="card" style={{gridColumn: '1 / -1', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(168, 85, 247, 0.08))', border: '1px solid rgba(99, 102, 241, 0.25)', padding: '16px 20px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '12px'}}>
-            <div>
-              <div style={{fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 700}}>Current Plan Entitlement</div>
-              <div style={{fontSize: '18px', fontWeight: 800, color: 'var(--text-main)', marginTop: '2px'}}>
+          <div className="campaign-entitlement-banner">
+            <div className="campaign-entitlement-info">
+              <div className="campaign-entitlement-sub">Current Plan Entitlement</div>
+              <div className="campaign-entitlement-title">
                 {limits?.entitlementLabel || (userPlan === 'pack' ? '4 Gmail accounts · 1,600 emails/day' : '1 Gmail account · 400 emails/day')}
               </div>
             </div>
-            <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
-              <div style={{textAlign: 'right'}}>
-                <div style={{fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 700}}>Daily Campaign Quota</div>
-                <div style={{fontSize: '15px', fontWeight: 700, color: limits?.dailyLimitReached ? '#ef4444' : 'var(--primary)'}}>
-                  {limits?.usageLabel || `${limits?.dailySentToday || 0} / ${limits?.dailyEmailLimit || 400} emails used today`}
-                </div>
+            <div className="campaign-quota-info">
+              <div className="campaign-quota-sub">Daily Campaign Quota</div>
+              <div className={`campaign-quota-value ${limits?.dailyLimitReached ? 'limit-reached' : ''}`}>
+                {limits?.usageLabel || `${limits?.dailySentToday || 0} / ${limits?.dailyEmailLimit || 400} emails used today`}
               </div>
             </div>
           </div>
 
           <div className="card">
-            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px'}}>
+            <div className="card-header-flex">
               <h2 style={{margin: 0}}>Add Gmail Account</h2>
               <span className="badge" style={{background: limits?.accountLimitReached ? 'rgba(239, 68, 68, 0.15)' : 'rgba(34, 197, 94, 0.15)', color: limits?.accountLimitReached ? '#ef4444' : '#22c55e', border: 'none', padding: '4px 10px'}}>
                 {accounts.length} / {limits?.maxAccounts || 1} Accounts Used
@@ -533,7 +537,7 @@ function Campaigns() {
             )}
 
             <form onSubmit={handleAddAccount} className="account-form">
-              <div className="form-group" style={{flex: 1, marginBottom: 0}}>
+              <div className="form-group account-form-group">
                 <label>Gmail Address</label>
                 <input 
                   type="email" 
@@ -545,7 +549,7 @@ function Campaigns() {
                   placeholder="you@gmail.com" 
                 />
               </div>
-              <div className="form-group" style={{flex: 1, marginBottom: 0}}>
+              <div className="form-group account-form-group">
                 <label>16-Digit App Password</label>
                 <input 
                   type="password" 
@@ -559,11 +563,11 @@ function Campaigns() {
               </div>
               <button 
                 type="submit" 
-                className="btn-primary" 
+                className="btn-primary account-submit-btn" 
                 disabled={loading || limits?.accountLimitReached}
                 title={limits?.accountLimitReached ? "Account limit reached" : ""}
               >
-                <UserPlus size={16} /> Add
+                <UserPlus size={16} /> Add Account
               </button>
             </form>
             <span className="help-text" style={{marginTop: '12px', display: 'block', lineHeight: '1.6'}}>

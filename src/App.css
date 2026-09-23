@@ -55,27 +55,35 @@
   .app-layout {
     flex-direction: column;
     width: 100%;
+    max-width: 100%;
     overflow-x: hidden;
   }
 
   .main-content {
     height: auto;
-    min-height: calc(100vh - 60px);
+    min-height: calc(100vh - 56px);
     width: 100%;
+    max-width: 100%;
     min-width: 0;
+    overflow-x: hidden;
   }
 
   .page-content {
     padding: 14px 10px;
     width: 100%;
-    max-width: 100vw;
+    max-width: 100%;
     box-sizing: border-box;
+    overflow-x: hidden;
   }
 }
 
 @media (max-width: 480px) {
   .page-content {
     padding: 12px 8px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
   }
 }
 
