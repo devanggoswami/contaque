@@ -533,27 +533,179 @@
 @media (max-width: 992px) {
   .help-support-grid {
     grid-template-columns: 1fr;
-    gap: 24px;
+    gap: 20px;
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .help-support-page {
-    padding: 20px 16px;
-  }
-  .support-form-card {
-    padding: 22px 18px;
-  }
-  .form-row-two {
-    grid-template-columns: 1fr;
-  }
-  .phone-input-combo {
-    flex-direction: column;
-  }
-  .country-code-select-wrap {
+    padding: 12px 10px;
     width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
   }
+
+  .help-support-header {
+    margin-bottom: 12px;
+  }
+
+  .help-header-title-wrap {
+    gap: 10px;
+  }
+
+  .help-header-icon-pill {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .help-header-icon-pill svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .help-support-heading {
+    font-size: 19px;
+    line-height: 1.25;
+    margin: 0;
+  }
+
+  .help-support-subheading {
+    font-size: 11.5px;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .help-support-grid {
+    gap: 14px;
+  }
+
+  .support-form-card {
+    padding: 14px 12px;
+    border-radius: 12px;
+  }
+
+  .support-card-head {
+    margin-bottom: 10px;
+  }
+
+  .support-card-title {
+    font-size: 15px;
+    margin: 0 0 2px 0;
+  }
+
+  .support-card-subtitle {
+    font-size: 11px;
+    line-height: 1.35;
+  }
+
+  .support-form {
+    gap: 9px;
+  }
+
+  .form-row-two {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .form-group {
+    gap: 3px;
+  }
+
+  .form-label {
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .field-hint {
+    font-size: 10px;
+    margin-top: 1px;
+  }
+
+  .form-input,
+  .form-select {
+    padding: 7px 10px !important;
+    font-size: 12.5px !important;
+    height: 35px !important;
+    min-height: 35px !important;
+    border-radius: 7px !important;
+  }
+
+  .phone-input-combo {
+    flex-direction: row;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .country-code-select-wrap {
+    width: 105px;
+    flex-shrink: 0;
+  }
+
+  .country-code-select {
+    padding: 7px 22px 7px 8px !important;
+    font-size: 12px !important;
+    height: 35px !important;
+    border-radius: 7px !important;
+  }
+
+  .phone-number-input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .form-textarea {
+    padding: 7px 10px !important;
+    font-size: 12.5px !important;
+    min-height: 65px !important;
+    max-height: 100px;
+    border-radius: 7px !important;
+    line-height: 1.35;
+  }
+
+  .support-submit-btn {
+    height: 38px;
+    font-size: 13px;
+    border-radius: 8px;
+    padding: 8px 16px;
+    margin-top: 2px;
+  }
+
   .direct-support-card {
-    padding: 22px 18px;
+    padding: 14px 12px;
+    border-radius: 12px;
+  }
+
+  .direct-card-title {
+    font-size: 14px;
+    margin-bottom: 2px;
+  }
+
+  .direct-card-subtitle {
+    font-size: 11px;
+    margin-bottom: 10px;
+  }
+
+  .official-email-box {
+    padding: 10px 12px;
+    margin-bottom: 10px;
+  }
+
+  .official-email-address {
+    font-size: 12.5px;
+  }
+
+  .direct-sla-box,
+  .direct-tip-box {
+    padding: 8px 10px;
+    font-size: 11px;
+    border-radius: 8px;
+    gap: 6px;
+    margin-bottom: 8px;
   }
 }

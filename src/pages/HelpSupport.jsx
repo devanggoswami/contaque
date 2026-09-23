@@ -248,19 +248,16 @@ export default function HelpSupport() {
               <label htmlFor="email" className="form-label">
                 Email Address <span className="required-star">*</span>
               </label>
-              <div className="input-with-icon">
-                <Mail size={16} className="input-leading-icon" />
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="yourname@company.com"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
-                  className="form-input has-icon"
-                />
-              </div>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="yourname@company.com"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                className="form-input"
+              />
               <span className="field-hint">Pre-filled with your registered account email</span>
             </div>
 
