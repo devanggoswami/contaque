@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Sparkles, Mail, Lock, Eye, EyeOff, ArrowRight, Check, CheckCircle2, 
@@ -29,6 +29,14 @@ const COUNTRIES = [
 export default function Signup() {
   const [searchParams] = useSearchParams();
   const requestedPlan = searchParams.get('plan') || 'free';
+
+  // Capture referral code silently into session storage for post-signup dashboard popup
+  useEffect(() => {
+    const refCode = searchParams.get('ref');
+    if (refCode) {
+      sessionStorage.setItem('pending_referral_code', refCode.trim().toUpperCase());
+    }
+  }, [searchParams]);
 
   const [formData, setFormData] = useState({
     name: '',

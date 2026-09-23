@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Database, Zap, Sparkles, ShieldCheck, Menu, X, LogOut, User, Globe, Wallet, Lock } from 'lucide-react';
+import { LayoutDashboard, Database, Zap, Sparkles, ShieldCheck, Menu, X, LogOut, User, Globe, Wallet, Lock, Gift } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
 import WalletRechargeModal from './WalletRechargeModal';
@@ -181,6 +181,18 @@ function Sidebar() {
             ) : (
               <span className="nav-badge-lock" title="Value Plus Feature"><Lock size={9} /> PLUS</span>
             )}
+          </NavLink>
+
+          <NavLink 
+            to="/referral" 
+            className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
+            onClick={() => setMobileOpen(false)}
+          >
+            <Gift size={19} className="nav-icon" />
+            <span>Refer & Earn</span>
+            <span className="nav-badge-new" style={{ background: 'linear-gradient(135deg, #10B981, #059669)', color: '#FFFFFF' }}>
+              {(user?.country && user.country !== 'India') ? '$2' : '₹100'}
+            </span>
           </NavLink>
 
           {/* Admin Support Link - Visible strictly for Administrator */}

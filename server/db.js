@@ -12,6 +12,32 @@ const pool = new Pool({
   connectionTimeoutMillis: 0, // Never prematurely abort queued queries under load
 });
 
+// Helper to generate a unique branded referral code (e.g., CQ8X9M2P)
+function generateReferralCode(name) {
+  const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+  let rand = '';
+  for (let i = 0; i < 6; i++) {
+    rand += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `CQ${rand}`;
+}
+
+async function ensureUserReferralCode(userId, name, dbRunner = pool) {
+  let code;
+  let isUnique = false;
+  let attempts = 0;
+  while (!isUnique && attempts < 25) {
+    attempts++;
+    code = generateReferralCode(name);
+    const check = await dbRunner.query('SELECT id FROM users WHERE UPPER(referral_code) = $1', [code]);
+    if (check.rows.length === 0) isUnique = true;
+  }
+  if (code) {
+    await dbRunner.query('UPDATE users SET referral_code = $1 WHERE id = $2', [code, userId]);
+  }
+  return code;
+}
+
 // Auto-initialize schema on Postgres database
 const initDb = async () => {
   try {
@@ -283,7 +309,48 @@ const initDb = async () => {
       CREATE INDEX IF NOT EXISTS idx_admin_audit_admin_email ON admin_audit_logs(admin_email);
       CREATE INDEX IF NOT EXISTS idx_admin_audit_action ON admin_audit_logs(action);
       CREATE INDEX IF NOT EXISTS idx_admin_audit_created_at ON admin_audit_logs(created_at DESC);
+
+      -- Referral System Schema
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(50) UNIQUE;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_claimed BOOLEAN DEFAULT FALSE;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_prompt_dismissed BOOLEAN DEFAULT FALSE;
+
+      CREATE TABLE IF NOT EXISTS referrals (
+        id SERIAL PRIMARY KEY,
+        referrer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        referred_user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+        referral_code VARCHAR(50) NOT NULL,
+        reward_amount NUMERIC(10, 2) DEFAULT 100.00,
+        status VARCHAR(50) DEFAULT 'COMPLETED',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_referrals_referrer_id ON referrals(referrer_id);
+      CREATE INDEX IF NOT EXISTS idx_referrals_referred_user_id ON referrals(referred_user_id);
+      CREATE INDEX IF NOT EXISTS idx_users_referral_code ON users(referral_code);
     `);
+
+    // Backfill unique referral codes for existing users who don't have one
+    // Mark existing users with referral_prompt_dismissed = TRUE so existing users don't see the popup
+    const usersWithoutCode = await client.query('SELECT id, name FROM users WHERE referral_code IS NULL');
+    for (const u of usersWithoutCode.rows) {
+      let code;
+      let isUnique = false;
+      let attempts = 0;
+      while (!isUnique && attempts < 25) {
+        attempts++;
+        code = generateReferralCode(u.name);
+        const check = await client.query('SELECT id FROM users WHERE UPPER(referral_code) = $1', [code]);
+        if (check.rows.length === 0) isUnique = true;
+      }
+      if (code) {
+        await client.query(
+          'UPDATE users SET referral_code = $1, referral_prompt_dismissed = TRUE WHERE id = $2',
+          [code, u.id]
+        );
+      }
+    }
 
     // Ensure Administrator / Default Admin exists in users table with plus plan & wallet balance
     const adminEmail = (process.env.ADMIN_USER || process.env.AUTH_USER || '').trim().toLowerCase();
@@ -370,4 +437,7 @@ const query = async (text, params, retries = 3) => {
 module.exports = {
   query,
   pool,
+  initDb,
+  generateReferralCode,
+  ensureUserReferralCode
 };

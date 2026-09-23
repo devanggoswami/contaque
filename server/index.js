@@ -72,6 +72,7 @@ app.use(express.json());
 const walletRouter = require('./routes/wallet');
 const plansRouter = require('./routes/plans');
 const adminRouter = require('./routes/admin');
+const referralRouter = require('./routes/referral');
 const { reserveBalance, settleJob } = require('./utils/wallet');
 const { getRatePerLead } = require('./utils/pricing');
 
@@ -80,6 +81,7 @@ app.use('/api/inbox', inboxRouter);
 app.use('/api/wallet', walletRouter);
 app.use('/api/plans', plansRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/referral', referralRouter);
 
 // Authentication Endpoints (Credentials validated with 48-hour secure session)
 const AUTH_USER = (process.env.ADMIN_USER || '').trim();
@@ -208,7 +210,10 @@ app.post('/api/auth/login', async (req, res) => {
             wallet_balance: parseFloat(u.wallet_balance ?? 50.00),
             auth_provider: u.auth_provider,
             role: isUserAdmin ? 'Administrator' : 'User',
-            isAdmin: isUserAdmin
+            isAdmin: isUserAdmin,
+            referral_code: u.referral_code || null,
+            referral_claimed: !!u.referral_claimed,
+            referral_prompt_dismissed: !!u.referral_prompt_dismissed
           },
           expiresInHours: 48
         });
@@ -270,11 +275,19 @@ app.post('/api/auth/signup', async (req, res) => {
       tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
     }
 
-    // Insert new user with ₹50 free credits
+    // Generate unique branded referral code for new user
+    let newReferralCode = null;
+    try {
+      newReferralCode = db.generateReferralCode(cleanName);
+    } catch {
+      newReferralCode = 'CQ' + crypto.randomBytes(3).toString('hex').toUpperCase();
+    }
+
+    // Insert new user with ₹50 free credits and referral fields
     const insertResult = await db.query(
-      `INSERT INTO users (name, email, password_hash, country, auth_provider, email_verified, plan, wallet_balance, email_verification_token, email_verification_token_expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 50.00, $8, $9) RETURNING *`,
-      [cleanName, cleanEmail, password, cleanCountry, auth_provider, isGoogle, initialPlan, verificationToken, tokenExpiresAt]
+      `INSERT INTO users (name, email, password_hash, country, auth_provider, email_verified, plan, wallet_balance, email_verification_token, email_verification_token_expires_at, referral_code, referral_claimed, referral_prompt_dismissed)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 50.00, $8, $9, $10, false, false) RETURNING *`,
+      [cleanName, cleanEmail, password, cleanCountry, auth_provider, isGoogle, initialPlan, verificationToken, tokenExpiresAt, newReferralCode]
     );
     const newUser = insertResult.rows[0];
 
@@ -324,7 +337,10 @@ app.post('/api/auth/signup', async (req, res) => {
         email_verified: !!newUser.email_verified,
         plan: newUser.plan,
         wallet_balance: parseFloat(newUser.wallet_balance || 50.00),
-        auth_provider: newUser.auth_provider
+        auth_provider: newUser.auth_provider,
+        referral_code: newUser.referral_code || newReferralCode,
+        referral_claimed: false,
+        referral_prompt_dismissed: false
       },
       expiresInHours: 48
     });
@@ -420,11 +436,18 @@ app.post('/api/auth/google', async (req, res) => {
       const userPlan = isAdmin ? 'plus' : 'free';
       const initialBalance = isAdmin ? 44830.00 : 50.00;
 
+      let googleReferralCode = null;
+      try {
+        googleReferralCode = db.generateReferralCode(cleanName);
+      } catch {
+        googleReferralCode = 'CQ' + crypto.randomBytes(3).toString('hex').toUpperCase();
+      }
+
       const insertRes = await db.query(
-        `INSERT INTO users (name, email, password_hash, country, auth_provider, email_verified, plan, wallet_balance)
-         VALUES ($1, $2, 'GOOGLE_OAUTH', 'India', 'google', true, $3, $4)
+        `INSERT INTO users (name, email, password_hash, country, auth_provider, email_verified, plan, wallet_balance, referral_code, referral_claimed, referral_prompt_dismissed)
+         VALUES ($1, $2, 'GOOGLE_OAUTH', 'India', 'google', true, $3, $4, $5, false, false)
          RETURNING *`,
-        [cleanName, cleanEmail, userPlan, initialBalance]
+        [cleanName, cleanEmail, userPlan, initialBalance, googleReferralCode]
       );
       userRow = insertRes.rows[0];
 
@@ -470,7 +493,10 @@ app.post('/api/auth/google', async (req, res) => {
         auth_provider: 'google',
         role: isUserAdmin ? 'Administrator' : 'User',
         isAdmin: isUserAdmin,
-        picture
+        picture,
+        referral_code: userRow.referral_code || null,
+        referral_claimed: !!userRow.referral_claimed,
+        referral_prompt_dismissed: !!userRow.referral_prompt_dismissed
       },
       expiresInHours: 48
     });
@@ -736,13 +762,17 @@ app.get('/api/auth/verify', async (req, res) => {
 
   try {
     const uRes = await db.query(
-      'SELECT id, name, email, plan, wallet_balance, email_verified, country FROM users WHERE LOWER(email) = $1',
+      'SELECT id, name, email, plan, wallet_balance, email_verified, country, referral_code, referral_claimed, referral_prompt_dismissed FROM users WHERE LOWER(email) = $1',
       [verified.email.toLowerCase()]
     );
     if (uRes.rows.length === 0) {
       return res.status(401).json({ valid: false, error: 'User account not found' });
     }
     const u = uRes.rows[0];
+    let userReferralCode = u.referral_code;
+    if (!userReferralCode) {
+      userReferralCode = await db.ensureUserReferralCode(u.id, u.name);
+    }
     const isUserAdmin = Boolean(AUTH_USER && u.email.toLowerCase() === AUTH_USER.toLowerCase());
     return res.json({
       valid: true,
@@ -755,7 +785,10 @@ app.get('/api/auth/verify', async (req, res) => {
         email_verified: !!u.email_verified,
         country: u.country || 'India',
         role: isUserAdmin ? 'Administrator' : 'User',
-        isAdmin: isUserAdmin
+        isAdmin: isUserAdmin,
+        referral_code: userReferralCode,
+        referral_claimed: !!u.referral_claimed,
+        referral_prompt_dismissed: !!u.referral_prompt_dismissed
       },
       expiresAt: verified.expiresAt
     });
