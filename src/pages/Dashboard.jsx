@@ -277,7 +277,7 @@ function Dashboard() {
     text: `Engine ${j.source.toUpperCase()} gathered ${j.fetched_count} leads for "${j.keyword}" in ${j.location}`,
     status: j.status
   })) : [
-    { source: 'maps', text: 'All 4 multi-engine scrapers online & operational with PostgreSQL 18', status: 'COMPLETED' },
+    { source: 'maps', text: 'All 4 multi-engine scrapers online & operational with Secured Database', status: 'COMPLETED' },
     { source: 'yandex', text: 'Yandex + MAX Messenger integration live for CIS & Russian contacts', status: 'COMPLETED' }
   ];
 
@@ -495,7 +495,7 @@ function Dashboard() {
             <div className="metric-icon-box purple">
               <Database size={22} />
             </div>
-            <span className="metric-badge neutral">PostgreSQL 18</span>
+            <span className="metric-badge neutral">Secured Database</span>
           </div>
           <div className="metric-body">
             <span className="metric-label">Total Verified Leads</span>
