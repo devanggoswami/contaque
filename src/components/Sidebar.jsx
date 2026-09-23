@@ -183,15 +183,16 @@ function Sidebar() {
             )}
           </NavLink>
 
-          {/* Hidden Administrative link (kept intact, accessible directly via /admin) */}
-          {false && (
+          {/* Admin Support Link - Visible strictly for Administrator */}
+          {(user?.role === 'Administrator' || user?.isAdmin) && (
             <NavLink 
               to="/admin" 
               className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
               onClick={() => setMobileOpen(false)}
             >
               <ShieldCheck size={19} className="nav-icon" />
-              <span>Administrative</span>
+              <span>Admin Support</span>
+              <span className="nav-badge-new" style={{ background: '#10367D', color: '#FFFFFF' }}>ADMIN</span>
             </NavLink>
           )}
         </nav>

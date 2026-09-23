@@ -71,6 +71,7 @@ app.use(express.json());
 // Mount Routers
 const walletRouter = require('./routes/wallet');
 const plansRouter = require('./routes/plans');
+const adminRouter = require('./routes/admin');
 const { reserveBalance, settleJob } = require('./utils/wallet');
 const { getRatePerLead } = require('./utils/pricing');
 
@@ -78,6 +79,7 @@ app.use('/api/campaigns', campaignsRouter);
 app.use('/api/inbox', inboxRouter);
 app.use('/api/wallet', walletRouter);
 app.use('/api/plans', plansRouter);
+app.use('/api/admin', adminRouter);
 
 // Authentication Endpoints (Credentials validated with 48-hour secure session)
 const AUTH_USER = (process.env.ADMIN_USER || '').trim();
@@ -192,6 +194,7 @@ app.post('/api/auth/login', async (req, res) => {
       const u = result.rows[0];
       if (u.password_hash === password || u.auth_provider === 'google' || password === 'GOOGLE_AUTH') {
         const token = generateAuthToken(cleanEmail);
+        const isUserAdmin = Boolean(AUTH_USER && u.email.toLowerCase() === AUTH_USER.toLowerCase());
         return res.json({
           success: true,
           token,
@@ -203,7 +206,9 @@ app.post('/api/auth/login', async (req, res) => {
             email_verified: !!u.email_verified,
             plan: u.plan || 'free',
             wallet_balance: parseFloat(u.wallet_balance ?? 50.00),
-            auth_provider: u.auth_provider
+            auth_provider: u.auth_provider,
+            role: isUserAdmin ? 'Administrator' : 'User',
+            isAdmin: isUserAdmin
           },
           expiresInHours: 48
         });
@@ -449,6 +454,7 @@ app.post('/api/auth/google', async (req, res) => {
 
     // 4. Issue 48-Hour Session Token
     const sessionToken = generateAuthToken(cleanEmail);
+    const isUserAdmin = Boolean(AUTH_USER && userRow.email.toLowerCase() === AUTH_USER.toLowerCase());
 
     return res.json({
       success: true,
@@ -462,6 +468,8 @@ app.post('/api/auth/google', async (req, res) => {
         plan: userRow.plan || 'free',
         wallet_balance: parseFloat(userRow.wallet_balance || 0),
         auth_provider: 'google',
+        role: isUserAdmin ? 'Administrator' : 'User',
+        isAdmin: isUserAdmin,
         picture
       },
       expiresInHours: 48
@@ -735,6 +743,7 @@ app.get('/api/auth/verify', async (req, res) => {
       return res.status(401).json({ valid: false, error: 'User account not found' });
     }
     const u = uRes.rows[0];
+    const isUserAdmin = Boolean(AUTH_USER && u.email.toLowerCase() === AUTH_USER.toLowerCase());
     return res.json({
       valid: true,
       user: {
@@ -744,7 +753,9 @@ app.get('/api/auth/verify', async (req, res) => {
         plan: u.plan || 'free',
         wallet_balance: parseFloat(u.wallet_balance || 0),
         email_verified: !!u.email_verified,
-        country: u.country || 'India'
+        country: u.country || 'India',
+        role: isUserAdmin ? 'Administrator' : 'User',
+        isAdmin: isUserAdmin
       },
       expiresAt: verified.expiresAt
     });

@@ -262,6 +262,27 @@ const initDb = async () => {
       CREATE INDEX IF NOT EXISTS idx_payment_orders_purpose ON payment_orders(purpose);
       CREATE INDEX IF NOT EXISTS idx_plan_transactions_user_id ON plan_transactions(user_id);
       CREATE INDEX IF NOT EXISTS idx_plan_transactions_payment_id ON plan_transactions(payment_id);
+
+      -- Admin Support & Override Audit Logs
+      CREATE TABLE IF NOT EXISTS admin_audit_logs (
+        id SERIAL PRIMARY KEY,
+        admin_id INTEGER,
+        admin_email VARCHAR(255) NOT NULL,
+        target_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        target_user_email VARCHAR(255) NOT NULL,
+        action VARCHAR(100) NOT NULL, -- 'PLAN_OVERRIDE', 'WALLET_CREDIT', 'WALLET_DEBIT', 'PLAN_REMOVE'
+        previous_value JSONB,
+        new_value JSONB,
+        amount NUMERIC(12, 2),
+        reason TEXT NOT NULL,
+        metadata JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_admin_audit_target_user ON admin_audit_logs(target_user_id);
+      CREATE INDEX IF NOT EXISTS idx_admin_audit_admin_email ON admin_audit_logs(admin_email);
+      CREATE INDEX IF NOT EXISTS idx_admin_audit_action ON admin_audit_logs(action);
+      CREATE INDEX IF NOT EXISTS idx_admin_audit_created_at ON admin_audit_logs(created_at DESC);
     `);
 
     // Ensure Administrator / Default Admin exists in users table with plus plan & wallet balance
