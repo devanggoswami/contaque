@@ -108,7 +108,6 @@ function Sidebar() {
             </div>
             <div className="brand-info">
               <h2>Contaque</h2>
-              <span className="brand-tag">PRO INTELLIGENCE</span>
             </div>
           </div>
           <button 
