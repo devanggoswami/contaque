@@ -108,6 +108,7 @@ a:hover {
 button, input, select, textarea {
   font-family: inherit;
   font-size: inherit;
+  color: var(--text-main);
 }
 
 /* Custom Scrollbar */
