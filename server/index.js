@@ -433,19 +433,19 @@ app.post('/api/auth/google', async (req, res) => {
       } catch (lErr) {
         console.warn('Google welcome bonus ledger warning:', lErr.message);
       }
-
-      // Asynchronously sync new Google OAuth user to Google Sheets (Non-blocking / Fault-tolerant)
-      syncUserToGoogleSheets({
-        id: userRow.id,
-        name: userRow.name || cleanName,
-        email: userRow.email,
-        created_at: userRow.created_at || new Date(),
-        auth_provider: 'google',
-        plan: userRow.plan || userPlan,
-        email_verified: true,
-        payment_status: (userRow.plan === 'plus' || userRow.plan === 'pack') ? 'ACTIVE' : 'FREE'
-      }).catch(gsErr => console.warn('[Google Sheets Sync Background Warning]:', gsErr.message));
     }
+
+    // Asynchronously sync user to Google Sheets (Non-blocking / Fault-tolerant)
+    syncUserToGoogleSheets({
+      id: userRow.id,
+      name: userRow.name || cleanName,
+      email: userRow.email,
+      created_at: userRow.created_at || new Date(),
+      auth_provider: userRow.auth_provider || 'google',
+      plan: userRow.plan || 'free',
+      email_verified: !!userRow.email_verified,
+      payment_status: (userRow.plan === 'plus' || userRow.plan === 'pack') ? 'ACTIVE' : 'FREE'
+    }).catch(gsErr => console.warn('[Google Sheets Sync Background Warning]:', gsErr.message));
 
     // 4. Issue 48-Hour Session Token
     const sessionToken = generateAuthToken(cleanEmail);
@@ -757,7 +757,7 @@ app.get('/api/auth/verify', async (req, res) => {
 // Start Background Mail Queue
 startQueueEngine();
 
-const PORT = process.env.PORT || 5002;
+const PORT = process.env.PORT || 5001;
 const GOOGLE_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
 const GOOGLE_CX = process.env.GOOGLE_CX;
 const CUSTOM_SEARCH_KEY = process.env.GOOGLE_CUSTOM_SEARCH_API_KEY || GOOGLE_API_KEY;
