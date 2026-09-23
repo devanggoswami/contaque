@@ -9,8 +9,8 @@
   left: 0 !important;
   right: 0 !important;
   bottom: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
+  width: 100% !important;
+  height: 100% !important;
   background: rgba(16, 54, 125, 0.45) !important;
   backdrop-filter: blur(6px) !important;
   -webkit-backdrop-filter: blur(6px) !important;
@@ -21,6 +21,13 @@
   padding: 20px !important;
   box-sizing: border-box !important;
   animation: referralModalFadeIn 0.25s ease-out !important;
+}
+
+/* On desktop with persistent sidebar (260px), offset padding so modal centers exactly in main content area */
+@media (min-width: 769px) {
+  .referral-modal-overlay {
+    padding-left: calc(260px + 20px) !important;
+  }
 }
 
 @keyframes referralModalFadeIn {

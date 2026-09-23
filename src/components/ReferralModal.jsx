@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Gift, CheckCircle2, ArrowRight, AlertCircle, Sparkles, Loader2 } from 'lucide-react';
 import { API_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
@@ -23,7 +24,7 @@ export default function ReferralModal({ isOpen, onClose, onSuccess }) {
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!isOpen || typeof document === 'undefined') return null;
 
   const isUSD = user?.country && user.country !== 'India';
   const rewardLabel = isUSD ? '$2' : '₹100';
@@ -93,7 +94,7 @@ export default function ReferralModal({ isOpen, onClose, onSuccess }) {
     }
   };
 
-  return (
+  return createPortal(
     <div className="referral-modal-overlay" onClick={handleDismiss}>
       <div className="referral-modal-card" onClick={(e) => e.stopPropagation()}>
         {/* Close / X button */}
@@ -189,6 +190,7 @@ export default function ReferralModal({ isOpen, onClose, onSuccess }) {
           <span>Both you and your friend receive {rewardLabel} upon verification</span>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
