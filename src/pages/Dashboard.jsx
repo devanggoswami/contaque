@@ -680,26 +680,28 @@ function Dashboard() {
                 className={`tab-pill-btn ${dashboardTab === 'JOBS' ? 'active' : ''}`}
                 onClick={() => setDashboardTab('JOBS')}
               >
-                Recent Scraper Jobs
+                <span className="tab-full-text">Recent Scraper Jobs</span>
+                <span className="tab-short-text">Recent Jobs</span>
               </button>
               <button 
                 type="button"
                 className={`tab-pill-btn ${dashboardTab === 'LEDGER' ? 'active' : ''}`}
                 onClick={() => setDashboardTab('LEDGER')}
               >
-                Wallet Ledger ({ledgerData.length})
+                <span className="tab-full-text">Wallet Ledger ({ledgerData.length})</span>
+                <span className="tab-short-text">Ledger ({ledgerData.length})</span>
               </button>
             </div>
 
             {dashboardTab === 'JOBS' ? (
               <button className="view-all-link" onClick={() => navigate('/database')}>
                 <span>View All</span>
-                <ArrowUpRight size={15} />
+                <ArrowUpRight size={14} />
               </button>
             ) : (
               <button className="view-all-link" onClick={() => setShowRechargeModal(true)}>
-                <span>+ Recharge</span>
-                <PlusCircle size={15} />
+                <span>+ Top Up</span>
+                <PlusCircle size={14} />
               </button>
             )}
           </div>
@@ -715,32 +717,42 @@ function Dashboard() {
                       <div className="job-stream-item interactive-job" key={job.id} onClick={() => navigate('/database')}>
                         <div className="job-stream-left">
                           <div className={`status-orb ${job.status}`}>
-                            {job.status === 'COMPLETED' ? <CheckCircle2 size={14} /> :
-                             isRunning ? <Clock size={14} /> : <AlertCircle size={14} />}
+                            {job.status === 'COMPLETED' ? <CheckCircle2 size={15} /> :
+                             isRunning ? <Clock size={15} /> : <AlertCircle size={15} />}
                           </div>
                           <div className="job-stream-details">
                             <div className="job-title-row">
-                              <h4>{job.keyword}</h4>
+                              <h4 title={job.keyword}>{job.keyword}</h4>
                               <span className={`source-micro-tag ${job.source}`}>
                                 {job.source === 'maps' ? 'Google Data' : 
                                  job.source === 'dorking' ? 'Business Index' :
-                                 job.source === 'yellowpages' ? 'Yellow Pages' : 'Yandex (MAX)'}
+                                 job.source === 'yellowpages' ? 'Yellow Pages' : 'Yandex'}
                               </span>
                             </div>
                             <p className="job-meta-line">
-                              <MapPin size={12} />
-                              <span>{job.location}</span>
+                              <MapPin size={11} />
+                              <span className="meta-loc">{job.location}</span>
                               <span className="dot-sep">•</span>
-                              <span>{job.fetched_count} / {job.target_count} leads</span>
+                              <span className="meta-count">{job.fetched_count} / {job.target_count} leads</span>
                             </p>
                           </div>
                         </div>
 
                         <div className="job-stream-right">
-                          <div className="mini-progress-pill">
-                            <div className="mini-progress-bar" style={{ width: `${pct}%` }}></div>
-                            <span>{pct}%</span>
-                          </div>
+                          {job.status === 'COMPLETED' ? (
+                            <span className="job-done-pill">
+                              <CheckCircle2 size={11} /> 100%
+                            </span>
+                          ) : isRunning ? (
+                            <div className="mini-progress-pill running">
+                              <div className="mini-progress-bar" style={{ width: `${pct}%` }}></div>
+                              <span className="progress-pct-text">{pct}%</span>
+                            </div>
+                          ) : (
+                            <span className="job-failed-pill">
+                              <AlertCircle size={11} /> Failed
+                            </span>
+                          )}
                         </div>
                       </div>
                     );

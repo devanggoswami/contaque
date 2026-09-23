@@ -868,86 +868,129 @@
   gap: 8px;
 }
 
+.tab-short-text {
+  display: none;
+}
+
+.tab-full-text {
+  display: inline;
+}
+
+.view-all-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--primary, #2563EB);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.view-all-link:hover {
+  background: var(--bg-card-subtle, #F0F6FB);
+}
+
 .job-stream-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px;
-  border-radius: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
   background: var(--bg-card-subtle, #F0F6FB);
   border: 1px solid var(--border-color, #D9E1EA);
   cursor: pointer;
   transition: all 0.15s ease;
+  gap: 10px;
 }
 
 .job-stream-item:hover {
   background: #FFFFFF;
   border-color: var(--border-hover, #BAC7D5);
+  box-shadow: 0 2px 6px rgba(16, 54, 125, 0.05);
 }
 
 .job-stream-left {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex: 1;
+  min-width: 0;
 }
 
 /* Functional Status Orbs */
 .status-orb {
   width: 28px;
   height: 28px;
-  border-radius: 6px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .status-orb.COMPLETED {
   background: var(--success-bg, #ECFDF5);
   color: var(--success-text, #059669);
+  border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
 .status-orb.IN_PROGRESS {
   background: var(--warning-bg, #FFFBEB);
   color: var(--warning, #D97706);
+  border: 1px solid rgba(217, 119, 6, 0.2);
 }
 
 .status-orb.FAILED {
   background: var(--danger-bg, #FEF2F2);
   color: var(--danger, #DC2626);
+  border: 1px solid rgba(220, 38, 38, 0.2);
 }
 
-.job-stream-details h4 {
-  margin: 0;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--text-main, #172033);
-  text-transform: capitalize;
+.job-stream-details {
+  flex: 1;
+  min-width: 0;
 }
 
 .job-title-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  width: 100%;
+}
+
+.job-title-row h4 {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-main, #172033);
+  text-transform: capitalize;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
 }
 
 /* Uniform Neutral Engine Micro-Tags */
 .source-micro-tag {
-  font-size: 9.5px;
-  font-weight: 600;
-  padding: 1px 5px;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1.5px 6px;
   border-radius: 4px;
   text-transform: uppercase;
-  background: #F1F5F9;
+  background: #FFFFFF;
   color: var(--text-secondary, #475569);
-  border: 1px solid var(--border-color, #D9E1EA);
-}
-
-.source-micro-tag.maps,
-.source-micro-tag.dorking,
-.source-micro-tag.yellowpages,
-.source-micro-tag.yandex {
-  background: #F1F5F9;
-  color: var(--text-secondary, #475569);
+  border: 1px solid var(--border-color, #CBD5E1);
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: 0.03em;
 }
 
 .job-meta-line {
@@ -957,25 +1000,60 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dot-sep {
   opacity: 0.4;
 }
 
+.job-stream-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.job-done-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: #ECFDF5;
+  color: #059669;
+  border: 1px solid #A7F3D0;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.job-failed-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: #FEF2F2;
+  color: #DC2626;
+  border: 1px solid #FECACA;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .mini-progress-pill {
-  width: 60px;
+  width: 58px;
   height: 20px;
   background: #F1F5F9;
-  border-radius: 4px;
+  border: 1px solid #CBD5E1;
+  border-radius: 9999px;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  font-size: 10.5px;
-  font-weight: 600;
-  color: var(--text-secondary, #475569);
 }
 
 .mini-progress-bar {
@@ -985,6 +1063,15 @@
   height: 100%;
   background: var(--primary-light, #DCEAF5);
   transition: width 0.4s ease;
+  z-index: 1;
+}
+
+.progress-pct-text {
+  position: relative;
+  z-index: 2;
+  font-size: 10px;
+  font-weight: 700;
+  color: #1E40AF;
 }
 
 .empty-panel {
@@ -1333,26 +1420,93 @@
   }
 
   .surface-card {
-    padding: 16px;
+    padding: 14px 12px;
     border-radius: 12px;
   }
 
-  .tab-pill-switcher {
-    width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
+  .card-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 12px;
   }
 
-  .tab-pill-switcher::-webkit-scrollbar {
-    display: none;
+  .tab-pill-switcher {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+    display: flex;
+    overflow-x: visible;
   }
 
   .tab-pill-btn {
     flex: 1;
     text-align: center;
-    padding: 6px 10px;
+    padding: 5px 8px;
     font-size: 11.5px;
+    white-space: nowrap;
+  }
+
+  .tab-short-text {
+    display: inline;
+  }
+
+  .tab-full-text {
+    display: none;
+  }
+
+  .view-all-link {
+    font-size: 11.5px;
+    padding: 3px 6px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .job-stream-item {
+    padding: 8px 10px;
+    gap: 8px;
+    border-radius: 8px;
+  }
+
+  .status-orb {
+    width: 25px;
+    height: 25px;
+    border-radius: 6px;
+  }
+
+  .status-orb svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  .job-title-row {
+    gap: 6px;
+  }
+
+  .job-title-row h4 {
+    font-size: 12.5px;
+    max-width: 130px;
+  }
+
+  .source-micro-tag {
+    font-size: 8.5px;
+    padding: 1px 5px;
+  }
+
+  .job-meta-line {
+    font-size: 10.5px;
+    gap: 3px;
+  }
+
+  .job-done-pill {
+    font-size: 10px;
+    padding: 2px 7px;
+  }
+
+  .job-done-pill svg {
+    width: 11px;
+    height: 11px;
   }
 }
 
