@@ -17,6 +17,7 @@ import TermsAndConditions from './pages/TermsAndConditions';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import PaymentRefundPolicy from './pages/PaymentRefundPolicy';
 import ReferAndEarn from './pages/ReferAndEarn';
+import HelpSupport from './pages/HelpSupport';
 import './App.css';
 
 // Protected App Layout: Strict route guard requiring valid session & JWT
@@ -88,6 +89,9 @@ function App() {
             <Route path="/referral" element={<ReferAndEarn />} />
             <Route path="/refer-and-earn" element={<ReferAndEarn />} />
             <Route path="/refer" element={<ReferAndEarn />} />
+            <Route path="/support" element={<HelpSupport />} />
+            <Route path="/help-and-support" element={<HelpSupport />} />
+            <Route path="/help" element={<HelpSupport />} />
             <Route path="/admin" element={<Administrative />} />
           </Route>
 

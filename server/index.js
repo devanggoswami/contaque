@@ -2226,6 +2226,67 @@ app.post('/api/contact', (req, res) => {
   }
 });
 
+// POST /api/support/ticket - Handle logged-in customer support requests
+app.post('/api/support/ticket', async (req, res) => {
+  try {
+    const { firstName, lastName, email, countryCode, phone, category, description } = req.body;
+
+    if (!firstName || !lastName || !email || !category || !description) {
+      return res.status(400).json({ error: 'Please fill in all required fields (First Name, Last Name, Email, Category, and Description).' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const fullName = `${firstName.trim()} ${lastName.trim()}`;
+    const fullPhone = phone ? `${countryCode || '+91'} ${phone.trim()}` : null;
+
+    // Check if user exists in DB
+    let userId = null;
+    try {
+      const uRes = await db.query('SELECT id FROM users WHERE LOWER(email) = $1', [cleanEmail]);
+      if (uRes.rows.length > 0) {
+        userId = uRes.rows[0].id;
+      }
+    } catch {}
+
+    // Store in support_tickets table
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS support_tickets (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          first_name VARCHAR(100),
+          last_name VARCHAR(100),
+          email VARCHAR(255) NOT NULL,
+          country_code VARCHAR(10),
+          phone VARCHAR(50),
+          category VARCHAR(100) NOT NULL,
+          description TEXT NOT NULL,
+          status VARCHAR(50) DEFAULT 'OPEN',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+
+      await db.query(
+        `INSERT INTO support_tickets (user_id, first_name, last_name, email, country_code, phone, category, description)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [userId, firstName.trim(), lastName.trim(), cleanEmail, countryCode || '+91', phone ? phone.trim() : null, category, description.trim()]
+      );
+    } catch (dbErr) {
+      console.error('[Support Ticket DB Insert]:', dbErr.message);
+    }
+
+    console.log(`[Support Ticket Received] User: ${fullName} (${cleanEmail}) | Category: ${category} | Phone: ${fullPhone || 'N/A'}`);
+
+    return res.json({
+      success: true,
+      message: 'Support request received successfully. Our team will review your ticket and reply within 24 hours on working days.'
+    });
+  } catch (error) {
+    console.error('Support ticket submission error:', error);
+    return res.status(500).json({ error: 'Failed to submit support request. Please try again or email us directly.' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Backend server running on http://localhost:${PORT}`);
 });
