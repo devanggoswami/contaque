@@ -9,6 +9,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { API_URL } from '../config';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import LockedFeatureGate from '../components/LockedFeatureGate';
 import './Campaigns.css';
@@ -565,8 +566,11 @@ function Campaigns() {
                 <UserPlus size={16} /> Add
               </button>
             </form>
-            <span className="help-text" style={{marginTop: '12px', display: 'block'}}>
+            <span className="help-text" style={{marginTop: '12px', display: 'block', lineHeight: '1.6'}}>
               Note: You must enable 2-Step Verification on your Google Account. Direct Link: <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" style={{color: 'var(--primary)', fontWeight: 700, textDecoration: 'underline'}}>Generate 16-Digit App Password ↗</a>. The system rotates across your sending accounts up to your plan's daily limit ({limits?.dailyEmailLimit ? limits.dailyEmailLimit.toLocaleString() : 400} emails/day).
+            </span>
+            <span className="help-text" style={{marginTop: '8px', display: 'block', lineHeight: '1.6', color: 'var(--text-muted)'}}>
+              💬 Stuck or need assistance adding your account? Please <Link to="/help" style={{color: 'var(--primary)', fontWeight: 700, textDecoration: 'underline'}}>raise a support ticket</Link> and our team will help you set it up.
             </span>
           </div>
 
