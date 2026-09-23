@@ -625,11 +625,11 @@ function Campaigns() {
             <div className="entitlement-stat-box">
               <div className="entitlement-box-label">PLAN ALLOCATION</div>
               <div className="entitlement-box-main">
-                <span className="entitlement-count">{limits?.maxAccounts || (userPlan === 'pack' ? 4 : 1)}</span>
-                <span className="entitlement-entity">Gmail {limits?.maxAccounts === 1 ? 'Account' : 'Accounts'}</span>
+                <span className="entitlement-count">{limits?.maxAccounts !== undefined ? limits.maxAccounts : (userPlan === 'pack' ? 4 : (userPlan === 'plus' ? 1 : 0))}</span>
+                <span className="entitlement-entity">Gmail {(limits?.maxAccounts === 1 || (limits?.maxAccounts === undefined && userPlan === 'plus')) ? 'Account' : 'Accounts'}</span>
               </div>
               <div className="entitlement-box-pill">
-                ⚡ <strong>{Number(limits?.dailyEmailLimit || (userPlan === 'pack' ? 1600 : 400)).toLocaleString('en-IN')}</strong> emails/day
+                ⚡ <strong>{Number(limits?.dailyEmailLimit !== undefined ? limits.dailyEmailLimit : (userPlan === 'pack' ? 1600 : (userPlan === 'plus' ? 400 : 0))).toLocaleString('en-IN')}</strong> emails/day
               </div>
             </div>
 
@@ -637,7 +637,7 @@ function Campaigns() {
               <div className="entitlement-box-label">TODAY'S USAGE</div>
               <div className="entitlement-box-main">
                 <span className="entitlement-count quota-num">{Number(limits?.dailySentToday || 0).toLocaleString('en-IN')}</span>
-                <span className="entitlement-entity">/ {Number(limits?.dailyEmailLimit || (userPlan === 'pack' ? 1600 : 400)).toLocaleString('en-IN')}</span>
+                <span className="entitlement-entity">/ {Number(limits?.dailyEmailLimit !== undefined ? limits.dailyEmailLimit : (userPlan === 'pack' ? 1600 : (userPlan === 'plus' ? 400 : 0))).toLocaleString('en-IN')}</span>
               </div>
               <div className={`entitlement-box-pill ${limits?.dailyLimitReached ? 'pill-alert' : 'pill-active'}`}>
                 {limits?.dailyLimitReached ? '⚠️ Quota limit reached' : '✓ emails sent today'}
@@ -695,7 +695,7 @@ function Campaigns() {
               </button>
             </form>
             <span className="help-text" style={{marginTop: '12px', display: 'block', lineHeight: '1.6'}}>
-              Note: You must enable 2-Step Verification on your Google Account. Direct Link: <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" style={{color: 'var(--primary)', fontWeight: 700, textDecoration: 'underline'}}>Generate 16-Digit App Password ↗</a>. The system rotates across your sending accounts up to your plan's daily limit ({limits?.dailyEmailLimit ? limits.dailyEmailLimit.toLocaleString() : 400} emails/day).
+              Note: You must enable 2-Step Verification on your Google Account. Direct Link: <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" style={{color: 'var(--primary)', fontWeight: 700, textDecoration: 'underline'}}>Generate 16-Digit App Password ↗</a>. Value Plus (₹299) allows 1 Gmail account up to 400 emails/day; Value Pack (₹499) allows up to 4 Gmail accounts up to 1,600 emails/day.
             </span>
             <span className="help-text" style={{marginTop: '8px', display: 'block', lineHeight: '1.6', color: 'var(--text-muted)'}}>
               💬 Stuck or need assistance adding your account? Please <Link to="/help" style={{color: 'var(--primary)', fontWeight: 700, textDecoration: 'underline'}}>raise a support ticket</Link> and our team will help you set it up.
