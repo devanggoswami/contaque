@@ -503,8 +503,15 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
 
         {/* Modal Footer */}
         <div className="profile-modal-footer">
-          <div className="footer-left-help">
-            <span>Need more leads or custom enterprise volume? Contact support@contaque.com</span>
+          <div className="footer-left-help" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <span>Need more leads or custom enterprise volume? Contact info@klyrovainc.com</span>
+            <div style={{ display: 'flex', gap: '8px', fontSize: '11.5px', color: '#64748b' }}>
+              <a href="/terms" target="_blank" rel="noreferrer" style={{ color: '#818cf8', textDecoration: 'underline' }}>Terms</a>
+              <span>•</span>
+              <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: '#818cf8', textDecoration: 'underline' }}>Privacy Policy</a>
+              <span>•</span>
+              <a href="/refund-policy" target="_blank" rel="noreferrer" style={{ color: '#818cf8', textDecoration: 'underline' }}>Refund Policy</a>
+            </div>
           </div>
           <div className="footer-right-actions">
             {onOpenRecharge && (

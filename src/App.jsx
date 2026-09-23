@@ -13,6 +13,9 @@ import Signup from './pages/Signup';
 import VerifyEmail from './pages/VerifyEmail';
 import LandingPage from './pages/LandingPage';
 import ContactUs from './pages/ContactUs';
+import TermsAndConditions from './pages/TermsAndConditions';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import PaymentRefundPolicy from './pages/PaymentRefundPolicy';
 import './App.css';
 
 // Protected App Layout: Strict route guard requiring valid session & JWT
@@ -56,6 +59,14 @@ function App() {
           <Route path="/welcome" element={<LandingPage />} />
           <Route path="/contact" element={<ContactUs />} />
           <Route path="/contact-us" element={<ContactUs />} />
+
+          {/* Public Legal & Policy Pages */}
+          <Route path="/terms" element={<TermsAndConditions />} />
+          <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/refund-policy" element={<PaymentRefundPolicy />} />
+          <Route path="/payment-refund-policy" element={<PaymentRefundPolicy />} />
 
           {/* Public Auth Routes: Always accessible to allow multi-user login and signup */}
           <Route path="/login" element={<Login />} />

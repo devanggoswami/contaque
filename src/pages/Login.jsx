@@ -212,6 +212,23 @@ function Login() {
               </>
             )}
           </button>
+
+          <p className="auth-consent-text">
+            By logging in, you agree to our{' '}
+            <span 
+              className="auth-consent-link" 
+              onClick={() => navigate('/terms')}
+            >
+              Terms &amp; Conditions
+            </span>{' '}
+            and{' '}
+            <span 
+              className="auth-consent-link" 
+              onClick={() => navigate('/privacy')}
+            >
+              Privacy Policy
+            </span>.
+          </p>
         </form>
 
         <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '13px', color: '#94a3b8' }}>

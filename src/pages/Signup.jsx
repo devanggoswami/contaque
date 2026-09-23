@@ -311,6 +311,24 @@ export default function Signup() {
             )}
           </button>
 
+          {/* Legal Consent Text */}
+          <p className="signup-consent-text">
+            By signing up, you agree to our{' '}
+            <span 
+              className="signup-consent-link" 
+              onClick={() => navigate('/terms')}
+            >
+              Terms &amp; Conditions
+            </span>{' '}
+            and{' '}
+            <span 
+              className="signup-consent-link" 
+              onClick={() => navigate('/privacy')}
+            >
+              Privacy Policy
+            </span>.
+          </p>
+
           {/* Bottom switch to Sign In */}
           <div className="signup-bottom-switch">
             <span>Already have an account?</span>

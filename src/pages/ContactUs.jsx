@@ -458,12 +458,13 @@ export default function ContactUs() {
 
           {/* Column 3: Company */}
           <div className="footer-col-links">
-            <h4 className="footer-col-title">Company</h4>
+            <h4 className="footer-col-title">Company &amp; Legal</h4>
             <ul className="footer-links-list">
-              <li><a href="/landing">About Us</a></li>
-              <li><a href="/contact">Contact</a></li>
-              <li><a href="/landing#faq">Privacy Policy</a></li>
-              <li><a href="/landing#faq">Terms of Service</a></li>
+              <li><a href="/landing" onClick={(e) => { e.preventDefault(); navigate('/landing'); }}>About Us</a></li>
+              <li><a href="/contact" onClick={(e) => { e.preventDefault(); navigate('/contact'); }}>Contact</a></li>
+              <li><a href="/terms" onClick={(e) => { e.preventDefault(); navigate('/terms'); }}>Terms &amp; Conditions</a></li>
+              <li><a href="/privacy" onClick={(e) => { e.preventDefault(); navigate('/privacy'); }}>Privacy Policy</a></li>
+              <li><a href="/refund-policy" onClick={(e) => { e.preventDefault(); navigate('/refund-policy'); }}>Payment &amp; Refund Policy</a></li>
             </ul>
           </div>
 
