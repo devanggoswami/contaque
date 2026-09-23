@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const axios = require('axios');
 const db = require('../db');
 const { getPlanConfig, normalizePlanId, activateUserPlan } = require('../utils/plans');
+const { syncUserToGoogleSheets } = require('../utils/googleSheetsService');
 
 // Helper to extract JWT token from request
 function extractToken(req) {
@@ -288,6 +289,18 @@ router.post('/verify', async (req, res) => {
       'UPDATE payment_orders SET signature = $1 WHERE order_id = $2',
       [razorpay_signature, razorpay_order_id]
     );
+
+    // Asynchronously sync updated plan and ACTIVE payment status to Google Sheets
+    syncUserToGoogleSheets({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      created_at: user.created_at || new Date(),
+      auth_provider: user.auth_provider || 'local',
+      plan: activationResult.plan,
+      email_verified: !!user.email_verified,
+      payment_status: 'ACTIVE'
+    }).catch(gsErr => console.warn('[Google Sheets Sync Plan Activation Warning]:', gsErr.message));
 
     return res.json({
       success: true,

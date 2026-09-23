@@ -226,29 +226,41 @@ async function ensureSheetHeaders(accessToken, config) {
 }
 
 /**
- * Format user row data array
+ * Helper to format date strictly in Indian Standard Time (IST)
+ */
+function formatIST(dateInput) {
+  try {
+    const d = dateInput ? new Date(dateInput) : new Date();
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    }).toUpperCase() + ' IST';
+  } catch {
+    return new Date().toISOString();
+  }
+}
+
+/**
+ * Format user row data array with IST timestamps
  */
 function formatUserRow(user) {
   const userId = user.id !== undefined && user.id !== null ? String(user.id) : '';
   const name = (user.name || user.email?.split('@')[0] || 'User').trim();
   const email = (user.email || '').trim().toLowerCase();
   
-  let signupDate = '';
-  if (user.created_at) {
-    try {
-      signupDate = new Date(user.created_at).toISOString();
-    } catch {
-      signupDate = new Date().toISOString();
-    }
-  } else {
-    signupDate = new Date().toISOString();
-  }
-
+  const signupDate = user.created_at ? formatIST(user.created_at) : formatIST(new Date());
   const signupMethod = (user.auth_provider || 'local').toLowerCase();
   const currentPlan = (user.plan || 'free').toLowerCase();
   const emailVerified = user.email_verified ? 'Yes' : 'No';
   const paymentStatus = user.payment_status || (currentPlan === 'plus' || currentPlan === 'pack' ? 'ACTIVE' : 'FREE');
-  const lastSynced = new Date().toISOString();
+  const lastSynced = formatIST(new Date());
 
   return [
     userId,

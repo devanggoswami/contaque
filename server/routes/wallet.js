@@ -15,6 +15,7 @@ const {
   getBillingSummary 
 } = require('../utils/wallet');
 const { getEngineRates, normalizePlanKey } = require('../utils/pricing');
+const { syncUserToGoogleSheets } = require('../utils/googleSheetsService');
 
 // Helper to extract JWT token from request
 function extractToken(req) {
@@ -325,6 +326,18 @@ router.post('/recharge/verify', async (req, res) => {
       WHERE order_id = $3
     `, [razorpay_payment_id, razorpay_signature, razorpay_order_id]);
 
+    // Asynchronously sync updated user status to Google Sheets
+    syncUserToGoogleSheets({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      created_at: user.created_at || new Date(),
+      auth_provider: user.auth_provider || 'local',
+      plan: user.plan || 'free',
+      email_verified: !!user.email_verified,
+      payment_status: 'ACTIVE'
+    }).catch(gsErr => console.warn('[Google Sheets Sync Wallet Recharge Warning]:', gsErr.message));
+
     return res.json({
       success: true,
       message: `Successfully credited ₹${rechargeAmount.toFixed(2)} to your wallet!`,
@@ -465,6 +478,18 @@ router.post('/plan/update', async (req, res) => {
 
     const balanceInfo = await getWalletBalance(user.id);
     const pricing = getEngineRates(newPlan);
+
+    // Asynchronously sync updated user status to Google Sheets
+    syncUserToGoogleSheets({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      created_at: user.created_at || new Date(),
+      auth_provider: user.auth_provider || 'local',
+      plan: newPlan,
+      email_verified: !!user.email_verified,
+      payment_status: (newPlan === 'plus' || newPlan === 'pack') ? 'ACTIVE' : 'FREE'
+    }).catch(gsErr => console.warn('[Google Sheets Sync Wallet Plan Warning]:', gsErr.message));
 
     return res.json({
       success: true,
