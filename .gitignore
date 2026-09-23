@@ -59,5 +59,6 @@ Thumbs.db
 # Local test & debug scripts
 server/set_test_balance.js
 server/test_*.js
+!server/test_entitlements.js
 server/alter_db.js
 scratch/

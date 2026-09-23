@@ -7,6 +7,7 @@
     "dev": "vite",
     "server": "node server/index.js",
     "build": "vite build",
+    "test:entitlements": "node server/test_entitlements.js",
     "lint": "oxlint",
     "preview": "vite preview"
   },

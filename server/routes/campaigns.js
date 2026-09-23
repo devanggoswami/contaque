@@ -6,6 +6,7 @@ const path = require('path');
 const mailer = require('../utils/mailer');
 const { isValidEmailAddress } = require('../utils/email_extractor');
 const { requireAuth } = require('../utils/auth');
+const { getUserPlanEntitlement } = require('../utils/plans');
 
 // Enforce strict authentication on all campaign endpoints
 router.use(requireAuth);
@@ -66,7 +67,58 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// --- EMAIL ACCOUNTS (User-Scoped) ---
+// --- EMAIL ACCOUNTS & PLAN ENTITLEMENTS (User-Scoped) ---
+
+// Authoritative user entitlement and quota status
+router.get('/limits', async (req, res) => {
+  try {
+    const entitlement = await getUserPlanEntitlement(req.user.id);
+    
+    // Count existing accounts
+    const countRes = await db.query(
+      'SELECT COUNT(*)::int as count FROM email_accounts WHERE user_id = $1',
+      [req.user.id]
+    );
+    const accountCount = parseInt(countRes.rows[0]?.count || 0, 10);
+
+    // Sum daily sent today across user's allowed active accounts
+    const sentRes = await db.query(
+      `WITH allowed_accounts AS (
+        SELECT daily_sent_count
+        FROM email_accounts
+        WHERE user_id = $1 AND status = 'ACTIVE'
+        ORDER BY id ASC
+        LIMIT $2
+      )
+      SELECT COALESCE(SUM(daily_sent_count), 0)::int as total_sent FROM allowed_accounts`,
+      [req.user.id, entitlement.maxAccounts]
+    );
+    const dailySentToday = parseInt(sentRes.rows[0]?.total_sent || 0, 10);
+
+    const canAddAccount = entitlement.emailCampaignsEnabled && accountCount < entitlement.maxAccounts;
+    const accountLimitReached = accountCount >= entitlement.maxAccounts;
+    const dailyLimitReached = dailySentToday >= entitlement.dailyEmailLimit;
+
+    return res.json({
+      plan: entitlement.plan,
+      planName: entitlement.planName,
+      isExpired: entitlement.isExpired,
+      emailCampaignsEnabled: entitlement.emailCampaignsEnabled,
+      maxAccounts: entitlement.maxAccounts,
+      currentAccountCount: accountCount,
+      canAddAccount,
+      accountLimitReached,
+      dailyEmailLimit: entitlement.dailyEmailLimit,
+      dailySentToday,
+      dailyLimitReached,
+      entitlementLabel: entitlement.entitlementLabel,
+      usageLabel: `${dailySentToday.toLocaleString()} / ${entitlement.dailyEmailLimit.toLocaleString()} emails used today`
+    });
+  } catch (err) {
+    console.error('[GET /api/campaigns/limits error]:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
 
 router.get('/accounts', async (req, res) => {
   try {
@@ -85,13 +137,49 @@ router.post('/accounts', async (req, res) => {
   if (!email || !app_password) {
     return res.status(400).json({ error: 'Email and app password are required' });
   }
+
   try {
+    // 1. Authoritative Server-Side Plan Entitlement Check
+    const entitlement = await getUserPlanEntitlement(req.user.id);
+
+    if (!entitlement.emailCampaignsEnabled || entitlement.maxAccounts <= 0) {
+      return res.status(403).json({ 
+        error: 'Email campaigns and Gmail sending accounts are not included in your current plan. Please upgrade to Value Plus (1 account · 400 emails/day) or Value Pack (4 accounts · 1,600 emails/day).' 
+      });
+    }
+
+    // 2. Count existing accounts for user
+    const countRes = await db.query(
+      'SELECT COUNT(*)::int as count FROM email_accounts WHERE user_id = $1',
+      [req.user.id]
+    );
+    const currentCount = parseInt(countRes.rows[0]?.count || 0, 10);
+
+    if (currentCount >= entitlement.maxAccounts) {
+      return res.status(403).json({ 
+        error: `You've reached the Gmail account limit for your current plan (${entitlement.planName} allows maximum ${entitlement.maxAccounts} account${entitlement.maxAccounts > 1 ? 's' : ''}). Please upgrade to add more accounts.` 
+      });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPass = app_password.trim();
+
+    // Check duplicate account for this user
+    const dupCheck = await db.query(
+      'SELECT id FROM email_accounts WHERE LOWER(email) = $1 AND user_id = $2',
+      [cleanEmail, req.user.id]
+    );
+    if (dupCheck.rows.length > 0) {
+      return res.status(400).json({ error: 'This Gmail account is already added to your sending accounts.' });
+    }
+
     const result = await db.query(
-      `INSERT INTO email_accounts (email, app_password, user_id) VALUES ($1, $2, $3) RETURNING id, email`,
-      [email.trim().toLowerCase(), app_password.trim(), req.user.id]
+      `INSERT INTO email_accounts (email, app_password, user_id) VALUES ($1, $2, $3) RETURNING id, email, status, daily_sent_count`,
+      [cleanEmail, cleanPass, req.user.id]
     );
     res.json(result.rows[0]);
   } catch (err) {
+    console.error('[POST /api/campaigns/accounts error]:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -141,6 +229,14 @@ router.post('/create', async (req, res) => {
   const { name, subject, body_html, target_mode, target_job_ids, manual_emails, attachment_filename, attachment_type, image_link } = req.body;
   
   try {
+    // Authoritative Server-Side Plan Check
+    const entitlement = await getUserPlanEntitlement(req.user.id);
+    if (!entitlement.emailCampaignsEnabled) {
+      return res.status(403).json({ 
+        error: 'Email campaigns are not included in your current plan. Please upgrade to Value Plus (400 emails/day) or Value Pack (1,600 emails/day) to launch campaigns.' 
+      });
+    }
+
     await db.query('BEGIN');
     
     let validLeads = [];
@@ -219,6 +315,15 @@ router.post('/create', async (req, res) => {
 router.put('/:id/status', async (req, res) => {
   const { status } = req.body; // 'RUNNING', 'PAUSED'
   try {
+    if (status === 'RUNNING') {
+      const entitlement = await getUserPlanEntitlement(req.user.id);
+      if (!entitlement.emailCampaignsEnabled) {
+        return res.status(403).json({ 
+          error: 'Your current plan does not allow running email campaigns. Please upgrade to Value Plus or Value Pack.' 
+        });
+      }
+    }
+
     const updateRes = await db.query(
       `UPDATE campaigns SET status = $1 WHERE id = $2 AND user_id = $3 RETURNING id`, 
       [status, req.params.id, req.user.id]

@@ -16,23 +16,23 @@ import ReferralModal from '../components/ReferralModal';
 import './Dashboard.css';
 
 const UPGRADE_PLANS = {
-  pack: {
-    id: 'pack',
-    name: 'Value Pack',
-    icon: '🚀',
-    badge: 'MOST POPULAR',
-    price: { INR: '₹299', USD: '$3.12' },
-    period: '/month',
-    tagline: 'Lower rates + priority features'
-  },
   plus: {
     id: 'plus',
     name: 'Value Plus',
     icon: '⚡',
-    badge: 'ALL-IN-ONE POWERHOUSE',
-    price: { INR: '₹499', USD: '$5.20' },
+    badge: 'MOST POPULAR',
+    price: { INR: '₹299', USD: '$3.50' },
     period: '/month',
-    tagline: 'Lowest rates + full cold outreach suite'
+    tagline: '1 Gmail sending account · 400 emails/day'
+  },
+  pack: {
+    id: 'pack',
+    name: 'Value Pack',
+    icon: '🚀',
+    badge: 'ALL-IN-ONE POWERHOUSE',
+    price: { INR: '₹499', USD: '$5.50' },
+    period: '/month',
+    tagline: 'Up to 4 Gmail sending accounts · 1,600 emails/day'
   }
 };
 
@@ -363,17 +363,17 @@ function Dashboard() {
         <div className="dashboard-title-group">
           {/* Current Plan Highlight Bar (Replaces LIVE TELEMETRY HUB) */}
           <div className="dashboard-plan-highlight">
-            {userPlan === 'plus' ? (
+            {userPlan === 'pack' ? (
               <div 
                 className="plan-pill plus interactive" 
                 onClick={() => setShowProfileModal(true)} 
                 title="Click to view full plan features & rates"
               >
                 <Crown size={14} className="crown-icon" />
-                <span className="plan-name-text">Value Plus Active</span>
-                <span className="plan-badge-tag">PRO INTELLIGENCE</span>
+                <span className="plan-name-text">Value Pack Active</span>
+                <span className="plan-badge-tag">4 ACCOUNTS · 1,600/DAY</span>
               </div>
-            ) : userPlan === 'pack' ? (
+            ) : userPlan === 'plus' ? (
               <div className="plan-pill-group">
                 <div 
                   className="plan-pill pack interactive" 
@@ -381,19 +381,19 @@ function Dashboard() {
                   title="Click to view full plan features & rates"
                 >
                   <Sparkles size={14} />
-                  <span className="plan-name-text">Value Pack Active</span>
+                  <span className="plan-name-text">Value Plus Active</span>
                 </div>
                 <button 
                   type="button" 
                   className="plan-upgrade-cta-btn"
                   onClick={() => {
-                    setSelectedUpgradePlan(UPGRADE_PLANS.plus);
+                    setSelectedUpgradePlan(UPGRADE_PLANS.pack);
                     setShowUpgradeCheckout(true);
                   }}
-                  title="Upgrade to Value Plus for lowest rates & cold email suite"
+                  title="Upgrade to Value Pack for 4 Gmail accounts & 1,600 emails/day"
                 >
                   <Crown size={13} />
-                  <span>Upgrade to Value Plus (₹499/mo)</span>
+                  <span>Upgrade to Value Pack (₹499/mo)</span>
                   <ArrowRight size={13} />
                 </button>
               </div>
@@ -414,11 +414,11 @@ function Dashboard() {
                     setSelectedUpgradePlan(UPGRADE_PLANS.plus);
                     setShowUpgradeCheckout(true);
                   }}
-                  title="Upgrade with Razorpay Payment (Save up to 40% per lead)"
+                  title="Upgrade to Value Plus (₹299/mo) or Value Pack (₹499/mo)"
                 >
                   <Crown size={14} />
-                  <span>Upgrade Plan (Save up to 40%)</span>
-                  <ArrowRight size={13} />
+                  <span>Upgrade Plan (Starting ₹299)</span>
+                  <ArrowRight size={14} />
                 </button>
               </div>
             )}

@@ -3,7 +3,7 @@ import {
   Mail, Send, Settings, UserPlus, Play, Pause, Trash2, 
   Activity, Download, FileSpreadsheet, FileText, CheckCircle2, 
   Search, Filter, Globe, Phone, Share2, Sparkles, Check, X, RefreshCw,
-  Info, Clock
+  Info, Clock, AlertCircle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -34,13 +34,24 @@ const formatDateTime = (dateStr) => {
 
 function Campaigns() {
   const { authFetch, userPlan, user } = useAuth();
-  const hasAccess = userPlan === 'plus' || user?.role === 'Administrator';
+  const hasAccess = userPlan === 'plus' || userPlan === 'pack' || user?.role === 'Administrator' || user?.isAdmin;
   const [activeTab, setActiveTab] = useState('STUDIO'); // STUDIO, DASHBOARD, ACCOUNTS
   
   // Data
   const [accounts, setAccounts] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [jobs, setJobs] = useState([]);
+  const [limits, setLimits] = useState({
+    plan: userPlan || 'free',
+    planName: userPlan === 'pack' ? 'Value Pack' : (userPlan === 'plus' ? 'Value Plus' : 'Free Plan'),
+    maxAccounts: userPlan === 'pack' ? 4 : (userPlan === 'plus' ? 1 : 0),
+    dailyEmailLimit: userPlan === 'pack' ? 1600 : (userPlan === 'plus' ? 400 : 0),
+    dailySentToday: 0,
+    canAddAccount: userPlan === 'pack' || userPlan === 'plus',
+    accountLimitReached: false,
+    entitlementLabel: userPlan === 'pack' ? '4 Gmail accounts · 1,600 emails/day' : (userPlan === 'plus' ? '1 Gmail account · 400 emails/day' : '0 Gmail accounts · 0 emails/day'),
+    usageLabel: '0 emails used today'
+  });
   
   // Form States
   const [newAccount, setNewAccount] = useState({ email: '', app_password: '' });
@@ -52,14 +63,19 @@ function Campaigns() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [accRes, campRes, jobRes] = await Promise.all([
+      const [accRes, campRes, jobRes, limRes] = await Promise.all([
         authFetch(`${API_URL}/api/campaigns/accounts`),
         authFetch(`${API_URL}/api/campaigns/list`),
-        authFetch(`${API_URL}/api/jobs`)
+        authFetch(`${API_URL}/api/jobs`),
+        authFetch(`${API_URL}/api/campaigns/limits`)
       ]);
       const accData = await accRes.json();
       const campData = await campRes.json();
       const jobData = await jobRes.json();
+      if (limRes.ok) {
+        const limData = await limRes.json();
+        setLimits(limData);
+      }
       setAccounts(Array.isArray(accData) ? accData : []);
       setCampaigns(Array.isArray(campData) ? campData : []);
       setJobs(Array.isArray(jobData) ? jobData : []);
@@ -157,15 +173,26 @@ function Campaigns() {
 
   const handleAddAccount = async (e) => {
     e.preventDefault();
+    if (limits && !limits.canAddAccount) {
+      alert(limits.accountLimitReached 
+        ? "You've reached the Gmail account limit for your current plan." 
+        : "Please upgrade your plan to add sending accounts.");
+      return;
+    }
     setLoading(true);
     try {
-      await authFetch(`${API_URL}/api/campaigns/accounts`, {
+      const res = await authFetch(`${API_URL}/api/campaigns/accounts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newAccount)
       });
-      setNewAccount({ email: '', app_password: '' });
-      fetchData();
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        alert(data.error || "Error adding account");
+      } else {
+        setNewAccount({ email: '', app_password: '' });
+        fetchData();
+      }
     } catch (e) {
       alert("Error adding account");
     }
@@ -471,23 +498,75 @@ function Campaigns() {
 
       {activeTab === 'ACCOUNTS' && (
         <div className="grid-layout">
+          {/* Plan Entitlement & Daily Quota Banner */}
+          <div className="card" style={{gridColumn: '1 / -1', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(168, 85, 247, 0.08))', border: '1px solid rgba(99, 102, 241, 0.25)', padding: '16px 20px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '12px'}}>
+            <div>
+              <div style={{fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 700}}>Current Plan Entitlement</div>
+              <div style={{fontSize: '18px', fontWeight: 800, color: 'var(--text-main)', marginTop: '2px'}}>
+                {limits?.entitlementLabel || (userPlan === 'pack' ? '4 Gmail accounts · 1,600 emails/day' : '1 Gmail account · 400 emails/day')}
+              </div>
+            </div>
+            <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
+              <div style={{textAlign: 'right'}}>
+                <div style={{fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 700}}>Daily Campaign Quota</div>
+                <div style={{fontSize: '15px', fontWeight: 700, color: limits?.dailyLimitReached ? '#ef4444' : 'var(--primary)'}}>
+                  {limits?.usageLabel || `${limits?.dailySentToday || 0} / ${limits?.dailyEmailLimit || 400} emails used today`}
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="card">
-            <h2>Add Gmail Account</h2>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px'}}>
+              <h2 style={{margin: 0}}>Add Gmail Account</h2>
+              <span className="badge" style={{background: limits?.accountLimitReached ? 'rgba(239, 68, 68, 0.15)' : 'rgba(34, 197, 94, 0.15)', color: limits?.accountLimitReached ? '#ef4444' : '#22c55e', border: 'none', padding: '4px 10px'}}>
+                {accounts.length} / {limits?.maxAccounts || 1} Accounts Used
+              </span>
+            </div>
+
+            {limits?.accountLimitReached && (
+              <div style={{background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '8px', padding: '12px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px', color: '#ef4444', fontSize: '13px'}}>
+                <AlertCircle size={16} style={{flexShrink: 0}} />
+                <span>You've reached the Gmail account limit for your current plan.</span>
+              </div>
+            )}
+
             <form onSubmit={handleAddAccount} className="account-form">
               <div className="form-group" style={{flex: 1, marginBottom: 0}}>
                 <label>Gmail Address</label>
-                <input type="email" className="form-input" required value={newAccount.email} onChange={e => setNewAccount({...newAccount, email: e.target.value})} placeholder="you@gmail.com" />
+                <input 
+                  type="email" 
+                  className="form-input" 
+                  required 
+                  disabled={limits?.accountLimitReached || loading}
+                  value={newAccount.email} 
+                  onChange={e => setNewAccount({...newAccount, email: e.target.value})} 
+                  placeholder="you@gmail.com" 
+                />
               </div>
               <div className="form-group" style={{flex: 1, marginBottom: 0}}>
                 <label>16-Digit App Password</label>
-                <input type="password" className="form-input" required value={newAccount.app_password} onChange={e => setNewAccount({...newAccount, app_password: e.target.value})} placeholder="abcd efgh ijkl mnop" />
+                <input 
+                  type="password" 
+                  className="form-input" 
+                  required 
+                  disabled={limits?.accountLimitReached || loading}
+                  value={newAccount.app_password} 
+                  onChange={e => setNewAccount({...newAccount, app_password: e.target.value})} 
+                  placeholder="abcd efgh ijkl mnop" 
+                />
               </div>
-              <button type="submit" className="btn-primary" disabled={loading}>
+              <button 
+                type="submit" 
+                className="btn-primary" 
+                disabled={loading || limits?.accountLimitReached}
+                title={limits?.accountLimitReached ? "Account limit reached" : ""}
+              >
                 <UserPlus size={16} /> Add
               </button>
             </form>
             <span className="help-text" style={{marginTop: '12px', display: 'block'}}>
-              Note: You must enable 2-Step Verification on your Google Account. Direct Link: <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" style={{color: 'var(--primary)', fontWeight: 700, textDecoration: 'underline'}}>Generate 16-Digit App Password ↗</a>. The system will rotate between these accounts to bypass the 500 emails/day limit.
+              Note: You must enable 2-Step Verification on your Google Account. Direct Link: <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" style={{color: 'var(--primary)', fontWeight: 700, textDecoration: 'underline'}}>Generate 16-Digit App Password ↗</a>. The system rotates across your sending accounts up to your plan's daily limit ({limits?.dailyEmailLimit ? limits.dailyEmailLimit.toLocaleString() : 400} emails/day).
             </span>
           </div>
 

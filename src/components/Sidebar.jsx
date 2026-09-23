@@ -162,10 +162,10 @@ function Sidebar() {
           >
             <svg className="nav-icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
             <span>Campaigns</span>
-            {userPlan === 'plus' ? (
+            {userPlan === 'plus' || userPlan === 'pack' ? (
               <span className="nav-badge-neutral">BETA</span>
             ) : (
-              <span className="nav-badge-lock" title="Value Plus Feature"><Lock size={9} /> PLUS</span>
+              <span className="nav-badge-lock" title="Paid Plan Feature"><Lock size={9} /> PRO</span>
             )}
           </NavLink>
 
@@ -176,10 +176,10 @@ function Sidebar() {
           >
             <svg className="nav-icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
             <span>Inbox</span>
-            {userPlan === 'plus' ? (
+            {userPlan === 'plus' || userPlan === 'pack' ? (
               <span className="nav-badge-new">NEW</span>
             ) : (
-              <span className="nav-badge-lock" title="Value Plus Feature"><Lock size={9} /> PLUS</span>
+              <span className="nav-badge-lock" title="Paid Plan Feature"><Lock size={9} /> PRO</span>
             )}
           </NavLink>
 

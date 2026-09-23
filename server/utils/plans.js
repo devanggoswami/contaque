@@ -45,32 +45,39 @@ function calculateCalendarExpiry(months = 1, fromDate = null) {
 }
 
 const SUBSCRIPTION_PLANS = {
-  pack: {
-    id: 'pack',
-    name: 'Value Pack',
-    priceINR: 299.00,
-    pricePaise: 29900,
-    durationDays: 30,
-    features: {
-      lowerScrapingRates: true,
-      parallelScrapers: true,
-      cloudPersistence: true,
-      coldEmailSuite: false,
-      unifiedInbox: false
-    }
-  },
   plus: {
     id: 'plus',
     name: 'Value Plus',
-    priceINR: 499.00,
-    pricePaise: 49900,
+    priceINR: 299.00,
+    pricePaise: 29900,
     durationDays: 30,
+    maxAccounts: 1,
+    dailyEmailLimit: 400,
     features: {
       lowerScrapingRates: true,
       parallelScrapers: true,
       cloudPersistence: true,
       coldEmailSuite: true,
       unifiedInbox: true,
+      maxAccounts: 1,
+      dailyEmailLimit: 400
+    }
+  },
+  pack: {
+    id: 'pack',
+    name: 'Value Pack',
+    priceINR: 499.00,
+    pricePaise: 49900,
+    durationDays: 30,
+    maxAccounts: 4,
+    dailyEmailLimit: 1600,
+    features: {
+      lowerScrapingRates: true,
+      parallelScrapers: true,
+      cloudPersistence: true,
+      coldEmailSuite: true,
+      unifiedInbox: true,
+      maxAccounts: 4,
       dailyEmailLimit: 1600
     }
   }
@@ -82,8 +89,8 @@ const SUBSCRIPTION_PLANS = {
 function normalizePlanId(rawId) {
   if (!rawId) return null;
   const p = rawId.toString().toLowerCase().trim();
-  if (p.includes('plus') || p === 'enterprise' || p === 'pro') return 'plus';
-  if (p.includes('pack') || p.includes('value')) return 'pack';
+  if (p === 'plus' || p === 'value plus' || p === '299' || p.includes('plus')) return 'plus';
+  if (p === 'pack' || p === 'value pack' || p === '499' || p.includes('pack') || p.includes('value')) return 'pack';
   return null;
 }
 
@@ -93,6 +100,93 @@ function normalizePlanId(rawId) {
 function getPlanConfig(planId) {
   const normalized = normalizePlanId(planId);
   return normalized ? SUBSCRIPTION_PLANS[normalized] : null;
+}
+
+/**
+ * Authoritative Server-Side User Plan Entitlement Checker
+ * Checks plan, validity/expiry and returns allowed accounts and daily email quota
+ */
+async function getUserPlanEntitlement(userId, client = db) {
+  if (!userId) {
+    return {
+      plan: 'free',
+      planName: 'Free Plan',
+      isExpired: false,
+      emailCampaignsEnabled: false,
+      maxAccounts: 0,
+      dailyEmailLimit: 0,
+      entitlementLabel: '0 Gmail accounts · 0 emails/day'
+    };
+  }
+
+  const uRes = await client.query(
+    'SELECT id, email, plan, plan_expires_at FROM users WHERE id = $1',
+    [userId]
+  );
+  if (uRes.rows.length === 0) {
+    return {
+      plan: 'free',
+      planName: 'Free Plan',
+      isExpired: false,
+      emailCampaignsEnabled: false,
+      maxAccounts: 0,
+      dailyEmailLimit: 0,
+      entitlementLabel: '0 Gmail accounts · 0 emails/day'
+    };
+  }
+
+  const u = uRes.rows[0];
+  const now = new Date();
+  const isExpired = u.plan_expires_at ? new Date(u.plan_expires_at) < now : false;
+
+  // Free or Expired plan -> 0 accounts, 0 emails, Campaigns disabled
+  if (isExpired || !u.plan || u.plan === 'free') {
+    return {
+      plan: 'free',
+      planName: 'Free Plan',
+      isExpired,
+      emailCampaignsEnabled: false,
+      maxAccounts: 0,
+      dailyEmailLimit: 0,
+      entitlementLabel: '0 Gmail accounts · 0 emails/day'
+    };
+  }
+
+  const normalized = normalizePlanId(u.plan);
+
+  if (normalized === 'pack') {
+    return {
+      plan: 'pack',
+      planName: 'Value Pack',
+      isExpired: false,
+      emailCampaignsEnabled: true,
+      maxAccounts: 4,
+      dailyEmailLimit: 1600,
+      entitlementLabel: '4 Gmail accounts · 1,600 emails/day'
+    };
+  }
+
+  if (normalized === 'plus') {
+    return {
+      plan: 'plus',
+      planName: 'Value Plus',
+      isExpired: false,
+      emailCampaignsEnabled: true,
+      maxAccounts: 1,
+      dailyEmailLimit: 400,
+      entitlementLabel: '1 Gmail account · 400 emails/day'
+    };
+  }
+
+  return {
+    plan: 'free',
+    planName: 'Free Plan',
+    isExpired: false,
+    emailCampaignsEnabled: false,
+    maxAccounts: 0,
+    dailyEmailLimit: 0,
+    entitlementLabel: '0 Gmail accounts · 0 emails/day'
+  };
 }
 
 /**
@@ -230,6 +324,7 @@ module.exports = {
   SUBSCRIPTION_PLANS,
   normalizePlanId,
   getPlanConfig,
+  getUserPlanEntitlement,
   activateUserPlan,
   calculateCalendarExpiry
 };

@@ -491,8 +491,8 @@ function Administrative() {
                             onChange={(e) => setTargetPlan(e.target.value)}
                             className="admin-select"
                           >
-                            <option value="plus">Value Plus (Full Feature Access)</option>
-                            <option value="pack">Value Pack</option>
+                            <option value="plus">Value Plus (₹299 - 1 Account, 400 Emails/day)</option>
+                            <option value="pack">Value Pack (₹499 - 4 Accounts, 1,600 Emails/day)</option>
                             <option value="free">Free Tier (Reset / Downgrade)</option>
                             <option value="pro">Pro</option>
                             <option value="starter">Starter</option>

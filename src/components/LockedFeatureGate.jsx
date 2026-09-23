@@ -12,10 +12,10 @@ const PLUS_PLAN_DATA = {
   id: 'plus',
   name: 'Value Plus',
   icon: '⚡',
-  badge: 'ALL-IN-ONE POWERHOUSE',
-  price: { INR: '₹499', USD: '$5.20' },
+  badge: 'POPULAR CHOICE',
+  price: { INR: '₹299', USD: '$3.50' },
   period: '/month',
-  tagline: 'Lowest rates + full cold outreach suite'
+  tagline: 'Email campaigns + 1 Gmail account (400 emails/day)'
 };
 
 export default function LockedFeatureGate({
@@ -23,10 +23,10 @@ export default function LockedFeatureGate({
   featureTagline = 'Automated Cold Email Outreach Engine',
   featureIcon: FeatureIcon = Mail,
   bullets = [
-    'Multi-account Gmail & Google Workspace rotating sender engine',
-    'Smart anti-spam rate limiting & automated background queue',
-    'Rich personalized template editor with dynamic lead data merge',
-    'Lowest extraction rates across all data mining engines'
+    'Email Campaigns enabled with automated background queue',
+    'Value Plus (₹299/mo): 1 Gmail sending account · 400 emails/day',
+    'Value Pack (₹499/mo): Up to 4 Gmail sending accounts · 1,600 emails/day',
+    'Rich personalized template editor with dynamic lead data merge'
   ],
   children
 }) {
@@ -34,8 +34,8 @@ export default function LockedFeatureGate({
   const [showCheckout, setShowCheckout] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
 
-  // Feature is accessible if user is on 'plus' plan or has admin rights
-  const hasAccess = userPlan === 'plus' || user?.role === 'Administrator';
+  // Feature is accessible if user is on 'plus' or 'pack' plan or has admin rights
+  const hasAccess = userPlan === 'plus' || userPlan === 'pack' || user?.role === 'Administrator' || user?.isAdmin;
 
   // If user has access, render content normally without any barrier
   if (hasAccess) {
@@ -64,7 +64,7 @@ export default function LockedFeatureGate({
           {/* Tier Tag */}
           <div className="locked-tier-pill">
             <Crown size={13} className="pill-icon" />
-            <span>VALUE PLUS EXCLUSIVE</span>
+            <span>PAID PLAN EXCLUSIVE</span>
           </div>
 
           {/* Titles */}
@@ -72,7 +72,7 @@ export default function LockedFeatureGate({
             Unlock {featureTitle}
           </h2>
           <p className="locked-gate-subtitle">
-            {featureTagline}. Automate cold outreach, rotate multiple Google accounts, and track inbox replies effortlessly.
+            {featureTagline}. Automate cold outreach, connect your Gmail sending accounts, and track inbox replies effortlessly.
           </p>
 
           {/* Feature Highlights Grid */}
@@ -90,12 +90,12 @@ export default function LockedFeatureGate({
           {/* Pricing & Value Summary */}
           <div className="locked-pricing-strip">
             <div className="pricing-left">
-              <span className="price-tag">₹499</span>
+              <span className="price-tag">Starting ₹299</span>
               <span className="price-period">/month</span>
             </div>
             <div className="pricing-right">
-              <span className="pricing-badge">BEST ROI</span>
-              <span className="pricing-sub">Full outreach suite + lowest per-lead rates</span>
+              <span className="pricing-badge">VALUE PLUS & PACK</span>
+              <span className="pricing-sub">Full outreach suite + Gmail sending</span>
             </div>
           </div>
 
@@ -107,7 +107,7 @@ export default function LockedFeatureGate({
               id="btn-upgrade-plan-gate"
             >
               <Zap size={18} />
-              <span>Upgrade to Value Plus</span>
+              <span>Upgrade to Value Plus (₹299)</span>
               <ArrowRight size={18} />
             </button>
 

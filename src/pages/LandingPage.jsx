@@ -244,7 +244,7 @@ const FAQS = [
   }
 ];
 
-// Exact Pricing Structure (Free, Value Pack, Value Plus)
+// Exact Pricing Structure (Free, Value Plus, Value Pack)
 const PRICING_PLANS = [
   {
     id: 'free',
@@ -265,26 +265,28 @@ const PRICING_PLANS = [
       { engine: 'Yandex', inr: '₹1.70', usd: '$0.018' },
     ],
     features: [
-      'No monthly fees or commitments',
-      'Access to all 5 scraping engines',
-      'WhatsApp phone status isolation',
-      '1-Click Excel, CSV, PDF Export',
+      { text: '✕ Email Campaigns', excluded: true },
+      { text: '✕ Gmail sending accounts', excluded: true },
+      { text: 'No monthly fees or commitments' },
+      { text: 'Access to all 5 scraping engines' },
+      { text: 'WhatsApp phone status isolation' },
+      { text: '1-Click Excel, CSV, PDF Export' },
     ],
     cta: 'Get Started Free',
     isPopular: false,
     theme: 'subtle'
   },
   {
-    id: 'pack',
-    name: 'Value Pack',
-    icon: '🚀',
+    id: 'plus',
+    name: 'Value Plus',
+    icon: '⚡',
     badge: 'MOST POPULAR',
     price: {
       INR: '₹299',
-      USD: '$3.12'
+      USD: '$3.50'
     },
     period: '/month',
-    tagline: 'Lower rates + advanced features',
+    tagline: 'Email outreach + discounted rates',
     leadRates: [
       { engine: 'Google Business Index', inr: '₹1.10', usd: '$0.011' },
       { engine: 'Social / Custom Discovery', inr: '₹0.80', usd: '$0.008' },
@@ -293,26 +295,28 @@ const PRICING_PLANS = [
       { engine: 'Yandex', inr: '₹1.50', usd: '$0.016' },
     ],
     features: [
-      'Discounted per-lead scraping rates',
-      'Priority parallel scraper workers',
-      'Real-time WhatsApp verification',
-      'Cloud job history & persistence',
+      { text: '✓ Email Campaigns', highlight: true },
+      { text: '✓ 1 Gmail sending account', highlight: true },
+      { text: '✓ 400 emails/day', highlight: true },
+      { text: 'Discounted per-lead scraping rates' },
+      { text: 'Priority parallel scraper workers' },
+      { text: 'Cloud job history & persistence' },
     ],
-    cta: 'Upgrade to Value Pack',
+    cta: 'Upgrade to Value Plus',
     isPopular: true,
     theme: 'gradient'
   },
   {
-    id: 'plus',
-    name: 'Value Plus',
-    icon: '⚡',
+    id: 'pack',
+    name: 'Value Pack',
+    icon: '🚀',
     badge: 'ALL-IN-ONE POWERHOUSE',
     price: {
       INR: '₹499',
-      USD: '$5.20'
+      USD: '$5.50'
     },
     period: '/month',
-    tagline: 'Lowest rates + full cold outreach suite',
+    tagline: 'Lowest rates + multi-account outreach',
     leadRates: [
       { engine: 'Google Business Index', inr: '₹1.00', usd: '$0.010' },
       { engine: 'Social / Custom Discovery', inr: '₹0.80', usd: '$0.008' },
@@ -321,12 +325,14 @@ const PRICING_PLANS = [
       { engine: 'Yandex', inr: '₹1.30', usd: '$0.014' },
     ],
     features: [
-      'Free Bulk Email Outreach (1,600/day)',
-      'Advanced campaign multi-rotation',
-      '2-way unified inbox for replies',
-      'Lowest rates across all 5 engines',
+      { text: '✓ Email Campaigns', highlight: true },
+      { text: '✓ Up to 4 Gmail sending accounts', highlight: true },
+      { text: '✓ 1,600 emails/day', highlight: true },
+      { text: 'Lowest rates across all 5 engines' },
+      { text: 'Multi-account rotation queue' },
+      { text: '2-way unified inbox for replies' },
     ],
-    cta: 'Get Value Plus',
+    cta: 'Get Value Pack',
     isPopular: false,
     theme: 'gold'
   }
@@ -906,15 +912,25 @@ function LandingPage() {
               {/* Included Features List */}
               <div className="pricing-features-wrap">
                 <div className="features-wrap-title">
-                  {plan.id === 'plus' ? '🔥 Includes Outreach Suite:' : 'Features Included:'}
+                  {plan.id === 'plus' || plan.id === 'pack' ? '🔥 Includes Outreach Suite:' : 'Features Included:'}
                 </div>
                 <ul className="pricing-features-checklist">
-                  {plan.features.map((feat, fIdx) => (
-                    <li key={fIdx}>
-                      <Check size={13} className={`check-icon ${plan.id === 'plus' ? 'green' : 'indigo'}`} />
-                      <span>{feat}</span>
-                    </li>
-                  ))}
+                  {plan.features.map((feat, fIdx) => {
+                    const isObj = typeof feat === 'object';
+                    const text = isObj ? feat.text : feat;
+                    const isExcluded = isObj && feat.excluded;
+                    const isHighlight = isObj && feat.highlight;
+                    return (
+                      <li key={fIdx} style={isExcluded ? { color: 'var(--text-muted)', opacity: 0.75 } : (isHighlight ? { fontWeight: 600 } : {})}>
+                        {isExcluded ? (
+                          <X size={13} className="check-icon red" style={{ color: '#ef4444' }} />
+                        ) : (
+                          <Check size={13} className={`check-icon ${plan.id === 'pack' ? 'gold' : plan.id === 'plus' ? 'green' : 'indigo'}`} />
+                        )}
+                        <span>{text}</span>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
 

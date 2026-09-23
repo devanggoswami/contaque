@@ -12,16 +12,16 @@ const ENGINE_PRICING = {
     yellowpages: 0.60,  // Yellow Pages
     yandex: 1.70        // Yandex
   },
-  pack: {
-    name: 'Value Pack',
+  plus: {
+    name: 'Value Plus', // ₹299
     maps: 1.10,
     dorking: 0.80,
     whatsapp: 0.80,
     yellowpages: 0.50,
     yandex: 1.50
   },
-  plus: {
-    name: 'Value Plus',
+  pack: {
+    name: 'Value Pack', // ₹499
     maps: 1.00,
     dorking: 0.80,
     whatsapp: 0.80,
@@ -36,8 +36,8 @@ const ENGINE_PRICING = {
 function normalizePlanKey(plan) {
   if (!plan) return 'free';
   const p = plan.toString().toLowerCase().trim();
-  if (p.includes('plus') || p === 'enterprise') return 'plus';
-  if (p.includes('pack') || p === 'value') return 'pack';
+  if (p === 'plus' || p === 'value plus' || p === '299' || p.includes('plus')) return 'plus';
+  if (p === 'pack' || p === 'value pack' || p === '499' || p.includes('pack') || p.includes('value')) return 'pack';
   return 'free';
 }
 

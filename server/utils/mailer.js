@@ -140,24 +140,67 @@ const parseTemplate = (template, lead) => {
   return parsed;
 };
 
-// Get the next available account that hasn't hit the daily limit (scoped to userId)
-const getAvailableAccount = async (userId = null) => {
+// Get the next available account that hasn't hit the daily limit (scoped to userId and plan entitlement)
+// Get the next available account that hasn't hit the daily limit (scoped to userId and plan entitlement)
+const getAvailableAccount = async (userId = null, dbRunner = db) => {
   // First, reset counts if the day has rolled over
-  await db.query(`
+  await dbRunner.query(`
     UPDATE email_accounts 
     SET daily_sent_count = 0, last_reset_date = CURRENT_DATE 
     WHERE last_reset_date < CURRENT_DATE
   `);
 
-  let sql = `SELECT * FROM email_accounts WHERE status = 'ACTIVE' AND daily_sent_count < 400`;
-  const params = [];
-  if (userId) {
-    sql += ` AND user_id = $1`;
-    params.push(userId);
+  if (!userId) {
+    let sql = `SELECT * FROM email_accounts WHERE status = 'ACTIVE' AND daily_sent_count < 400 ORDER BY daily_sent_count ASC LIMIT 1`;
+    const res = await dbRunner.query(sql);
+    return res.rows.length > 0 ? res.rows[0] : null;
   }
-  sql += ` ORDER BY daily_sent_count ASC LIMIT 1`;
 
-  const res = await db.query(sql, params);
+  // Authoritative Server-Side User Entitlement Check
+  const { getUserPlanEntitlement } = require('./plans');
+  const entitlement = await getUserPlanEntitlement(userId, dbRunner);
+
+  // If plan is Free, expired, or campaigns disabled -> cannot send
+  if (!entitlement.emailCampaignsEnabled || entitlement.dailyEmailLimit <= 0 || entitlement.maxAccounts <= 0) {
+    console.log(`[Mailer] User ${userId} (${entitlement.planName}) has email campaigns disabled or expired.`);
+    return null;
+  }
+
+  // Check total emails sent by user across allowed accounts today
+  const totalSentRes = await dbRunner.query(
+    `WITH allowed_accounts AS (
+      SELECT daily_sent_count
+      FROM email_accounts
+      WHERE user_id = $1 AND status = 'ACTIVE'
+      ORDER BY id ASC
+      LIMIT $2
+    )
+    SELECT COALESCE(SUM(daily_sent_count), 0)::int as total_sent FROM allowed_accounts`,
+    [userId, entitlement.maxAccounts]
+  );
+  const totalSentToday = parseInt(totalSentRes.rows[0]?.total_sent || 0, 10);
+
+  if (totalSentToday >= entitlement.dailyEmailLimit) {
+    console.log(`[Mailer] User ${userId} reached daily limit (${totalSentToday}/${entitlement.dailyEmailLimit}).`);
+    return null;
+  }
+
+  // Select only among allowed accounts up to maxAccounts (respecting plan downgrades safely)
+  const sql = `
+    WITH allowed_accounts AS (
+      SELECT id, email, app_password, status, daily_sent_count, user_id
+      FROM email_accounts
+      WHERE user_id = $1 AND status = 'ACTIVE'
+      ORDER BY id ASC
+      LIMIT $2
+    )
+    SELECT * FROM allowed_accounts
+    WHERE daily_sent_count < 400
+    ORDER BY daily_sent_count ASC
+    LIMIT 1
+  `;
+
+  const res = await dbRunner.query(sql, [userId, entitlement.maxAccounts]);
   if (res.rows.length === 0) return null;
   return res.rows[0];
 };

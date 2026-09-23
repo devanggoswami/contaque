@@ -34,11 +34,11 @@ const PLAN_DEFINITIONS = {
       '1-Click Excel, CSV, PDF Export',
     ]
   },
-  pack: {
-    id: 'pack',
-    name: 'Value Pack',
+  plus: {
+    id: 'plus',
+    name: 'Value Plus',
     badge: 'MOST POPULAR',
-    tagline: 'Lower rates + advanced features',
+    tagline: 'Email outreach + discounted rates',
     price: '₹299',
     period: '/month',
     icon: Sparkles,
@@ -50,19 +50,19 @@ const PLAN_DEFINITIONS = {
       { engine: 'Yellow Pages', rate: '₹0.50' },
       { engine: 'Yandex', rate: '₹1.50' },
     ],
-    featuresTitle: 'Features Included:',
+    featuresTitle: '🔥 Features Included:',
     features: [
+      '✓ Email Campaigns',
+      '✓ 1 Gmail sending account',
+      '✓ 400 emails/day',
       'Discounted per-lead scraping rates',
-      'Priority parallel scraper workers',
-      'Real-time WhatsApp verification',
-      'Cloud job history & persistence',
     ]
   },
-  plus: {
-    id: 'plus',
-    name: 'Value Plus',
+  pack: {
+    id: 'pack',
+    name: 'Value Pack',
     badge: 'ALL-IN-ONE POWERHOUSE',
-    tagline: 'Lowest rates + full cold outreach suite',
+    tagline: 'Lowest rates + multi-account outreach',
     price: '₹499',
     period: '/month',
     icon: Crown,
@@ -76,9 +76,9 @@ const PLAN_DEFINITIONS = {
     ],
     featuresTitle: '🔥 Includes Outreach Suite:',
     features: [
-      'Free Bulk Email Outreach (1,600/day)',
-      'Advanced campaign multi-rotation',
-      '2-way unified inbox for replies',
+      '✓ Email Campaigns',
+      '✓ Up to 4 Gmail sending accounts',
+      '✓ 1,600 emails/day',
       'Lowest rates across all 5 engines',
     ]
   }
@@ -124,28 +124,28 @@ const FEATURE_CATALOG = [
     id: 'email_campaigns',
     title: 'Bulk Cold Email Outreach Suite',
     description: 'Automated email sequence dispatching with HTML templates & attachments',
-    tiers: { free: false, pack: false, plus: true },
+    tiers: { free: false, pack: true, plus: true },
     category: 'Outreach'
   },
   {
     id: 'smtp_rotation',
-    title: 'Multi-Account SMTP Rotation',
-    description: 'Safely rotate multiple Gmail/custom SMTP accounts up to 1,600 emails/day',
-    tiers: { free: false, pack: false, plus: true },
+    title: 'Gmail Sending Accounts',
+    description: 'Value Plus: 1 account (400 emails/day) • Value Pack: Up to 4 accounts (1,600 emails/day)',
+    tiers: { free: false, pack: true, plus: true },
     category: 'Outreach'
   },
   {
     id: 'unified_inbox',
     title: '2-Way Unified Inbox & Reply Sync',
     description: 'Real-time IMAP email synchronization and reply tracking inside dashboard',
-    tiers: { free: false, pack: false, plus: true },
+    tiers: { free: false, pack: true, plus: true },
     category: 'Outreach'
   },
   {
     id: 'priority_support',
     title: 'Priority 24/7 Dedicated Support',
     description: 'Direct priority assistance for custom query assistance and technical help',
-    tiers: { free: false, pack: false, plus: true },
+    tiers: { free: false, pack: true, plus: true },
     category: 'Support'
   }
 ];
@@ -165,11 +165,11 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
 
   const planInfo = PLAN_DEFINITIONS[currentPlanKey] || PLAN_DEFINITIONS.plus;
   const rates = wallet?.rates || {
-    maps: currentPlanKey === 'plus' ? 1.00 : currentPlanKey === 'pack' ? 1.10 : 1.30,
-    dorking: currentPlanKey === 'plus' ? 0.80 : currentPlanKey === 'pack' ? 0.80 : 1.00,
-    whatsapp: currentPlanKey === 'plus' ? 0.80 : currentPlanKey === 'pack' ? 0.80 : 1.00,
-    yellowpages: currentPlanKey === 'plus' ? 0.50 : currentPlanKey === 'pack' ? 0.50 : 0.60,
-    yandex: currentPlanKey === 'plus' ? 1.30 : currentPlanKey === 'pack' ? 1.50 : 1.70,
+    maps: currentPlanKey === 'pack' ? 1.00 : currentPlanKey === 'plus' ? 1.10 : 1.30,
+    dorking: currentPlanKey === 'pack' ? 0.80 : currentPlanKey === 'plus' ? 0.80 : 1.00,
+    whatsapp: currentPlanKey === 'pack' ? 0.80 : currentPlanKey === 'plus' ? 0.80 : 1.00,
+    yellowpages: currentPlanKey === 'pack' ? 0.50 : currentPlanKey === 'plus' ? 0.50 : 0.60,
+    yandex: currentPlanKey === 'pack' ? 1.30 : currentPlanKey === 'plus' ? 1.50 : 1.70,
   };
 
   const handlePlanSwitch = async (targetPlanKey) => {

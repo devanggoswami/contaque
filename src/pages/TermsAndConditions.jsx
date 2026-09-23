@@ -155,12 +155,12 @@ export default function TermsAndConditions() {
           <h2 className="legal-section-title">Subscription Plans &amp; Calendar-Based Expiry</h2>
         </div>
         <p className="legal-text">
-          Contaque offers multiple tiers of service, including a Free Pay-As-You-Go plan and paid monthly subscription tiers (Value Pack and Value Plus):
+          Contaque offers multiple tiers of service, including a Free Pay-As-You-Go plan and paid monthly subscription tiers (Value Plus and Value Pack):
         </p>
         <ul className="legal-list">
-          <li><strong>Free Plan:</strong> No monthly recurring commitment; users pay per lead generated using prepaid wallet balance.</li>
-          <li><strong>Value Pack (₹299/mo):</strong> Discounted per-lead scraping rates across all engines, priority workers, and verified contact lookups.</li>
-          <li><strong>Value Plus (₹499/mo):</strong> Lowest per-lead scraping rates plus full cold email outreach suite (including automated rotation, campaigns, and unified inbox).</li>
+          <li><strong>Free Plan:</strong> No monthly recurring commitment; users pay per lead generated using prepaid wallet balance. Email campaigns and sending accounts are disabled.</li>
+          <li><strong>Value Plus (₹299/mo):</strong> Discounted per-lead scraping rates, Email Campaigns enabled, 1 Gmail sending account, and up to 400 campaign emails/day.</li>
+          <li><strong>Value Pack (₹499/mo):</strong> Lowest per-lead scraping rates, Email Campaigns enabled, up to 4 Gmail sending accounts, and up to 1,600 campaign emails/day.</li>
         </ul>
         <div className="legal-callout info">
           <Calendar size={20} className="callout-icon" />
