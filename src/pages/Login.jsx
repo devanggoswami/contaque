@@ -127,31 +127,6 @@ function Login() {
           />
         </div>
 
-        {/* Benefits & Trust Highlights */}
-        <div style={{
-          background: '#F8FAFC',
-          border: '1px solid #E2E8F0',
-          borderRadius: '10px',
-          padding: '14px 16px',
-          marginBottom: '20px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '10px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#334155' }}>
-            <CheckCircle2 size={15} style={{ color: '#10B981', flexShrink: 0 }} />
-            <span>Instant access with <strong>₹50 / $2 Welcome Credits</strong></span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#334155' }}>
-            <CheckCircle2 size={15} style={{ color: '#10B981', flexShrink: 0 }} />
-            <span><strong>48-Hour</strong> secure persistent session active</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#334155' }}>
-            <ShieldCheck size={15} style={{ color: '#2563EB', flexShrink: 0 }} />
-            <span>Enterprise Google OAuth 2.0 verification</span>
-          </div>
-        </div>
-
         <p className="auth-consent-text" style={{ fontSize: '11.5px', color: '#94A3B8', textAlign: 'center', margin: '0 0 16px 0', lineHeight: 1.5 }}>
           By continuing with Google, you agree to our{' '}
           <span 

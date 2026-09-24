@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { 
-  Sparkles, ShieldCheck, AlertCircle, ArrowRight, CheckCircle2, 
-  Gift, Zap 
-} from 'lucide-react';
+import { ShieldCheck, AlertCircle, Gift, Zap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import GoogleAuthButton from '../components/GoogleAuthButton';
-import './Signup.css';
+import './Login.css';
 
 const PLAN_LABELS = {
   plus: 'Value Plus (₹299 / $3)',
   pack: 'Value Pack (₹499 / $5)',
-  free: 'Free Explorer (₹50 / $2 Welcome Bonus)'
+  free: 'Free Explorer'
 };
 
 export default function Signup() {
@@ -53,155 +50,128 @@ export default function Signup() {
   };
 
   return (
-    <div className="signup-screen-container">
-      <div className="signup-visual-backdrop">
-        <div className="signup-mesh-blob blob-one"></div>
-        <div className="signup-mesh-blob blob-two"></div>
-      </div>
+    <div className="login-screen-container">
+      <div className="login-visual-backdrop"></div>
 
-      <div className="signup-center-wrapper" style={{ maxWidth: '440px' }}>
+      <div className="login-card-wrapper animate-slide-up" style={{ maxWidth: '440px', padding: '32px 28px' }}>
         {/* Brand Header */}
-        <div className="signup-header-block" onClick={() => navigate('/landing')} style={{ cursor: 'pointer', textAlign: 'center', marginBottom: '20px' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', overflow: 'hidden' }}>
-              <img src="/contaque_logo.jpg" alt="Contaque" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            </div>
-            <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.5px', lineHeight: 1.1 }}>Contaque</div>
-              <span style={{ fontSize: '9px', fontWeight: 800, color: '#818CF8', letterSpacing: '0.8px' }}>ENTERPRISE CLOUD</span>
-            </div>
+        <div className="login-brand-header" onClick={() => navigate('/landing')} style={{ cursor: 'pointer', marginBottom: '20px' }}>
+          <div className="login-brand-logo" style={{ overflow: 'hidden', padding: 0 }}>
+            <img src="/contaque_logo.jpg" alt="Contaque" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          </div>
+          <div className="login-brand-text">
+            <h2>Contaque</h2>
+            <span className="login-pro-tag">ENTERPRISE CLOUD</span>
           </div>
         </div>
 
-        <div className="signup-form-card" style={{ padding: '32px 28px' }}>
-          {/* Plan badge if chosen */}
-          {requestedPlan && requestedPlan !== 'free' && (
-            <div style={{
-              background: 'rgba(99, 102, 241, 0.12)',
-              border: '1px solid rgba(99, 102, 241, 0.3)',
-              borderRadius: '8px',
-              padding: '8px 12px',
-              marginBottom: '16px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontSize: '12.5px',
-              color: '#C7D2FE',
-              fontWeight: 600
-            }}>
-              <Zap size={15} style={{ color: '#818CF8', flexShrink: 0 }} />
-              <span>Selected Plan: <strong>{PLAN_LABELS[requestedPlan] || requestedPlan}</strong></span>
-            </div>
-          )}
-
-          {/* Referral badge if active */}
-          {refCodeFromUrl && (
-            <div style={{
-              background: 'rgba(16, 185, 129, 0.12)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
-              borderRadius: '8px',
-              padding: '8px 12px',
-              marginBottom: '16px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontSize: '12.5px',
-              color: '#A7F3D0',
-              fontWeight: 600
-            }}>
-              <Gift size={15} style={{ color: '#34D399', flexShrink: 0 }} />
-              <span>Referral Invite Applied — Claim extra credits on sign up!</span>
-            </div>
-          )}
-
-          <div style={{ marginBottom: '22px', textAlign: 'center' }}>
-            <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#FFFFFF', marginBottom: '8px' }}>
-              Get Started with Contaque
-            </h2>
-            <p style={{ color: '#94A3B8', fontSize: '13px', margin: 0, lineHeight: 1.5 }}>
-              Instant 1-click registration with your Google account. No passwords or email verification required.
-            </p>
-          </div>
-
-          {error && (
-            <div style={{
-              background: 'rgba(239, 68, 68, 0.12)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              color: '#F87171',
-              borderRadius: '8px',
-              padding: '10px 14px',
-              marginBottom: '18px',
-              fontSize: '13px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}>
-              <AlertCircle size={16} style={{ flexShrink: 0 }} />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {/* Google Sign-in as the exclusive onboarding method */}
-          <div style={{ marginBottom: '22px' }}>
-            <GoogleAuthButton 
-              isSignup={true}
-              onSuccess={handleGoogleSuccess} 
-              onError={setError} 
-              disabled={submitting}
-            />
-          </div>
-
-          {/* Feature Highlights */}
+        {/* Plan badge if chosen */}
+        {requestedPlan && requestedPlan !== 'free' && (
           <div style={{
-            background: 'rgba(255, 255, 255, 0.03)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: '10px',
-            padding: '14px 16px',
-            marginBottom: '20px',
+            background: '#EEF2FF',
+            border: '1px solid #C7D2FE',
+            borderRadius: '8px',
+            padding: '8px 12px',
+            marginBottom: '16px',
             display: 'flex',
-            flexDirection: 'column',
-            gap: '10px'
+            alignItems: 'center',
+            gap: '8px',
+            fontSize: '12.5px',
+            color: '#3730A3',
+            fontWeight: 600
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#E2E8F0' }}>
-              <CheckCircle2 size={15} style={{ color: '#10B981', flexShrink: 0 }} />
-              <span>Instant ₹50 / $2 Free Welcome Credits in wallet</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#E2E8F0' }}>
-              <CheckCircle2 size={15} style={{ color: '#10B981', flexShrink: 0 }} />
-              <span>Access to 120M+ verified global B2B leads</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#E2E8F0' }}>
-              <ShieldCheck size={15} style={{ color: '#818CF8', flexShrink: 0 }} />
-              <span>Single Sign-On verified by Google OAuth 2.0</span>
-            </div>
+            <Zap size={15} style={{ color: '#4F46E5', flexShrink: 0 }} />
+            <span>Selected Plan: <strong>{PLAN_LABELS[requestedPlan] || requestedPlan}</strong></span>
           </div>
+        )}
 
-          <p style={{ fontSize: '11.5px', color: '#64748B', textAlign: 'center', margin: '0 0 16px 0', lineHeight: 1.5 }}>
-            By creating an account with Google, you agree to our{' '}
-            <span 
-              onClick={() => navigate('/terms')}
-              style={{ color: '#818CF8', cursor: 'pointer', textDecoration: 'underline' }}
-            >
-              Terms &amp; Conditions
-            </span>{' '}
-            and{' '}
-            <span 
-              onClick={() => navigate('/privacy')}
-              style={{ color: '#818CF8', cursor: 'pointer', textDecoration: 'underline' }}
-            >
-              Privacy Policy
-            </span>.
+        {/* Referral badge if active */}
+        {refCodeFromUrl && (
+          <div style={{
+            background: '#ECFDF5',
+            border: '1px solid #A7F3D0',
+            borderRadius: '8px',
+            padding: '8px 12px',
+            marginBottom: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontSize: '12.5px',
+            color: '#065F46',
+            fontWeight: 600
+          }}>
+            <Gift size={15} style={{ color: '#059669', flexShrink: 0 }} />
+            <span>Referral Invite Applied — Extra credits on signup!</span>
+          </div>
+        )}
+
+        <div className="login-welcome-box" style={{ marginBottom: '24px' }}>
+          <h3 style={{ fontSize: '20px', fontWeight: 800, color: '#172033', marginBottom: '6px' }}>
+            Get Started with Contaque
+          </h3>
+          <p style={{ fontSize: '13px', lineHeight: 1.5, color: '#64748B', margin: 0 }}>
+            Instant 1-click registration with your Google account. No passwords or email verification required.
           </p>
+        </div>
 
-          <div style={{ textAlign: 'center', fontSize: '12.5px', color: '#94A3B8' }}>
-            <span>Already have an account?</span>
-            <span 
-              style={{ color: '#818CF8', fontWeight: 700, cursor: 'pointer', marginLeft: '6px' }}
-              onClick={() => navigate('/login')}
-            >
-              Sign In
-            </span>
+        {error && (
+          <div className="login-error-alert" style={{
+            background: 'rgba(239, 68, 68, 0.12)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            color: '#f87171',
+            borderRadius: '8px',
+            padding: '10px 14px',
+            marginBottom: '18px',
+            fontSize: '13px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <AlertCircle size={16} style={{ flexShrink: 0 }} />
+            <span>{error}</span>
           </div>
+        )}
+
+        {/* Google Sign-in as the exclusive onboarding method */}
+        <div style={{ marginBottom: '22px' }}>
+          <GoogleAuthButton 
+            isSignup={true}
+            onSuccess={handleGoogleSuccess} 
+            onError={setError} 
+            disabled={submitting}
+          />
+        </div>
+
+        <p className="auth-consent-text" style={{ fontSize: '11.5px', color: '#94A3B8', textAlign: 'center', margin: '0 0 16px 0', lineHeight: 1.5 }}>
+          By creating an account with Google, you agree to our{' '}
+          <span 
+            onClick={() => navigate('/terms')}
+            style={{ color: '#2563EB', cursor: 'pointer', textDecoration: 'underline' }}
+          >
+            Terms &amp; Conditions
+          </span>{' '}
+          and{' '}
+          <span 
+            onClick={() => navigate('/privacy')}
+            style={{ color: '#2563EB', cursor: 'pointer', textDecoration: 'underline' }}
+          >
+            Privacy Policy
+          </span>.
+        </p>
+
+        <div style={{ textAlign: 'center', fontSize: '12.5px', color: '#64748B', marginBottom: '16px' }}>
+          <span>Already have an account?</span>
+          <span 
+            style={{ color: '#2563EB', fontWeight: 700, cursor: 'pointer', marginLeft: '6px' }}
+            onClick={() => navigate('/login')}
+          >
+            Sign In
+          </span>
+        </div>
+
+        <div className="login-card-footer" style={{ borderTop: '1px solid #E2E8F0', paddingTop: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '11px', color: '#94A3B8' }}>
+          <ShieldCheck size={13} style={{ color: '#10B981' }} />
+          <span>Secured by Google Identity Services</span>
         </div>
       </div>
     </div>
