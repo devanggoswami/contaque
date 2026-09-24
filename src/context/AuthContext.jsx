@@ -24,8 +24,9 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [wallet, setWallet] = useState({
-    balance: 50.00,
-    currency: 'INR',
+    balance: 0.00,
+    currency: null,
+    currency_preference: null,
     plan: 'free',
     rates: {}
   });
@@ -52,9 +53,9 @@ export const AuthProvider = ({ children }) => {
         const data = await parseResponseJson(res);
         setWallet({
           balance: Number(data.balance || 0),
-          balance_inr: Number(data.balance_inr !== undefined ? data.balance_inr : (data.currency === 'INR' ? data.balance : 0)),
-          balance_usd: Number(data.balance_usd !== undefined ? data.balance_usd : (data.currency === 'USD' ? data.balance : 0)),
-          currency: data.currency || (data.currency_preference === 'USD' ? 'USD' : 'INR'),
+          balance_inr: Number(data.balance_inr !== undefined ? data.balance_inr : 0),
+          balance_usd: Number(data.balance_usd !== undefined ? data.balance_usd : 0),
+          currency: data.currency || null,
           currency_preference: data.currency_preference || null,
           plan: data.plan || 'free',
           plan_expires_at: data.plan_expires_at || null,
@@ -276,8 +277,23 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
       setUser(data.user);
       setToken(data.token);
-      if (data.user?.wallet_balance !== undefined) {
-        setWallet(prev => ({ ...prev, balance: Number(data.user.wallet_balance) }));
+      if (data.user?.currency_preference) {
+        const bal = data.user.currency_preference === 'USD' 
+          ? Number(data.user.wallet_balance_usd || 0) 
+          : Number(data.user.wallet_balance || 0);
+        setWallet(prev => ({ 
+          ...prev, 
+          balance: bal,
+          currency: data.user.currency_preference,
+          currency_preference: data.user.currency_preference
+        }));
+      } else {
+        setWallet(prev => ({ 
+          ...prev, 
+          balance: 0.00,
+          currency: null,
+          currency_preference: null
+        }));
       }
       await refreshWallet(data.token);
       return { success: true, user: data.user };
@@ -391,7 +407,8 @@ export const AuthProvider = ({ children }) => {
     setToken(null);
     setWallet({
       balance: 0.00,
-      currency: 'INR',
+      currency: null,
+      currency_preference: null,
       plan: 'free',
       rates: {},
       allTiers: {}
@@ -405,9 +422,9 @@ export const AuthProvider = ({ children }) => {
       wallet,
       walletBalance: wallet.balance,
       walletBalanceUSD: wallet.balance_usd || 0,
-      walletBalanceINR: wallet.balance_inr || wallet.balance || 0,
-      walletCurrency: wallet.currency || 'INR',
-      currencyPreference: user?.currency_preference || wallet.currency || 'INR',
+      walletBalanceINR: wallet.balance_inr || 0,
+      walletCurrency: wallet.currency || null,
+      currencyPreference: user?.currency_preference || wallet.currency_preference || null,
       walletRates: wallet.rates,
       walletAllTiers: wallet.allTiers,
       userPlan: wallet.plan || (user && user.plan) || 'free',

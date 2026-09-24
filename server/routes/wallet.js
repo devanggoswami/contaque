@@ -86,50 +86,19 @@ router.get('/balance', async (req, res) => {
     let walletUSD = await getWalletBalanceUSD(user.id);
     let currentBalanceUSD = walletUSD ? walletUSD.balance : 0.00;
 
-    const adminEmail = (process.env.ADMIN_USER || process.env.AUTH_USER || '').trim().toLowerCase();
-    const isUserAdmin = Boolean(user.role === 'admin' && adminEmail && user.email.toLowerCase() === adminEmail);
-
-    if (!isUserAdmin && (currentBalance <= 0 || isNaN(currentBalance))) {
-      try {
-        await creditBalance(user.id, 50.00, 'WELCOME_BONUS', 'Welcome Free Credits (₹50)', { bonus: true });
-        currentBalance = 50.00;
-      } catch (cErr) {
-        console.warn('Auto welcome credit warning:', cErr.message);
-        await db.query('UPDATE users SET wallet_balance = 50.00 WHERE id = $1', [user.id]);
-        currentBalance = 50.00;
-      }
-    }
-
     const userPref = (user.currency_preference || '').toUpperCase();
     const isUSD = userPref === 'USD';
-
-    // Bulletproof USD welcome credit: if any non-admin USD user has 0 or null balance, grant $2.00 welcome credit
-    if (isUSD && !isUserAdmin && (currentBalanceUSD <= 0 || isNaN(currentBalanceUSD))) {
-      try {
-        const bonusCheck = await db.query(
-          "SELECT id FROM wallet_ledger_usd WHERE user_id = $1 AND reference_id = 'WELCOME_BONUS'",
-          [user.id]
-        );
-        if (bonusCheck.rows.length === 0) {
-          await creditBalanceUSD(user.id, 2.00, 'Welcome Free Credits ($2)', 'WELCOME_BONUS', { bonus: true, currency: 'USD' });
-          currentBalanceUSD = 2.00;
-        }
-      } catch (cErr) {
-        console.warn('Auto USD welcome credit warning:', cErr.message);
-        await db.query('UPDATE users SET wallet_balance_usd = 2.0000 WHERE id = $1', [user.id]);
-        currentBalanceUSD = 2.00;
-      }
-    }
+    const hasPreference = Boolean(userPref === 'USD' || userPref === 'INR');
 
     const engineRates = isUSD ? getEngineRatesUSD(user.plan || 'free') : getEngineRates(user.plan || 'free');
 
     return res.json({
       success: true,
-      balance: isUSD ? currentBalanceUSD : currentBalance,
+      balance: hasPreference ? (isUSD ? currentBalanceUSD : currentBalance) : 0,
       balance_inr: currentBalance,
       balance_usd: currentBalanceUSD,
       currency_preference: user.currency_preference || null,
-      currency: isUSD ? 'USD' : 'INR',
+      currency: hasPreference ? (isUSD ? 'USD' : 'INR') : null,
       plan: normalizePlanKey(user.plan),
       plan_expires_at: user.plan_expires_at || null,
       rates: engineRates.rates,

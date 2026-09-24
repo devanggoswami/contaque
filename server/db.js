@@ -180,9 +180,9 @@ const initDb = async () => {
       ALTER TABLE leads ADD COLUMN IF NOT EXISTS whatsapp TEXT;
       ALTER TABLE leads ADD COLUMN IF NOT EXISTS max_messenger TEXT;
 
-      -- Prepaid Wallet & Billing Schema
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_balance NUMERIC(12, 2) DEFAULT 50.00;
-      ALTER TABLE users ALTER COLUMN wallet_balance SET DEFAULT 50.00;
+      -- Prepaid Wallet & Billing Schema (Uninitialized/0.00 until user selects INR or USD)
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_balance NUMERIC(12, 2) DEFAULT 0.00;
+      ALTER TABLE users ALTER COLUMN wallet_balance SET DEFAULT 0.00;
       DO $$ BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_wallet_balance_positive') THEN
           ALTER TABLE users ADD CONSTRAINT chk_wallet_balance_positive CHECK (wallet_balance >= 0);

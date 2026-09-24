@@ -73,7 +73,7 @@ const walletRouter = require('./routes/wallet');
 const plansRouter = require('./routes/plans');
 const adminRouter = require('./routes/admin');
 const referralRouter = require('./routes/referral');
-const { reserveBalance, settleJob, reserveBalanceUSD, settleJobUSD, creditBalanceUSD } = require('./utils/wallet');
+const { reserveBalance, settleJob, reserveBalanceUSD, settleJobUSD, creditBalance, creditBalanceUSD } = require('./utils/wallet');
 const { getRatePerLead, getRatePerLeadUSD } = require('./utils/pricing');
 
 app.use('/api/campaigns', campaignsRouter);
@@ -282,7 +282,7 @@ app.post('/api/auth/google', async (req, res) => {
       // New Google User Signup - Strictly assign 'free' plan and 'user' role unless default Admin
       const isDefaultAdmin = Boolean(AUTH_USER && cleanEmail === AUTH_USER.toLowerCase());
       const userPlan = isDefaultAdmin ? 'plus' : 'free';
-      const initialBalance = isDefaultAdmin ? 44830.00 : 50.00;
+      const initialBalance = isDefaultAdmin ? 44830.00 : 0.00;
       const userRole = isDefaultAdmin ? 'admin' : 'user';
 
       let googleReferralCode = null;
@@ -300,15 +300,17 @@ app.post('/api/auth/google', async (req, res) => {
       );
       userRow = insertRes.rows[0];
 
-      // Record welcome bonus in wallet_ledger
-      try {
-        await db.query(
-          `INSERT INTO wallet_ledger (user_id, amount, balance_after, type, reason, reference_id, metadata)
-           VALUES ($1, $2, $2, 'CREDIT', 'Welcome Free Credits (₹50)', 'WELCOME_BONUS', '{"bonus": true}'::jsonb)`,
-          [userRow.id, initialBalance]
-        );
-      } catch (lErr) {
-        console.warn('Google welcome bonus ledger warning:', lErr.message);
+      // Record initial balance for admin only
+      if (isDefaultAdmin) {
+        try {
+          await db.query(
+            `INSERT INTO wallet_ledger (user_id, amount, balance_after, type, reason, reference_id, metadata)
+             VALUES ($1, $2, $2, 'CREDIT', 'Admin Initial Balance', 'ADMIN_INIT', '{"bonus": true}'::jsonb)`,
+            [userRow.id, initialBalance]
+          );
+        } catch (lErr) {
+          console.warn('Admin initial balance ledger warning:', lErr.message);
+        }
       }
     }
 
@@ -514,49 +516,83 @@ app.post('/api/user/currency-preference', async (req, res) => {
   }
 
   try {
-    const updateRes = await db.query(
-      `UPDATE users 
-       SET currency_preference = $1 
-       WHERE LOWER(email) = $2 
-       RETURNING id, name, email, currency_preference, wallet_balance, wallet_balance_usd`,
-      [cleanCurrency, verified.email.toLowerCase()]
-    );
-    if (updateRes.rows.length === 0) {
+    const userRes = await db.query('SELECT * FROM users WHERE LOWER(email) = $1', [verified.email.toLowerCase()]);
+    if (userRes.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
-    const updatedUser = updateRes.rows[0];
+    const user = userRes.rows[0];
 
-    // If user chose USD, grant $2.00 free welcome credit if not already claimed
-    let currentBalanceUSD = parseFloat(updatedUser.wallet_balance_usd || 0);
-    if (cleanCurrency === 'USD') {
-      const bonusCheck = await db.query(
-        "SELECT id FROM wallet_ledger_usd WHERE user_id = $1 AND reference_id = 'WELCOME_BONUS'",
-        [updatedUser.id]
-      );
-      if (bonusCheck.rows.length === 0 && currentBalanceUSD <= 0) {
+    // Check if welcome credit was already claimed in either INR or USD
+    const inrBonusCheck = await db.query(
+      "SELECT id FROM wallet_ledger WHERE user_id = $1 AND reference_id = 'WELCOME_BONUS'",
+      [user.id]
+    );
+    const usdBonusCheck = await db.query(
+      "SELECT id FROM wallet_ledger_usd WHERE user_id = $1 AND reference_id = 'WELCOME_BONUS'",
+      [user.id]
+    );
+    const hasClaimedWelcomeBonus = inrBonusCheck.rows.length > 0 || usdBonusCheck.rows.length > 0;
+
+    let currentBalanceINR = parseFloat(user.wallet_balance || 0);
+    let currentBalanceUSD = parseFloat(user.wallet_balance_usd || 0);
+
+    // Welcome credit is assigned strictly upon currency selection, exactly once
+    if (!hasClaimedWelcomeBonus) {
+      if (cleanCurrency === 'INR' && currentBalanceINR <= 0) {
+        try {
+          const creditRes = await creditBalance(
+            user.id,
+            50.00,
+            'Welcome Free Credits (₹50)',
+            'WELCOME_BONUS',
+            { bonus: true, currency: 'INR' }
+          );
+          currentBalanceINR = creditRes.newBalance;
+        } catch (cErr) {
+          console.warn('[INR Welcome Bonus Warning]:', cErr.message);
+          await db.query('UPDATE users SET wallet_balance = 50.00 WHERE id = $1', [user.id]);
+          currentBalanceINR = 50.00;
+        }
+      } else if (cleanCurrency === 'USD' && currentBalanceUSD <= 0) {
         try {
           const creditRes = await creditBalanceUSD(
-            updatedUser.id, 
-            2.00, 
-            'Welcome Free Credits ($2)', 
-            'WELCOME_BONUS', 
+            user.id,
+            2.00,
+            'Welcome Free Credits ($2)',
+            'WELCOME_BONUS',
             { bonus: true, currency: 'USD' }
           );
           currentBalanceUSD = creditRes.newBalance;
         } catch (cErr) {
           console.warn('[USD Welcome Bonus Warning]:', cErr.message);
-          await db.query('UPDATE users SET wallet_balance_usd = 2.0000 WHERE id = $1', [updatedUser.id]);
+          await db.query('UPDATE users SET wallet_balance_usd = 2.0000 WHERE id = $1', [user.id]);
           currentBalanceUSD = 2.00;
         }
       }
     }
 
+    // Persist currency preference
+    await db.query(
+      'UPDATE users SET currency_preference = $1 WHERE id = $2',
+      [cleanCurrency, user.id]
+    );
+
+    // Re-fetch final balances from database
+    const freshUser = await db.query('SELECT wallet_balance, wallet_balance_usd, currency_preference FROM users WHERE id = $1', [user.id]);
+    const finalRow = freshUser.rows[0];
+
+    const finalBalance = cleanCurrency === 'USD' 
+      ? parseFloat(finalRow.wallet_balance_usd || 0) 
+      : parseFloat(finalRow.wallet_balance || 0);
+
     return res.json({
       success: true,
-      currency_preference: updatedUser.currency_preference,
-      wallet_balance_usd: currentBalanceUSD,
-      wallet_balance: parseFloat(updatedUser.wallet_balance || 0),
-      message: `Currency preference set to ${updatedUser.currency_preference}`
+      currency_preference: finalRow.currency_preference,
+      currency: finalRow.currency_preference,
+      balance: finalBalance,
+      wallet_balance: parseFloat(finalRow.wallet_balance || 0),
+      wallet_balance_usd: parseFloat(finalRow.wallet_balance_usd || 0),
+      message: `Currency preference set to ${finalRow.currency_preference}`
     });
   } catch (err) {
     console.error('Failed to set currency preference:', err);

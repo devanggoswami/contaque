@@ -52,9 +52,10 @@ function Sidebar() {
     return () => clearInterval(interval);
   }, [authFetch]);
 
+  const hasPreference = Boolean(user?.currency_preference);
   const isUSD = user?.currency_preference === 'USD';
-  const currSymbol = isUSD ? '$' : '₹';
-  const isLowBalance = isUSD ? Number(walletBalance ?? 0) < 2 : Number(walletBalance ?? 0) < 100;
+  const currSymbol = !hasPreference ? '' : (isUSD ? '$' : '₹');
+  const isLowBalance = !hasPreference ? false : (isUSD ? Number(walletBalance ?? 0) < 2 : Number(walletBalance ?? 0) < 100);
 
   return (
     <>
@@ -227,7 +228,11 @@ function Sidebar() {
               <div className="wallet-card-text">
                 <span className="wallet-label">Prepaid Balance</span>
                 <span className={`wallet-value ${isLowBalance ? 'low-balance-alert' : ''}`}>
-                  {currSymbol}{Number(walletBalance || 0).toLocaleString(isUSD ? 'en-US' : 'en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {!hasPreference ? (
+                    <span style={{ fontSize: '12px', color: '#94A3B8' }}>Pending</span>
+                  ) : (
+                    `${currSymbol}${Number(walletBalance || 0).toLocaleString(isUSD ? 'en-US' : 'en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                  )}
                 </span>
               </div>
             </div>

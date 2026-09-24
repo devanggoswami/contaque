@@ -91,7 +91,7 @@ async function runAuthSecurityTestSuite() {
     const newRefCode = 'CQ' + crypto.randomBytes(3).toString('hex').toUpperCase();
     const insertRes = await db.query(
       `INSERT INTO users (name, email, password_hash, country, auth_provider, email_verified, plan, wallet_balance, wallet_balance_usd, currency_preference, referral_code, referral_claimed, referral_prompt_dismissed, role)
-       VALUES ('Google User Test', $1, 'GOOGLE_OAUTH', 'India', 'google', true, 'free', 50.00, 0.00, NULL, $2, false, false, 'user')
+       VALUES ('Google User Test', $1, 'GOOGLE_OAUTH', 'India', 'google', true, 'free', 0.00, 0.00, NULL, $2, false, false, 'user')
        RETURNING *`,
       [testGoogleEmail, newRefCode]
     );

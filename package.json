@@ -12,6 +12,7 @@
     "test:usd": "node server/test_usd_payments.js",
     "test:testmode": "node server/test_razorpay_test_mode.js",
     "test:auth": "node server/test_auth_role_security.js",
+    "test:welcome": "node server/test_welcome_credit_flow.js",
     "lint": "oxlint",
     "preview": "vite preview"
   },

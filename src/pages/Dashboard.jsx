@@ -483,10 +483,14 @@ function Dashboard() {
 
         {/* 4. Prepaid Wallet Balance Metric Card (Replaced Google Places Card) */}
         {(() => {
+          const hasPreference = Boolean(user?.currency_preference);
           const isUSD = user?.currency_preference === 'USD';
-          const currSymbol = isUSD ? '$' : '₹';
-          const activeBal = Number(walletBalance !== undefined && walletBalance !== null ? walletBalance : (billingSummary ? billingSummary.balance : (isUSD ? 1 : 50)));
-          const isLow = isUSD ? activeBal < 2 : activeBal < 100;
+          const currSymbol = !hasPreference ? '' : (isUSD ? '$' : '₹');
+          const isPending = !hasPreference;
+          const activeBal = isPending
+            ? null
+            : Number(walletBalance !== undefined && walletBalance !== null ? walletBalance : (billingSummary ? billingSummary.balance : 0));
+          const isLow = isPending ? false : (isUSD ? activeBal < 2 : activeBal < 100);
           const leadRateEst = isUSD ? 0.015 : 1.10;
           return (
             <div className={`metric-card interactive-hover ${isLow ? 'low-balance-card' : ''}`} onClick={() => setDashboardTab('LEDGER')}>
@@ -510,11 +514,19 @@ function Dashboard() {
               <div className="metric-body">
                 <span className="metric-label">Prepaid Wallet Balance</span>
                 <h2 className={`metric-value ${isLow ? 'low-balance-alert' : ''}`}>
-                  {currSymbol}<AnimatedNumber value={activeBal} />
+                  {isPending ? (
+                    <span style={{ fontSize: '18px', color: '#94A3B8', fontWeight: 600 }}>Pending</span>
+                  ) : (
+                    <>{currSymbol}<AnimatedNumber value={activeBal} /></>
+                  )}
                 </h2>
                 <div className="metric-footer">
                   <span style={isLow ? { color: '#ef4444', fontWeight: 600 } : {}}>
-                    {isLow ? '⚠️ Low balance • ' : ''}Available for ~{Math.floor(activeBal / leadRateEst)} leads
+                    {isPending ? (
+                      'Welcome credits activate upon currency selection'
+                    ) : (
+                      <>{isLow ? '⚠️ Low balance • ' : ''}Available for ~{Math.floor(activeBal / leadRateEst)} leads</>
+                    )}
                   </span>
                 </div>
               </div>
