@@ -1217,7 +1217,9 @@ app.post('/api/generate', requireAuth, async (req, res) => {
 
     // 1. Calculate per-lead pricing & estimated hold
     const ratePerLead = isUSD ? getRatePerLeadUSD(source, user.plan) : getRatePerLead(source, user.plan);
-    const estimatedCost = parseFloat((requestedCount * ratePerLead).toFixed(2));
+    const estimatedCost = isUSD 
+      ? parseFloat((requestedCount * ratePerLead).toFixed(4)) 
+      : parseFloat((requestedCount * ratePerLead).toFixed(2));
 
     // 2. Atomically reserve/hold balance with PostgreSQL row-lock
     const reserveResult = isUSD 

@@ -119,7 +119,9 @@ function calculateJobCost(source = 'maps', plan = 'free', requestedCount = 20, c
   const count = parseInt(requestedCount, 10) || 0;
   const isUSD = (currency || '').toUpperCase() === 'USD';
   const rate = isUSD ? getRatePerLeadUSD(source, plan) : getRatePerLead(source, plan);
-  const estimatedCost = parseFloat((count * rate).toFixed(2));
+  const estimatedCost = isUSD 
+    ? parseFloat((count * rate).toFixed(4)) 
+    : parseFloat((count * rate).toFixed(2));
   return {
     source,
     plan: normalizePlanKey(plan),

@@ -202,8 +202,9 @@ const initDb = async () => {
       );
 
       -- USD Parallel Wallet & Ledger Schema (Additive & Non-Breaking)
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_balance_usd NUMERIC(12, 2) DEFAULT 0.00;
-      ALTER TABLE users ALTER COLUMN wallet_balance_usd SET DEFAULT 0.00;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_balance_usd NUMERIC(12, 4) DEFAULT 0.0000;
+      ALTER TABLE users ALTER COLUMN wallet_balance_usd TYPE NUMERIC(12, 4);
+      ALTER TABLE users ALTER COLUMN wallet_balance_usd SET DEFAULT 0.0000;
       DO $$ BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_wallet_balance_usd_positive') THEN
           ALTER TABLE users ADD CONSTRAINT chk_wallet_balance_usd_positive CHECK (wallet_balance_usd >= 0);
@@ -215,14 +216,17 @@ const initDb = async () => {
       CREATE TABLE IF NOT EXISTS wallet_ledger_usd (
         id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        amount NUMERIC(12, 2) NOT NULL,
-        balance_after NUMERIC(12, 2) NOT NULL,
+        amount NUMERIC(12, 4) NOT NULL,
+        balance_after NUMERIC(12, 4) NOT NULL,
         type VARCHAR(20) NOT NULL CHECK (type IN ('CREDIT', 'DEBIT', 'REFUND')),
         reason VARCHAR(255) NOT NULL,
         reference_id VARCHAR(255),
         metadata JSONB DEFAULT '{}'::jsonb,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+
+      ALTER TABLE wallet_ledger_usd ALTER COLUMN amount TYPE NUMERIC(12, 4);
+      ALTER TABLE wallet_ledger_usd ALTER COLUMN balance_after TYPE NUMERIC(12, 4);
 
       CREATE TABLE IF NOT EXISTS idempotency_keys (
         key VARCHAR(255) PRIMARY KEY,
@@ -233,11 +237,16 @@ const initDb = async () => {
       );
 
       ALTER TABLE jobs ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
-      ALTER TABLE jobs ADD COLUMN IF NOT EXISTS rate_per_lead NUMERIC(10, 2);
-      ALTER TABLE jobs ADD COLUMN IF NOT EXISTS estimated_cost NUMERIC(12, 2) DEFAULT 0.00;
-      ALTER TABLE jobs ADD COLUMN IF NOT EXISTS actual_cost NUMERIC(12, 2) DEFAULT 0.00;
-      ALTER TABLE jobs ADD COLUMN IF NOT EXISTS refunded_amount NUMERIC(12, 2) DEFAULT 0.00;
+      ALTER TABLE jobs ADD COLUMN IF NOT EXISTS rate_per_lead NUMERIC(12, 4);
+      ALTER TABLE jobs ADD COLUMN IF NOT EXISTS estimated_cost NUMERIC(12, 4) DEFAULT 0.0000;
+      ALTER TABLE jobs ADD COLUMN IF NOT EXISTS actual_cost NUMERIC(12, 4) DEFAULT 0.0000;
+      ALTER TABLE jobs ADD COLUMN IF NOT EXISTS refunded_amount NUMERIC(12, 4) DEFAULT 0.0000;
       ALTER TABLE jobs ADD COLUMN IF NOT EXISTS billing_status VARCHAR(50) DEFAULT 'SETTLED';
+
+      ALTER TABLE jobs ALTER COLUMN rate_per_lead TYPE NUMERIC(12, 4);
+      ALTER TABLE jobs ALTER COLUMN estimated_cost TYPE NUMERIC(12, 4);
+      ALTER TABLE jobs ALTER COLUMN actual_cost TYPE NUMERIC(12, 4);
+      ALTER TABLE jobs ALTER COLUMN refunded_amount TYPE NUMERIC(12, 4);
 
       -- Multi-User Data Isolation: User FK columns & indices
       ALTER TABLE leads ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;

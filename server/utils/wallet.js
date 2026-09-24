@@ -279,7 +279,7 @@ async function creditBalanceUSD(userId, amount, reason, referenceId = null, meta
     }
 
     const currentBalance = parseFloat(userRes.rows[0].wallet_balance_usd || 0);
-    const newBalance = parseFloat((currentBalance + numericAmount).toFixed(2));
+    const newBalance = parseFloat((currentBalance + numericAmount).toFixed(4));
 
     await client.query(
       'UPDATE users SET wallet_balance_usd = $1 WHERE id = $2',
@@ -461,11 +461,11 @@ async function reserveBalanceUSD(userId, amount, jobId = null, metadata = {}, cl
         currency: 'USD',
         currentBalance,
         required: numericAmount,
-        shortfall: parseFloat((numericAmount - currentBalance).toFixed(2))
+        shortfall: parseFloat((numericAmount - currentBalance).toFixed(4))
       };
     }
 
-    const newBalance = parseFloat((currentBalance - numericAmount).toFixed(2));
+    const newBalance = parseFloat((currentBalance - numericAmount).toFixed(4));
     await client.query(
       'UPDATE users SET wallet_balance_usd = $1 WHERE id = $2',
       [newBalance, userId]
@@ -512,12 +512,12 @@ async function reserveBalanceUSD(userId, amount, jobId = null, metadata = {}, cl
 async function settleJobUSD(userId, jobId, requestedCount, actualInsertedCount, ratePerLead, metadata = {}, clientOverride = null) {
   const reqCount = parseInt(requestedCount, 10) || 0;
   const actualCount = parseInt(actualInsertedCount, 10) || 0;
-  const rate = parseFloat(ratePerLead) || 0.02;
+  const rate = parseFloat(ratePerLead) || 0.014;
 
-  const estimatedCost = parseFloat((reqCount * rate).toFixed(2));
-  const actualCost = parseFloat((actualCount * rate).toFixed(2));
+  const estimatedCost = parseFloat((reqCount * rate).toFixed(4));
+  const actualCost = parseFloat((actualCount * rate).toFixed(4));
   const unfulfilledCount = Math.max(0, reqCount - actualCount);
-  const refundAmount = parseFloat(Math.max(0, estimatedCost - actualCost).toFixed(2));
+  const refundAmount = parseFloat(Math.max(0, estimatedCost - actualCost).toFixed(4));
 
   const client = clientOverride || await pool.connect();
   const shouldManageTx = !clientOverride;
@@ -539,7 +539,7 @@ async function settleJobUSD(userId, jobId, requestedCount, actualInsertedCount, 
     let refundLedgerId = null;
 
     if (refundAmount > 0) {
-      finalBalance = parseFloat((currentBalance + refundAmount).toFixed(2));
+      finalBalance = parseFloat((currentBalance + refundAmount).toFixed(4));
       await client.query(
         'UPDATE users SET wallet_balance_usd = $1 WHERE id = $2',
         [finalBalance, userId]
@@ -696,7 +696,7 @@ async function getBillingSummaryUSD(userId, clientOverride = null) {
   const totalCredited = parseFloat(ledgerAgg.rows[0].total_credited);
   const totalDebited = parseFloat(ledgerAgg.rows[0].total_debited);
   const totalRefunded = parseFloat(ledgerAgg.rows[0].total_refunded);
-  const netSpent = parseFloat((totalDebited - totalRefunded).toFixed(2));
+  const netSpent = parseFloat((totalDebited - totalRefunded).toFixed(4));
   const totalUniqueLeads = parseInt(jobsAgg.rows[0].total_unique_leads, 10);
 
   return {
@@ -708,7 +708,7 @@ async function getBillingSummaryUSD(userId, clientOverride = null) {
     totalUniqueLeads,
     totalJobs: parseInt(jobsAgg.rows[0].total_jobs, 10),
     activeHoldAmount: parseFloat(activeHolds.rows[0].active_hold_amount),
-    averageCostPerLead: totalUniqueLeads > 0 ? parseFloat((netSpent / totalUniqueLeads).toFixed(2)) : 0.00
+    averageCostPerLead: totalUniqueLeads > 0 ? parseFloat((netSpent / totalUniqueLeads).toFixed(4)) : 0.00
   };
 }
 

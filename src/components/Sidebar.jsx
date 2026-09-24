@@ -190,7 +190,7 @@ function Sidebar() {
             <Gift size={19} className="nav-icon" />
             <span>Refer & Earn</span>
             <span className="nav-badge-new" style={{ background: 'linear-gradient(135deg, #10B981, #059669)', color: '#FFFFFF' }}>
-              {(user?.country && user.country !== 'India') ? '$2' : '₹100'}
+              {isUSD ? '$2' : '₹100'}
             </span>
           </NavLink>
 

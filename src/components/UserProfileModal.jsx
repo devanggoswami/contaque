@@ -21,11 +21,11 @@ const PLAN_DEFINITIONS = {
     icon: Zap,
     color: '#64748b',
     leadRates: [
-      { engine: 'Google Business Index', rate: '₹1.30' },
-      { engine: 'Social / Custom Discovery', rate: '₹1.00' },
-      { engine: 'WhatsApp Radar', rate: '₹1.00' },
-      { engine: 'Yellow Pages', rate: '₹0.60' },
-      { engine: 'Yandex', rate: '₹1.70' },
+      { engine: 'Google Business Index', rate: '₹1.30', rateUSD: '$0.014' },
+      { engine: 'Social / Custom Discovery', rate: '₹1.00', rateUSD: '$0.010' },
+      { engine: 'WhatsApp Radar', rate: '₹1.00', rateUSD: '$0.010' },
+      { engine: 'Yellow Pages', rate: '₹0.60', rateUSD: '$0.006' },
+      { engine: 'Yandex', rate: '₹1.70', rateUSD: '$0.018' },
     ],
     featuresTitle: 'Features Included:',
     features: [

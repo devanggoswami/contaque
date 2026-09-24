@@ -55,12 +55,35 @@ function GenerateData() {
   const [justDispatched, setJustDispatched] = useState(false);
 
   // Dynamic cost calculation
-  const defaultRate = isUSD ? (source === 'yellowpages' ? 0.008 : source === 'yandex' ? 0.022 : 0.015) : (source === 'yellowpages' ? 0.60 : source === 'yandex' ? 1.70 : 1.10);
+  const defaultRate = isUSD 
+    ? (source === 'yellowpages' ? 0.005 : source === 'yandex' ? 0.014 : 0.010) 
+    : (source === 'yellowpages' ? 0.50 : source === 'yandex' ? 1.30 : 1.00);
   const ratePerLead = (walletRates && walletRates[source]) !== undefined ? walletRates[source] : defaultRate;
   const countNum = parseInt(targetCount, 10) || 0;
-  const estimatedCost = parseFloat((countNum * ratePerLead).toFixed(2));
+  const estimatedCost = isUSD 
+    ? parseFloat((countNum * ratePerLead).toFixed(4)) 
+    : parseFloat((countNum * ratePerLead).toFixed(2));
   const hasSufficientBalance = walletBalance >= estimatedCost;
-  const shortfall = Math.max(0, parseFloat((estimatedCost - walletBalance).toFixed(2)));
+  const shortfall = Math.max(0, isUSD 
+    ? parseFloat((estimatedCost - walletBalance).toFixed(4)) 
+    : parseFloat((estimatedCost - walletBalance).toFixed(2)));
+
+  const formatRatePerLead = (rate, isUSDMode) => {
+    const num = Number(rate || 0);
+    if (!isUSDMode) return `₹${num.toFixed(2)}`;
+    const decimals = Math.max(3, (num.toString().split('.')[1] || '').length);
+    return `$${num.toFixed(decimals)}`;
+  };
+
+  const formatCost = (val, isUSDMode) => {
+    const num = Number(val || 0);
+    if (!isUSDMode) return `₹${num.toFixed(2)}`;
+    const str = num.toFixed(4).replace(/0+$/, '');
+    const parts = str.split('.');
+    const dec = parts[1] || '';
+    if (dec.length < 2) return `$${num.toFixed(2)}`;
+    return `$${str}`;
+  };
 
   useEffect(() => {
     authFetch(`${API_URL}/api/billing`)
@@ -110,7 +133,7 @@ function GenerateData() {
 
     // Pre-flight balance check before dispatching
     if (!hasSufficientBalance) {
-      setError(`Insufficient wallet balance. You need ₹${shortfall.toFixed(2)} more to launch this batch.`);
+      setError(`Insufficient wallet balance. You need ${formatCost(shortfall, isUSD)} more to launch this batch.`);
       setShowRechargeModal(true);
       return;
     }
@@ -433,7 +456,7 @@ function GenerateData() {
               <div className="cost-summary-details">
                 <div className="cost-row">
                   <span>Rate per Unique Lead ({getSourceDisplayName(source)}):</span>
-                  <strong>₹{ratePerLead.toFixed(2)}</strong>
+                  <strong>{formatRatePerLead(ratePerLead, isUSD)}</strong>
                 </div>
                 <div className="cost-row">
                   <span>Target Batch Size:</span>
@@ -441,19 +464,19 @@ function GenerateData() {
                 </div>
                 <div className="cost-row total-row">
                   <span>Estimated Total:</span>
-                  <strong className="cost-total-val">{currSymbol}{estimatedCost.toFixed(2)}</strong>
+                  <strong className="cost-total-val">{formatCost(estimatedCost, isUSD)}</strong>
                 </div>
                 <div className="cost-row wallet-row">
                   <span>Your Available Balance:</span>
                   <strong className={hasSufficientBalance ? 'bal-good' : 'bal-short'}>
-                    {currSymbol}{walletBalance.toFixed(2)}
+                    {formatCost(walletBalance, isUSD)}
                   </strong>
                 </div>
               </div>
               {!hasSufficientBalance && (
                 <div className="shortfall-warning">
                   <AlertTriangle size={14} style={{ flexShrink: 0 }} />
-                  <span>You need {currSymbol}{shortfall.toFixed(2)} more to execute this batch.</span>
+                  <span>You need {formatCost(shortfall, isUSD)} more to execute this batch.</span>
                 </div>
               )}
             </div>
@@ -477,7 +500,7 @@ function GenerateData() {
                 ) : (
                   <>
                     <Zap size={18} />
-                    <span>Execute Scrape Engine (Hold ₹{estimatedCost.toFixed(2)})</span>
+                    <span>Execute Scrape Engine (Hold {formatCost(estimatedCost, isUSD)})</span>
                   </>
                 )}
               </button>
@@ -488,7 +511,7 @@ function GenerateData() {
                 onClick={() => setShowRechargeModal(true)}
               >
                 <Wallet size={18} />
-                <span>Top Up Wallet (Shortfall: ₹{shortfall.toFixed(2)})</span>
+                <span>Top Up Wallet (Shortfall: {formatCost(shortfall, isUSD)})</span>
               </button>
             )}
           </form>
