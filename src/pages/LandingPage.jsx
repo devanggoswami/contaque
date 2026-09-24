@@ -782,6 +782,11 @@ function LandingPage() {
           <p>Compare our automated multi-engine pipeline against traditional manual prospecting and expensive single-source scrapers.</p>
         </div>
 
+        <div className="comparison-mobile-scroll-tip">
+          <ArrowRight size={13} />
+          <span>Swipe horizontally to compare all platforms</span>
+        </div>
+
         <div className="comparison-table-wrapper">
           <table className="comparison-table">
             <thead>
