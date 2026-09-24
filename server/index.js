@@ -197,7 +197,7 @@ app.post('/api/auth/login', async (req, res) => {
       const u = result.rows[0];
       if (u.password_hash === password || u.auth_provider === 'google' || password === 'GOOGLE_AUTH') {
         const token = generateAuthToken(cleanEmail);
-        const isUserAdmin = Boolean(AUTH_USER && u.email.toLowerCase() === AUTH_USER.toLowerCase());
+        const isUserAdmin = Boolean(u.role === 'admin' && AUTH_USER && u.email.toLowerCase() === AUTH_USER.toLowerCase());
         return res.json({
           success: true,
           token,
@@ -266,9 +266,10 @@ app.post('/api/auth/signup', async (req, res) => {
       return res.status(400).json({ error: 'An account with this email already exists. Please log in.' });
     }
 
-    // Security Authority: New signups are strictly initialized with 'free' plan (unless predefined Admin)
-    const isAdmin = AUTH_USER && cleanEmail === AUTH_USER.toLowerCase();
-    const initialPlan = isAdmin ? 'plus' : 'free';
+    // Security Authority: New signups are strictly initialized with 'free' plan and 'user' role (unless predefined Admin)
+    const isDefaultAdmin = Boolean(AUTH_USER && cleanEmail === AUTH_USER.toLowerCase());
+    const initialPlan = isDefaultAdmin ? 'plus' : 'free';
+    const initialRole = isDefaultAdmin ? 'admin' : 'user';
     const isGoogle = auth_provider === 'google';
 
     // Generate secure single-use email verification token for local email/password signups
@@ -287,11 +288,11 @@ app.post('/api/auth/signup', async (req, res) => {
       newReferralCode = 'CQ' + crypto.randomBytes(3).toString('hex').toUpperCase();
     }
 
-    // Insert new user with ₹50 free credits and referral fields
+    // Insert new user with ₹50 free credits, referral fields, and explicit database role
     const insertResult = await db.query(
-      `INSERT INTO users (name, email, password_hash, country, auth_provider, email_verified, plan, wallet_balance, email_verification_token, email_verification_token_expires_at, referral_code, referral_claimed, referral_prompt_dismissed)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 50.00, $8, $9, $10, false, false) RETURNING *`,
-      [cleanName, cleanEmail, password, cleanCountry, auth_provider, isGoogle, initialPlan, verificationToken, tokenExpiresAt, newReferralCode]
+      `INSERT INTO users (name, email, password_hash, country, auth_provider, email_verified, plan, wallet_balance, email_verification_token, email_verification_token_expires_at, referral_code, referral_claimed, referral_prompt_dismissed, role)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 50.00, $8, $9, $10, false, false, $11) RETURNING *`,
+      [cleanName, cleanEmail, password, cleanCountry, auth_provider, isGoogle, initialPlan, verificationToken, tokenExpiresAt, newReferralCode, initialRole]
     );
     const newUser = insertResult.rows[0];
 
@@ -329,6 +330,7 @@ app.post('/api/auth/signup', async (req, res) => {
     }).catch(gsErr => console.warn('[Google Sheets Sync Background Warning]:', gsErr.message));
 
     const token = generateAuthToken(cleanEmail);
+    const isUserAdmin = Boolean(newUser.role === 'admin' && AUTH_USER && newUser.email.toLowerCase() === AUTH_USER.toLowerCase());
 
     return res.json({
       success: true,
@@ -345,6 +347,8 @@ app.post('/api/auth/signup', async (req, res) => {
         wallet_balance_usd: parseFloat(newUser.wallet_balance_usd || 0.00),
         currency_preference: newUser.currency_preference || null,
         auth_provider: newUser.auth_provider,
+        role: isUserAdmin ? 'Administrator' : 'User',
+        isAdmin: isUserAdmin,
         referral_code: newUser.referral_code || newReferralCode,
         referral_claimed: false,
         referral_prompt_dismissed: false
@@ -438,10 +442,11 @@ app.post('/api/auth/google', async (req, res) => {
       const reFetch = await db.query('SELECT * FROM users WHERE id = $1', [userRow.id]);
       userRow = reFetch.rows[0];
     } else {
-      // New Google User Signup - Strictly assign 'free' plan unless default Admin
-      const isAdmin = AUTH_USER && cleanEmail === AUTH_USER.toLowerCase();
-      const userPlan = isAdmin ? 'plus' : 'free';
-      const initialBalance = isAdmin ? 44830.00 : 50.00;
+      // New Google User Signup - Strictly assign 'free' plan and 'user' role unless default Admin
+      const isDefaultAdmin = Boolean(AUTH_USER && cleanEmail === AUTH_USER.toLowerCase());
+      const userPlan = isDefaultAdmin ? 'plus' : 'free';
+      const initialBalance = isDefaultAdmin ? 44830.00 : 50.00;
+      const userRole = isDefaultAdmin ? 'admin' : 'user';
 
       let googleReferralCode = null;
       try {
@@ -451,10 +456,10 @@ app.post('/api/auth/google', async (req, res) => {
       }
 
       const insertRes = await db.query(
-        `INSERT INTO users (name, email, password_hash, country, auth_provider, email_verified, plan, wallet_balance, wallet_balance_usd, currency_preference, referral_code, referral_claimed, referral_prompt_dismissed)
-         VALUES ($1, $2, 'GOOGLE_OAUTH', 'India', 'google', true, $3, $4, 0.00, NULL, $5, false, false)
+        `INSERT INTO users (name, email, password_hash, country, auth_provider, email_verified, plan, wallet_balance, wallet_balance_usd, currency_preference, referral_code, referral_claimed, referral_prompt_dismissed, role)
+         VALUES ($1, $2, 'GOOGLE_OAUTH', 'India', 'google', true, $3, $4, 0.00, NULL, $5, false, false, $6)
          RETURNING *`,
-        [cleanName, cleanEmail, userPlan, initialBalance, googleReferralCode]
+        [cleanName, cleanEmail, userPlan, initialBalance, googleReferralCode, userRole]
       );
       userRow = insertRes.rows[0];
 
@@ -484,7 +489,7 @@ app.post('/api/auth/google', async (req, res) => {
 
     // 4. Issue 48-Hour Session Token
     const sessionToken = generateAuthToken(cleanEmail);
-    const isUserAdmin = Boolean(AUTH_USER && userRow.email.toLowerCase() === AUTH_USER.toLowerCase());
+    const isUserAdmin = Boolean(userRow.role === 'admin' && AUTH_USER && userRow.email.toLowerCase() === AUTH_USER.toLowerCase());
 
     return res.json({
       success: true,
@@ -529,7 +534,7 @@ const handleVerifyEmailToken = async (tokenVal, res, isGetRedirect = false, reqO
     }
 
     const userRes = await db.query(
-      'SELECT id, name, email, email_verified, plan, wallet_balance, email_verification_token_expires_at FROM users WHERE email_verification_token = $1',
+      'SELECT id, name, email, role, email_verified, plan, wallet_balance, wallet_balance_usd, currency_preference, email_verification_token_expires_at FROM users WHERE email_verification_token = $1',
       [token]
     );
 
@@ -563,16 +568,24 @@ const handleVerifyEmailToken = async (tokenVal, res, isGetRedirect = false, reqO
       return res.redirect(`${baseUrl}/verify-email?status=success`);
     }
 
+    const authToken = generateAuthToken(u.email);
+    const isUserAdmin = Boolean(u.role === 'admin' && AUTH_USER && u.email.toLowerCase() === AUTH_USER.toLowerCase());
+
     return res.json({
       success: true,
       message: 'Email verified successfully!',
+      token: authToken,
       user: {
         id: u.id,
         name: u.name,
         email: u.email,
         email_verified: true,
-        plan: u.plan,
-        wallet_balance: parseFloat(u.wallet_balance || 0)
+        plan: u.plan || 'free',
+        wallet_balance: parseFloat(u.wallet_balance || 0),
+        wallet_balance_usd: parseFloat(u.wallet_balance_usd || 0),
+        currency_preference: u.currency_preference || null,
+        role: isUserAdmin ? 'Administrator' : 'User',
+        isAdmin: isUserAdmin
       }
     });
   } catch (err) {
@@ -838,7 +851,7 @@ app.get('/api/auth/verify', async (req, res) => {
 
   try {
     const uRes = await db.query(
-      'SELECT id, name, email, plan, plan_expires_at, plan_started_at, wallet_balance, wallet_balance_usd, currency_preference, email_verified, country, referral_code, referral_claimed, referral_prompt_dismissed FROM users WHERE LOWER(email) = $1',
+      'SELECT id, name, email, plan, plan_expires_at, plan_started_at, wallet_balance, wallet_balance_usd, currency_preference, email_verified, country, referral_code, referral_claimed, referral_prompt_dismissed, role FROM users WHERE LOWER(email) = $1',
       [verified.email.toLowerCase()]
     );
     if (uRes.rows.length === 0) {
@@ -849,7 +862,7 @@ app.get('/api/auth/verify', async (req, res) => {
     if (!userReferralCode) {
       userReferralCode = await db.ensureUserReferralCode(u.id, u.name);
     }
-    const isUserAdmin = Boolean(AUTH_USER && u.email.toLowerCase() === AUTH_USER.toLowerCase());
+    const isUserAdmin = Boolean(u.role === 'admin' && AUTH_USER && u.email.toLowerCase() === AUTH_USER.toLowerCase());
     return res.json({
       valid: true,
       user: {
@@ -2422,6 +2435,11 @@ app.post('/api/support/ticket', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Backend server running on http://localhost:${PORT}`);
-});
+let server;
+if (require.main === module) {
+  server = app.listen(PORT, () => {
+    console.log(`Backend server running on http://localhost:${PORT}`);
+  });
+}
+
+module.exports = { app, server };

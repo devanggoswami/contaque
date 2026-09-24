@@ -86,9 +86,8 @@ router.get('/balance', async (req, res) => {
     let walletUSD = await getWalletBalanceUSD(user.id);
     let currentBalanceUSD = walletUSD ? walletUSD.balance : 0.00;
 
-    // Bulletproof welcome credit: if any non-admin user has 0 or null balance, grant ₹50 welcome credit
     const adminEmail = (process.env.ADMIN_USER || process.env.AUTH_USER || '').trim().toLowerCase();
-    const isUserAdmin = adminEmail && user.email.toLowerCase() === adminEmail;
+    const isUserAdmin = Boolean(user.role === 'admin' && adminEmail && user.email.toLowerCase() === adminEmail);
 
     if (!isUserAdmin && (currentBalance <= 0 || isNaN(currentBalance))) {
       try {

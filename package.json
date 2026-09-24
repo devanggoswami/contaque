@@ -11,6 +11,7 @@
     "test:campaign:safety": "node server/test_campaign_safety.js",
     "test:usd": "node server/test_usd_payments.js",
     "test:testmode": "node server/test_razorpay_test_mode.js",
+    "test:auth": "node server/test_auth_role_security.js",
     "lint": "oxlint",
     "preview": "vite preview"
   },

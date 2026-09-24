@@ -312,21 +312,34 @@ export const AuthProvider = ({ children }) => {
       const data = await parseResponseJson(res);
       if (!res.ok) throw new Error(data.error || 'Invalid or expired verification link');
       
-      setUser(prev => {
-        if (!prev) return data.user || null;
-        const upd = { ...prev, email_verified: true };
-        try {
-          const saved = localStorage.getItem(STORAGE_KEY);
-          if (saved) {
-            const session = JSON.parse(saved);
-            session.user = upd;
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-          }
-        } catch {}
-        return upd;
-      });
+      if (data.token && data.user) {
+        // Security Authority: Cleanly isolate session. Wipe any prior session (e.g. admin or other user)
+        localStorage.removeItem(STORAGE_KEY);
+        const expiresAt = Date.now() + 48 * 60 * 60 * 1000;
+        const sessionData = {
+          token: data.token,
+          user: data.user,
+          expiresAt
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
+        setUser(data.user);
+        setToken(data.token);
+        if (data.user?.wallet_balance !== undefined) {
+          setWallet(prev => ({ 
+            ...prev, 
+            balance: Number(data.user.wallet_balance),
+            balance_usd: Number(data.user.wallet_balance_usd || 0),
+            currency_preference: data.user.currency_preference || null
+          }));
+        }
+        await refreshWallet(data.token);
+      } else {
+        localStorage.removeItem(STORAGE_KEY);
+        setUser(null);
+        setToken(null);
+      }
 
-      return { success: true, message: data.message, user: data.user };
+      return { success: true, message: data.message, user: data.user, token: data.token };
     } catch (err) {
       return { success: false, error: err.message };
     }

@@ -212,6 +212,8 @@ const initDb = async () => {
       END $$;
 
       ALTER TABLE users ADD COLUMN IF NOT EXISTS currency_preference VARCHAR(10) DEFAULT NULL;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'user';
+      ALTER TABLE users ALTER COLUMN role SET DEFAULT 'user';
 
       CREATE TABLE IF NOT EXISTS wallet_ledger_usd (
         id SERIAL PRIMARY KEY,
@@ -403,16 +405,20 @@ const initDb = async () => {
       const adminName = process.env.ADMIN_NAME || 'Devang Goswami';
       const adminPass = process.env.ADMIN_PASSWORD || process.env.AUTH_PASS || '2112@Dev';
       const adminUpsert = await client.query(`
-        INSERT INTO users (name, email, password_hash, plan, email_verified, wallet_balance, country, auth_provider)
-        VALUES ($1, $2, $3, 'plus', true, 44830.00, 'India', 'local')
+        INSERT INTO users (name, email, password_hash, plan, email_verified, wallet_balance, country, auth_provider, role)
+        VALUES ($1, $2, $3, 'plus', true, 44830.00, 'India', 'local', 'admin')
         ON CONFLICT (email) DO UPDATE 
         SET name = EXCLUDED.name,
             password_hash = EXCLUDED.password_hash,
             plan = 'plus',
+            role = 'admin',
             email_verified = true,
             wallet_balance = CASE WHEN users.wallet_balance = 0 THEN 44830.00 ELSE users.wallet_balance END
         RETURNING id;
       `, [adminName, adminEmail, adminPass]);
+
+      // Ensure admin email is always explicitly tagged role = 'admin'
+      await client.query('UPDATE users SET role = \'admin\' WHERE LOWER(email) = LOWER($1)', [adminEmail]);
 
       const adminId = adminUpsert.rows[0]?.id;
       if (adminId) {
@@ -426,6 +432,14 @@ const initDb = async () => {
         await client.query('UPDATE inbox_threads SET user_id = $1 WHERE user_id IS NULL', [adminId]);
       }
     }
+
+    // Ensure all non-admin users strictly have role = 'user'
+    await client.query(`
+      UPDATE users 
+      SET role = 'user' 
+      WHERE (role IS NULL OR role != 'user')
+        AND ($1 = '' OR LOWER(email) != LOWER($1))
+    `, [adminEmail || '']);
 
     // Ensure all registered users (non-admin) with 0 or null balance receive ₹50 welcome credit
     await client.query(`

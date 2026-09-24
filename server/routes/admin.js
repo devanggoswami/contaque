@@ -66,14 +66,20 @@ async function requireAdmin(req, res, next) {
       return res.status(403).json({ error: 'Access denied: Administrator privileges required.' });
     }
 
-    // Resolve Admin user record
-    const adminRes = await db.query('SELECT id, name, email, plan FROM users WHERE LOWER(email) = $1', [requestEmail]);
-    const adminUser = adminRes.rows[0] || { id: null, email: requestEmail, name: 'Administrator' };
+    // Resolve Admin user record and verify database role
+    const adminRes = await db.query('SELECT id, name, email, role, plan FROM users WHERE LOWER(email) = $1', [requestEmail]);
+    const adminUser = adminRes.rows[0];
+
+    if (!adminUser || adminUser.role !== 'admin') {
+      console.warn(`[Security Alert] User ${requestEmail} does not possess verified admin role in database.`);
+      return res.status(403).json({ error: 'Access denied: Administrator privileges required.' });
+    }
 
     req.admin = {
       id: adminUser.id,
       email: requestEmail,
-      name: adminUser.name || 'Administrator'
+      name: adminUser.name || 'Administrator',
+      role: 'admin'
     };
 
     next();

@@ -51,12 +51,15 @@ export default function Signup() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const { user, isAuthenticated, signup, loginWithGoogle } = useAuth();
+  const { user, isAuthenticated, signup, loginWithGoogle, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleGoogleSuccess = async (credential) => {
     setError('');
     setSubmitting(true);
+    if (isAuthenticated) {
+      logout();
+    }
     const res = await loginWithGoogle(credential, requestedPlan);
     setSubmitting(false);
     if (res.success) {
@@ -100,6 +103,9 @@ export default function Signup() {
     }
 
     setSubmitting(true);
+    if (isAuthenticated) {
+      logout();
+    }
     const res = await signup({
       name: name.trim(),
       email: email.trim(),

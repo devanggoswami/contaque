@@ -10,11 +10,12 @@ export default function VerifyEmail() {
   const urlStatus = searchParams.get('status');
   const urlError = searchParams.get('error');
 
-  const { isAuthenticated, verifyEmailWithToken } = useAuth();
+  const { user, token: authToken, isAuthenticated, verifyEmailWithToken, logout } = useAuth();
   const navigate = useNavigate();
 
   const [verifying, setVerifying] = useState(Boolean(token && !urlStatus && !urlError));
   const [success, setSuccess] = useState(urlStatus === 'success');
+  const [verifiedUser, setVerifiedUser] = useState(null);
   const [errorMessage, setErrorMessage] = useState(
     urlError === 'expired'
       ? 'This email verification link has expired. Please log in and request a new verification email.'
@@ -35,6 +36,7 @@ export default function VerifyEmail() {
         setVerifying(false);
         if (res.success) {
           setSuccess(true);
+          setVerifiedUser(res.user);
         } else {
           setErrorMessage(res.error || 'Failed to verify email. The link may have expired or is invalid.');
         }
@@ -85,10 +87,17 @@ export default function VerifyEmail() {
               <button
                 type="button"
                 className="signup-submit-btn"
-                onClick={() => navigate(isAuthenticated ? '/dashboard' : '/login', { replace: true })}
+                onClick={() => {
+                  if (verifiedUser && authToken) {
+                    navigate('/dashboard', { replace: true });
+                  } else {
+                    logout();
+                    navigate('/login', { replace: true });
+                  }
+                }}
                 style={{ width: '100%', justifyContent: 'center' }}
               >
-                <span>{isAuthenticated ? 'Go to Dashboard' : 'Sign in to ContaQue'}</span>
+                <span>{verifiedUser && authToken ? 'Go to Dashboard' : 'Sign in to ContaQue'}</span>
                 <ArrowRight size={16} />
               </button>
             </div>
@@ -107,10 +116,13 @@ export default function VerifyEmail() {
                 <button
                   type="button"
                   className="signup-submit-btn"
-                  onClick={() => navigate(isAuthenticated ? '/dashboard' : '/login', { replace: true })}
+                  onClick={() => {
+                    logout();
+                    navigate('/login', { replace: true });
+                  }}
                   style={{ width: '100%', justifyContent: 'center' }}
                 >
-                  <span>{isAuthenticated ? 'Return to Dashboard' : 'Go to Sign In'}</span>
+                  <span>Go to Sign In</span>
                   <ArrowRight size={16} />
                 </button>
               </div>
