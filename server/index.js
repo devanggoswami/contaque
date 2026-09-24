@@ -182,197 +182,34 @@ app.post('/api/auth/login', async (req, res) => {
           email: AUTH_USER,
           name: adminUser.name || ADMIN_NAME,
           role: 'Administrator',
+          isAdmin: true,
           country: adminUser.country || 'India',
           email_verified: true,
           plan: adminUser.plan || 'plus',
-          plan_expires_at: adminUser.plan_expires_at || null
+          plan_expires_at: adminUser.plan_expires_at || null,
+          wallet_balance: parseFloat(adminUser.wallet_balance || 44830),
+          wallet_balance_usd: parseFloat(adminUser.wallet_balance_usd || 0),
+          currency_preference: adminUser.currency_preference || null
         },
         expiresInHours: 48
       });
     }
 
-    // 2. Check Database users
-    const result = await db.query('SELECT * FROM users WHERE LOWER(email) = $1', [cleanEmail]);
-    if (result.rows.length > 0) {
-      const u = result.rows[0];
-      if (u.password_hash === password || u.auth_provider === 'google' || password === 'GOOGLE_AUTH') {
-        const token = generateAuthToken(cleanEmail);
-        const isUserAdmin = Boolean(u.role === 'admin' && AUTH_USER && u.email.toLowerCase() === AUTH_USER.toLowerCase());
-        return res.json({
-          success: true,
-          token,
-          user: {
-            id: u.id,
-            name: u.name,
-            email: u.email,
-            country: u.country || 'India',
-            email_verified: !!u.email_verified,
-            plan: u.plan || 'free',
-            plan_expires_at: u.plan_expires_at || null,
-            wallet_balance: parseFloat(u.wallet_balance ?? 50.00),
-            wallet_balance_usd: parseFloat(u.wallet_balance_usd ?? 0.00),
-            currency_preference: u.currency_preference || null,
-            auth_provider: u.auth_provider,
-            role: isUserAdmin ? 'Administrator' : 'User',
-            isAdmin: isUserAdmin,
-            referral_code: u.referral_code || null,
-            referral_claimed: !!u.referral_claimed,
-            referral_prompt_dismissed: !!u.referral_prompt_dismissed
-          },
-          expiresInHours: 48
-        });
-      }
-    }
-
-    return res.status(401).json({ error: 'Invalid email address or password.' });
+    // 2. Direct customer email/password login is cleanly disabled in favor of Google OAuth
+    return res.status(400).json({ 
+      error: 'Direct email/password login is disabled. Please sign in using Continue with Google.' 
+    });
   } catch (err) {
     console.error('Login error:', err);
     return res.status(500).json({ error: 'Server error during authentication.' });
   }
 });
 
-// POST /api/auth/signup (Email Signup with full details)
+// POST /api/auth/signup (Direct Email/Password signup disabled - Google OAuth is exclusive customer authentication)
 app.post('/api/auth/signup', async (req, res) => {
-  try {
-    const { name, email, password, country, auth_provider = 'local' } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
-    }
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanName = (name || cleanEmail.split('@')[0]).trim();
-    const cleanCountry = (country || 'India').trim();
-
-    // Check if user already exists
-    const existing = await db.query('SELECT * FROM users WHERE LOWER(email) = $1', [cleanEmail]);
-    if (existing.rows.length > 0) {
-      const u = existing.rows[0];
-      if (auth_provider === 'google') {
-        const token = generateAuthToken(cleanEmail);
-        return res.json({
-          success: true,
-          token,
-          user: {
-            id: u.id,
-            name: u.name,
-            email: u.email,
-            country: u.country || 'India',
-            email_verified: true,
-            plan: u.plan || 'free',
-            auth_provider: u.auth_provider
-          },
-          expiresInHours: 48
-        });
-      }
-      return res.status(400).json({ error: 'An account with this email already exists. Please log in.' });
-    }
-
-    // Security Authority: New signups are strictly initialized with 'free' plan and 'user' role (unless predefined Admin)
-    const isDefaultAdmin = Boolean(AUTH_USER && cleanEmail === AUTH_USER.toLowerCase());
-    const initialPlan = isDefaultAdmin ? 'plus' : 'free';
-    const initialRole = isDefaultAdmin ? 'admin' : 'user';
-    const isGoogle = auth_provider === 'google';
-
-    // Generate secure single-use email verification token for local email/password signups
-    let verificationToken = null;
-    let tokenExpiresAt = null;
-    if (!isGoogle) {
-      verificationToken = crypto.randomBytes(32).toString('hex');
-      tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-    }
-
-    // Generate unique branded referral code for new user
-    let newReferralCode = null;
-    try {
-      newReferralCode = db.generateReferralCode(cleanName);
-    } catch {
-      newReferralCode = 'CQ' + crypto.randomBytes(3).toString('hex').toUpperCase();
-    }
-
-    // Insert new user with ₹50 free credits, referral fields, and explicit database role
-    const insertResult = await db.query(
-      `INSERT INTO users (name, email, password_hash, country, auth_provider, email_verified, plan, wallet_balance, email_verification_token, email_verification_token_expires_at, referral_code, referral_claimed, referral_prompt_dismissed, role)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 50.00, $8, $9, $10, false, false, $11) RETURNING *`,
-      [cleanName, cleanEmail, password, cleanCountry, auth_provider, isGoogle, initialPlan, verificationToken, tokenExpiresAt, newReferralCode, initialRole]
-    );
-    const newUser = insertResult.rows[0];
-
-    // Record welcome bonus in wallet_ledger
-    try {
-      await db.query(
-        `INSERT INTO wallet_ledger (user_id, amount, balance_after, type, reason, reference_id, metadata)
-         VALUES ($1, 50.00, 50.00, 'CREDIT', 'Welcome Free Credits (₹50)', 'WELCOME_BONUS', '{"bonus": true}'::jsonb)`,
-        [newUser.id]
-      );
-    } catch (lErr) {
-      console.warn('Welcome bonus ledger insert warning:', lErr.message);
-    }
-
-    // Dispatch verification email asynchronously
-    if (!isGoogle && verificationToken) {
-      sendVerificationEmail({
-        toEmail: cleanEmail,
-        name: cleanName,
-        token: verificationToken,
-        origin: req.headers.origin || req.headers.referer
-      }).catch(mErr => console.warn('[Signup Verification Email Warning]:', mErr.message));
-    }
-
-    // Asynchronously sync new user to Google Sheets (Non-blocking / Fault-tolerant)
-    syncUserToGoogleSheets({
-      id: newUser.id,
-      name: newUser.name,
-      email: newUser.email,
-      created_at: newUser.created_at || new Date(),
-      auth_provider: newUser.auth_provider || auth_provider,
-      plan: newUser.plan || initialPlan,
-      email_verified: !!newUser.email_verified,
-      payment_status: (newUser.plan === 'plus' || newUser.plan === 'pack') ? 'ACTIVE' : 'FREE'
-    }).catch(gsErr => console.warn('[Google Sheets Sync Background Warning]:', gsErr.message));
-
-    const token = generateAuthToken(cleanEmail);
-    const isUserAdmin = Boolean(newUser.role === 'admin' && AUTH_USER && newUser.email.toLowerCase() === AUTH_USER.toLowerCase());
-
-    return res.json({
-      success: true,
-      token,
-      user: {
-        id: newUser.id,
-        name: newUser.name,
-        email: newUser.email,
-        country: newUser.country,
-        email_verified: !!newUser.email_verified,
-        plan: newUser.plan,
-        plan_expires_at: newUser.plan_expires_at || null,
-        wallet_balance: parseFloat(newUser.wallet_balance || 50.00),
-        wallet_balance_usd: parseFloat(newUser.wallet_balance_usd || 0.00),
-        currency_preference: newUser.currency_preference || null,
-        auth_provider: newUser.auth_provider,
-        role: isUserAdmin ? 'Administrator' : 'User',
-        isAdmin: isUserAdmin,
-        referral_code: newUser.referral_code || newReferralCode,
-        referral_claimed: false,
-        referral_prompt_dismissed: false
-      },
-      expiresInHours: 48
-    });
-  } catch (err) {
-    console.error('Signup error:', err);
-    // Fallback so user is not blocked, strictly on free plan and unverified for local
-    const token = generateAuthToken(req.body.email || 'user@contaques.pro');
-    return res.json({
-      success: true,
-      token,
-      user: {
-        name: req.body.name || 'Member',
-        email: req.body.email,
-        country: req.body.country || 'India',
-        email_verified: req.body.auth_provider === 'google',
-        plan: 'free',
-        auth_provider: req.body.auth_provider || 'local'
-      },
-      expiresInHours: 48
-    });
-  }
+  return res.status(400).json({ 
+    error: 'Direct email signup is disabled. Please use Continue with Google.' 
+  });
 });
 
 // POST /api/auth/google - Authenticate using verified Google Identity Services ID Token
@@ -521,145 +358,32 @@ app.post('/api/auth/google', async (req, res) => {
   }
 });
 
-// Helper for cryptographic token verification
-const handleVerifyEmailToken = async (tokenVal, res, isGetRedirect = false, reqOrigin = '') => {
-  try {
-    const token = (tokenVal || '').trim();
-    if (!token) {
-      if (isGetRedirect) {
-        const baseUrl = (reqOrigin || process.env.APP_URL || 'https://contaques.pro').replace(/\/+$/, '');
-        return res.redirect(`${baseUrl}/verify-email?error=missing_token`);
-      }
-      return res.status(400).json({ error: 'Verification token is required' });
-    }
-
-    const userRes = await db.query(
-      'SELECT id, name, email, role, email_verified, plan, wallet_balance, wallet_balance_usd, currency_preference, email_verification_token_expires_at FROM users WHERE email_verification_token = $1',
-      [token]
-    );
-
-    if (userRes.rows.length === 0) {
-      if (isGetRedirect) {
-        const baseUrl = (reqOrigin || process.env.APP_URL || 'https://contaques.pro').replace(/\/+$/, '');
-        return res.redirect(`${baseUrl}/verify-email?error=invalid_or_used`);
-      }
-      return res.status(400).json({ error: 'Invalid or already used verification token.' });
-    }
-
-    const u = userRes.rows[0];
-
-    // Check expiration timestamp
-    if (u.email_verification_token_expires_at && new Date(u.email_verification_token_expires_at) < new Date()) {
-      if (isGetRedirect) {
-        const baseUrl = (reqOrigin || process.env.APP_URL || 'https://contaques.pro').replace(/\/+$/, '');
-        return res.redirect(`${baseUrl}/verify-email?error=expired`);
-      }
-      return res.status(400).json({ error: 'Verification token has expired. Please request a new verification email.' });
-    }
-
-    // Mark email as verified and clear single-use token
-    await db.query(
-      'UPDATE users SET email_verified = true, email_verification_token = NULL, email_verification_token_expires_at = NULL WHERE id = $1',
-      [u.id]
-    );
-
-    if (isGetRedirect) {
-      const baseUrl = (reqOrigin || process.env.APP_URL || 'https://contaques.pro').replace(/\/+$/, '');
-      return res.redirect(`${baseUrl}/verify-email?status=success`);
-    }
-
-    const authToken = generateAuthToken(u.email);
-    const isUserAdmin = Boolean(u.role === 'admin' && AUTH_USER && u.email.toLowerCase() === AUTH_USER.toLowerCase());
-
-    return res.json({
-      success: true,
-      message: 'Email verified successfully!',
-      token: authToken,
-      user: {
-        id: u.id,
-        name: u.name,
-        email: u.email,
-        email_verified: true,
-        plan: u.plan || 'free',
-        wallet_balance: parseFloat(u.wallet_balance || 0),
-        wallet_balance_usd: parseFloat(u.wallet_balance_usd || 0),
-        currency_preference: u.currency_preference || null,
-        role: isUserAdmin ? 'Administrator' : 'User',
-        isAdmin: isUserAdmin
-      }
-    });
-  } catch (err) {
-    console.error('Email verify error:', err);
-    return res.status(500).json({ error: 'Internal server error during email verification' });
-  }
-};
-
-// GET /api/auth/verify-email?token=... (For clicking link directly in email)
-app.get('/api/auth/verify-email', async (req, res) => {
-  const token = req.query.token;
-  return handleVerifyEmailToken(token, res, true, req.headers.origin || req.headers.referer);
+// GET /api/auth/verify-email (Redirect any legacy verification link directly to login)
+app.get('/api/auth/verify-email', (req, res) => {
+  const baseUrl = (req.headers.origin || req.headers.referer || process.env.APP_URL || 'https://contaques.pro').replace(/\/+$/, '');
+  return res.redirect(`${baseUrl}/login`);
 });
 
-// POST /api/auth/verify-email-token (Called by Frontend /verify-email page)
-app.post('/api/auth/verify-email-token', async (req, res) => {
-  const token = req.body.token || req.query.token;
-  return handleVerifyEmailToken(token, res, false);
+// POST /api/auth/verify-email-token & POST /api/auth/verify-email (Email verification no longer required)
+app.post('/api/auth/verify-email-token', (req, res) => {
+  return res.json({ 
+    success: true, 
+    message: 'Google authentication auto-verifies your account. Email verification is no longer required.' 
+  });
 });
 
-// Insecure legacy endpoint: reject tokenless requests, enforce token requirement
-app.post('/api/auth/verify-email', async (req, res) => {
-  const token = req.body.token || req.query.token;
-  if (!token) {
-    return res.status(400).json({ 
-      error: 'Direct email verification without a token is disabled. Please use the verification link sent to your email.' 
-    });
-  }
-  return handleVerifyEmailToken(token, res, false);
+app.post('/api/auth/verify-email', (req, res) => {
+  return res.json({ 
+    success: true, 
+    message: 'Google authentication auto-verifies your account. Email verification is no longer required.' 
+  });
 });
 
-// POST /api/auth/resend-verification (Authenticated endpoint to re-generate & send verification email)
-app.post('/api/auth/resend-verification', async (req, res) => {
-  try {
-    const authHeader = req.headers.authorization || '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : (req.query.token || req.headers['x-access-token']);
-    const verified = verifyAuthToken(token);
-    if (!verified || !verified.email) {
-      return res.status(401).json({ error: 'Authentication required to resend verification email' });
-    }
-
-    const uRes = await db.query('SELECT id, name, email, email_verified FROM users WHERE LOWER(email) = $1', [verified.email.toLowerCase()]);
-    if (uRes.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const u = uRes.rows[0];
-    if (u.email_verified) {
-      return res.json({ success: true, message: 'Your email is already verified.' });
-    }
-
-    const newToken = crypto.randomBytes(32).toString('hex');
-    const newExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-    await db.query(
-      'UPDATE users SET email_verification_token = $1, email_verification_token_expires_at = $2 WHERE id = $3',
-      [newToken, newExpiry, u.id]
-    );
-
-    await sendVerificationEmail({
-      toEmail: u.email,
-      name: u.name,
-      token: newToken,
-      origin: req.headers.origin || req.headers.referer
-    });
-
-    return res.json({
-      success: true,
-      message: `Verification email sent to ${u.email}! Please check your inbox.`
-    });
-  } catch (err) {
-    console.error('Resend verification error:', err);
-    return res.status(500).json({ error: 'Failed to resend verification email' });
-  }
+// POST /api/auth/resend-verification (Disabled)
+app.post('/api/auth/resend-verification', (req, res) => {
+  return res.status(400).json({ 
+    error: 'Email verification is no longer required. Please sign in using Continue with Google.' 
+  });
 });
 
 // POST /api/create-order - Razorpay Standard Order Creation

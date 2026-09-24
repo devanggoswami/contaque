@@ -66,11 +66,9 @@ function AnimatedNumber({ value, duration = 650 }) {
 function Dashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user, resendVerificationEmail, walletBalance, refreshWallet, userPlan, planExpiresAt, updateUserPlan, authFetch } = useAuth();
+  const { user, walletBalance, refreshWallet, userPlan, planExpiresAt, updateUserPlan, authFetch } = useAuth();
   const effectiveExpiresAt = planExpiresAt || user?.plan_expires_at;
   const expiryInfo = getPlanExpiryInfo(userPlan, effectiveExpiresAt);
-  const [emailDismissed, setEmailDismissed] = useState(false);
-  const [resendStatus, setResendStatus] = useState({ sending: false, message: '', isError: false });
   const [showUpgradeCheckout, setShowUpgradeCheckout] = useState(false);
   const [selectedUpgradePlan, setSelectedUpgradePlan] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -115,24 +113,6 @@ function Dashboard() {
       checkReferralPrompt();
     }
   }, [user, searchParams, authFetch]);
-
-  const handleResendEmailClick = async () => {
-    setResendStatus({ sending: true, message: '', isError: false });
-    const res = await resendVerificationEmail();
-    if (res.success) {
-      setResendStatus({
-        sending: false,
-        message: 'Verification link sent! Check your inbox.',
-        isError: false
-      });
-    } else {
-      setResendStatus({
-        sending: false,
-        message: res.error || 'Failed to send verification email.',
-        isError: true
-      });
-    }
-  };
 
   const [stats, setStats] = useState({
     todayLeads: 0,
@@ -323,44 +303,6 @@ function Dashboard() {
 
   return (
     <div className="page-content animate-slide-up">
-      {/* Email Verification Alert Banner */}
-      {user && !user.email_verified && !emailDismissed && (
-        <div className="email-verify-alert-banner animate-fade-in">
-          <div className="alert-left-group">
-            <div className="alert-icon-circle">
-              <Mail size={16} />
-            </div>
-            <div className="alert-message-text">
-              <strong>Please confirm email in your inbox</strong>
-              <span>Verification link sent to <strong className="alert-email-highlight">{user.email}</strong>. Open your email and click the confirmation link to complete verification.</span>
-              {resendStatus.message && (
-                <div style={{ marginTop: '6px', fontSize: '12px', color: resendStatus.isError ? '#dc2626' : '#059669', fontWeight: 600 }}>
-                  {resendStatus.message}
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="alert-right-actions">
-            <button 
-              type="button" 
-              className="alert-confirm-btn"
-              onClick={handleResendEmailClick}
-              disabled={resendStatus.sending}
-            >
-              {resendStatus.sending ? 'Sending...' : 'Resend Verification Link'}
-            </button>
-            <button 
-              type="button" 
-              className="alert-dismiss-x"
-              onClick={() => setEmailDismissed(true)}
-              title="Dismiss"
-            >
-              <X size={14} />
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Top Header Bar */}
       <div className="dashboard-header-bar">
         <div className="dashboard-title-group">

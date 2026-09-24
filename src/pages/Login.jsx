@@ -1,49 +1,41 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Sparkles, Lock, Mail, Eye, EyeOff, ShieldCheck, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Sparkles, ShieldCheck, AlertCircle, ArrowRight, CheckCircle2, Zap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import GoogleAuthButton from '../components/GoogleAuthButton';
 import './Login.css';
 
 function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [searchParams] = useSearchParams();
 
-  useEffect(() => {
-    setEmail('');
-    setPassword('');
-  }, []);
-
-  const { user, isAuthenticated, login, loginWithGoogle } = useAuth();
+  const { user, isAuthenticated, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
+
+  // Capture referral code into session storage if present in URL
+  useEffect(() => {
+    const refCode = searchParams.get('ref');
+    if (refCode) {
+      sessionStorage.setItem('pending_referral_code', refCode.trim().toUpperCase());
+    }
+  }, [searchParams]);
 
   const handleGoogleSuccess = async (credential) => {
     setError('');
     setSubmitting(true);
-    const res = await loginWithGoogle(credential);
+    const requestedPlan = searchParams.get('plan') || 'free';
+    const res = await loginWithGoogle(credential, requestedPlan);
     setSubmitting(false);
+
     if (res.success) {
-      navigate('/dashboard', { replace: true });
+      if (requestedPlan && requestedPlan !== 'free') {
+        navigate(`/dashboard?upgrade=${requestedPlan}`, { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     } else {
       setError(res.error || 'Google authentication failed. Please try again.');
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSubmitting(true);
-
-    const res = await login(email.trim(), password);
-    setSubmitting(false);
-
-    if (res.success) {
-      navigate('/dashboard', { replace: true });
-    } else {
-      setError(res.error || 'Invalid credentials. Please check your email and password.');
     }
   };
 
@@ -51,9 +43,9 @@ function Login() {
     <div className="login-screen-container">
       <div className="login-visual-backdrop"></div>
 
-      <div className="login-card-wrapper animate-slide-up">
+      <div className="login-card-wrapper animate-slide-up" style={{ maxWidth: '440px', padding: '32px 28px' }}>
         {/* Brand Header */}
-        <div className="login-brand-header" onClick={() => navigate('/landing')} style={{ cursor: 'pointer' }}>
+        <div className="login-brand-header" onClick={() => navigate('/landing')} style={{ cursor: 'pointer', marginBottom: '20px' }}>
           <div className="login-brand-logo" style={{ overflow: 'hidden', padding: 0 }}>
             <img src="/contaque_logo.jpg" alt="Contaque" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
@@ -63,14 +55,14 @@ function Login() {
           </div>
         </div>
 
-        {/* Active Session Notice if a user is currently logged in */}
+        {/* Active Session Notice if user is already signed in */}
         {isAuthenticated && user && (
           <div style={{
             background: 'rgba(99, 102, 241, 0.08)',
             border: '1px solid rgba(99, 102, 241, 0.25)',
             borderRadius: '10px',
-            padding: '10px 14px',
-            marginBottom: '14px',
+            padding: '12px 14px',
+            marginBottom: '18px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -101,16 +93,12 @@ function Login() {
           </div>
         )}
 
-        <div className="login-welcome-box">
-          <h3>Welcome Back</h3>
-          <p>Sign in to manage lead pipelines, scraping jobs, and live cold campaigns.</p>
+        <div className="login-welcome-box" style={{ marginBottom: '24px' }}>
+          <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '6px' }}>Sign in to Contaque</h3>
+          <p style={{ fontSize: '13px', lineHeight: 1.5, color: '#64748B' }}>
+            Instant, secure access to your lead pipelines, scraping jobs, and live outreach campaigns.
+          </p>
         </div>
-
-        {/* Official Google Identity Services Sign In Button */}
-        <GoogleAuthButton 
-          onSuccess={handleGoogleSuccess} 
-          onError={setError} 
-        />
 
         {error && (
           <div className="login-error-alert" style={{
@@ -119,7 +107,7 @@ function Login() {
             color: '#f87171',
             borderRadius: '8px',
             padding: '10px 14px',
-            marginBottom: '16px',
+            marginBottom: '18px',
             fontSize: '13px',
             display: 'flex',
             alignItems: 'center',
@@ -130,120 +118,62 @@ function Login() {
           </div>
         )}
 
-        <div className="signup-divider-row" style={{ margin: '0 0 18px 0' }}>
-          <div className="signup-divider-line"></div>
-          <span className="signup-divider-text">or sign in with credentials</span>
-          <div className="signup-divider-line"></div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="login-form" autoComplete="off">
-          {/* Decoy fields to intercept aggressive browser credential autofill */}
-          <input type="text" name="decoy_username" style={{ display: 'none' }} tabIndex="-1" autoComplete="off" />
-          <input type="password" name="decoy_password" style={{ display: 'none' }} tabIndex="-1" autoComplete="off" />
-
-          <div className="form-group">
-            <label htmlFor="login_email">Work Email</label>
-            <div className="login-input-box">
-              <Mail size={18} className="input-leading-icon" />
-              <input 
-                type="email" 
-                id="login_email"
-                name="contaques_account_email"
-                placeholder="name@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="off"
-                data-lpignore="true"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="form-group">
-            <div className="label-row">
-              <label htmlFor="login_password">Password</label>
-            </div>
-            <div className="login-input-box">
-              <Lock size={18} className="input-leading-icon" />
-              <input 
-                type={showPassword ? "text" : "password"} 
-                id="login_password"
-                name="contaques_account_secret"
-                placeholder="••••••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="new-password"
-                data-lpignore="true"
-                required
-              />
-              <button 
-                type="button" 
-                className="password-toggle-btn"
-                onClick={() => setShowPassword(!showPassword)}
-                tabIndex="-1"
-              >
-                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-              </button>
-            </div>
-          </div>
-
-          <div className="login-meta-features">
-            <div className="meta-item">
-              <CheckCircle2 size={14} className="check-icon" />
-              <span>48-Hour Persistent Session Active</span>
-            </div>
-            <div className="meta-item">
-              <ShieldCheck size={14} className="check-icon" />
-              <span>Zero Backend Interruption Guarantee</span>
-            </div>
-          </div>
-
-          <button 
-            type="submit" 
-            className="login-submit-btn"
+        {/* Primary & Exclusive Authentication Method: Continue with Google */}
+        <div style={{ marginBottom: '22px' }}>
+          <GoogleAuthButton 
+            onSuccess={handleGoogleSuccess} 
+            onError={setError} 
             disabled={submitting}
-          >
-            {submitting ? (
-              <span>Authenticating...</span>
-            ) : (
-              <>
-                <span>Sign In to Dashboard</span>
-                <ArrowRight size={17} />
-              </>
-            )}
-          </button>
-
-          <p className="auth-consent-text">
-            By logging in, you agree to our{' '}
-            <span 
-              className="auth-consent-link" 
-              onClick={() => navigate('/terms')}
-            >
-              Terms &amp; Conditions
-            </span>{' '}
-            and{' '}
-            <span 
-              className="auth-consent-link" 
-              onClick={() => navigate('/privacy')}
-            >
-              Privacy Policy
-            </span>.
-          </p>
-        </form>
-
-        <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '13px', color: '#94a3b8' }}>
-          <span>Don't have an account?</span>
-          <span 
-            style={{ color: '#818cf8', fontWeight: 700, cursor: 'pointer', marginLeft: '6px' }}
-            onClick={() => navigate('/signup')}
-          >
-            Create an Account
-          </span>
+          />
         </div>
 
-        <div className="login-card-footer">
-          <ShieldCheck size={14} />
-          <span>Secured Login</span>
+        {/* Benefits & Trust Highlights */}
+        <div style={{
+          background: '#F8FAFC',
+          border: '1px solid #E2E8F0',
+          borderRadius: '10px',
+          padding: '14px 16px',
+          marginBottom: '20px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#334155' }}>
+            <CheckCircle2 size={15} style={{ color: '#10B981', flexShrink: 0 }} />
+            <span>Instant access with <strong>₹50 / $2 Welcome Credits</strong></span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#334155' }}>
+            <CheckCircle2 size={15} style={{ color: '#10B981', flexShrink: 0 }} />
+            <span><strong>48-Hour</strong> secure persistent session active</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#334155' }}>
+            <ShieldCheck size={15} style={{ color: '#2563EB', flexShrink: 0 }} />
+            <span>Enterprise Google OAuth 2.0 verification</span>
+          </div>
+        </div>
+
+        <p className="auth-consent-text" style={{ fontSize: '11.5px', color: '#94A3B8', textAlign: 'center', margin: '0 0 16px 0', lineHeight: 1.5 }}>
+          By continuing with Google, you agree to our{' '}
+          <span 
+            className="auth-consent-link" 
+            onClick={() => navigate('/terms')}
+            style={{ color: '#2563EB', cursor: 'pointer', textDecoration: 'underline' }}
+          >
+            Terms &amp; Conditions
+          </span>{' '}
+          and{' '}
+          <span 
+            className="auth-consent-link" 
+            onClick={() => navigate('/privacy')}
+            style={{ color: '#2563EB', cursor: 'pointer', textDecoration: 'underline' }}
+          >
+            Privacy Policy
+          </span>.
+        </p>
+
+        <div className="login-card-footer" style={{ borderTop: '1px solid #E2E8F0', paddingTop: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '11px', color: '#94A3B8' }}>
+          <ShieldCheck size={13} style={{ color: '#10B981' }} />
+          <span>Secured by Google Identity Services</span>
         </div>
       </div>
     </div>

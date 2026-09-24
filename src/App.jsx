@@ -10,7 +10,6 @@ import Inbox from './pages/Inbox';
 import Administrative from './pages/Administrative';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
-import VerifyEmail from './pages/VerifyEmail';
 import LandingPage from './pages/LandingPage';
 import ContactUs from './pages/ContactUs';
 import TermsAndConditions from './pages/TermsAndConditions';
@@ -77,7 +76,7 @@ function App() {
           {/* Public Auth Routes: Always accessible to allow multi-user login and signup */}
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
-          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/verify-email" element={<Navigate to="/login" replace />} />
 
           {/* Strictly Protected Application Routes */}
           <Route element={<ProtectedLayout />}>
