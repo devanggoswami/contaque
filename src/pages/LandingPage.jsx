@@ -482,7 +482,7 @@ function LandingPage() {
           </div>
 
           <h1 className="hero-headline">
-            Automate B2B Lead Extraction & <br />
+            Automate B2B Lead Extraction & <br className="hero-desktop-br" />
             <span className="gradient-text glow-animated">Cold Outreach on Autopilot</span>
           </h1>
 
