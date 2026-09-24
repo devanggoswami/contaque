@@ -2526,25 +2526,24 @@
     align-items: center;
   }
 
-  /* Centered Badge with Generous Margins */
+  /* Centered Badge with Generous Margins (No Truncation) */
   .hero-pill-badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    padding: 4px 10px;
+    padding: 5px 12px;
     margin: 0 auto 16px auto;
-    max-width: min(92%, 340px);
+    max-width: 95%;
     box-sizing: border-box;
     border-radius: 9999px;
   }
   .badge-text {
-    font-size: 8px;
+    font-size: 7.5px;
     letter-spacing: 0.3px;
     font-weight: 700;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow: visible;
   }
   .pulsing-beacon {
     width: 5px;
@@ -2580,29 +2579,35 @@
     box-sizing: border-box;
   }
 
-  /* Responsive Clean CTA Button (Not Stretched) */
+  /* Responsive Clean CTA Button (Single Line Guaranteed: 'Get Started Free ->') */
   .hero-cta-group {
     display: flex;
     justify-content: center;
     align-items: center;
-    max-width: 240px;
     width: 100%;
     margin: 0 auto 20px auto;
   }
   .hero-cta-btn,
   .hero-secondary-btn {
-    width: 100%;
-    max-width: 240px;
+    width: auto !important;
+    min-width: 200px;
+    max-width: 280px;
     display: inline-flex;
+    flex-direction: row;
     align-items: center;
     justify-content: center;
+    white-space: nowrap !important;
     gap: 8px;
-    padding: 11px 20px;
-    font-size: 13px;
+    padding: 12px 26px;
+    font-size: 13.5px;
     font-weight: 700;
     border-radius: 9999px;
     box-sizing: border-box;
     box-shadow: 0 4px 18px rgba(79, 70, 229, 0.4);
+  }
+  .hero-cta-btn span {
+    white-space: nowrap !important;
+    display: inline-block;
   }
   .hero-cta-btn svg {
     width: 15px;
@@ -2645,136 +2650,9 @@
     letter-spacing: -0.1px;
   }
 
-  /* Product Preview / Demo Mockup: Fully Contained, Zero Overflow */
+  /* On mobile hero, keep ONLY the clean hero content (badge, headline, subheadline, CTA, stats card) */
   .hero-mockup-wrapper {
-    margin: 28px auto 0 auto;
-    width: 100%;
-    max-width: min(100%, 460px);
-    box-sizing: border-box;
-    position: relative;
-    overflow: hidden;
-  }
-  .mockup-rotating-beam-frame {
-    border-radius: 14px;
-    padding: 1.5px;
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-  }
-  .mockup-window-frame {
-    border-radius: 13px;
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-    overflow: hidden;
-  }
-  .mockup-header-bar {
-    padding: 7px 10px;
-    gap: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    box-sizing: border-box;
-    width: 100%;
-  }
-  .window-dots {
-    gap: 4px;
-    flex-shrink: 0;
-  }
-  .window-dots .dot {
-    width: 7px;
-    height: 7px;
-  }
-  .mockup-search-preview {
-    font-size: 9.5px;
-    padding: 3px 8px;
-    max-width: 160px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    flex-shrink: 1;
-  }
-  .mockup-live-status {
     display: none !important;
-  }
-  .mockup-body {
-    padding: 10px;
-    width: 100%;
-    box-sizing: border-box;
-  }
-  .mockup-chips-row {
-    display: flex;
-    gap: 5px;
-    margin-bottom: 10px;
-    padding-bottom: 6px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    width: 100%;
-    box-sizing: border-box;
-  }
-  .mockup-chip-btn {
-    padding: 4px 9px;
-    font-size: 10px;
-    flex-shrink: 0;
-  }
-  .mockup-top-stats {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 8px 10px;
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: 8px;
-    width: 100%;
-    box-sizing: border-box;
-  }
-  .mockup-top-stats .m-stat {
-    width: 100%;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .mockup-top-stats .m-label {
-    font-size: 9.5px;
-    color: #94a3b8;
-  }
-  .mockup-top-stats .m-value {
-    font-size: 10.5px;
-  }
-  .mockup-trigger-btn {
-    width: 100%;
-    justify-content: center;
-    padding: 7px 12px;
-    margin-top: 2px;
-    font-size: 11px;
-    border-radius: 6px;
-    box-sizing: border-box;
-  }
-  .mockup-leads-table {
-    border-radius: 8px;
-    width: 100%;
-    max-width: 100%;
-    overflow: hidden;
-    box-sizing: border-box;
-  }
-  .m-table-header,
-  .m-table-row {
-    display: grid;
-    grid-template-columns: 1.3fr 1.1fr;
-    padding: 6px 8px;
-    font-size: 10.5px;
-    gap: 4px;
-    width: 100%;
-    box-sizing: border-box;
-  }
-  .m-table-header span:nth-child(n+3),
-  .m-table-row span:nth-child(n+3) {
-    display: none !important;
-  }
-  .m-table-row .bold-name,
-  .m-table-row .code-text {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 }
 
@@ -3074,11 +2952,17 @@
     margin-bottom: 15px;
   }
   .hero-cta-group {
-    max-width: 210px;
+    max-width: 260px;
+    width: 100%;
   }
   .hero-cta-btn {
-    padding: 9px 16px;
-    font-size: 12px;
+    width: auto !important;
+    padding: 11px 22px;
+    font-size: 12.5px;
+    white-space: nowrap !important;
+  }
+  .hero-cta-btn span {
+    white-space: nowrap !important;
   }
   .hero-social-proof-bar {
     max-width: 260px;
