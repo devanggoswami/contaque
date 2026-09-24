@@ -52,8 +52,9 @@ function Sidebar() {
     return () => clearInterval(interval);
   }, [authFetch]);
 
-  // Balance under 100 INR (~$2) is considered low
-  const isLowBalance = Number(walletBalance ?? 0) < 100;
+  const isUSD = user?.currency_preference === 'USD';
+  const currSymbol = isUSD ? '$' : '₹';
+  const isLowBalance = isUSD ? Number(walletBalance ?? 0) < 2 : Number(walletBalance ?? 0) < 100;
 
   return (
     <>
@@ -74,7 +75,7 @@ function Sidebar() {
           >
             <Wallet size={13} />
             <span className={isLowBalance ? 'low-balance-text' : ''}>
-              ₹{Number(walletBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              {currSymbol}{Number(walletBalance || 0).toLocaleString(isUSD ? 'en-US' : 'en-IN', { minimumFractionDigits: isUSD ? 2 : 0, maximumFractionDigits: isUSD ? 2 : 0 })}
             </span>
           </button>
           {activeJobsCount > 0 && (
@@ -226,7 +227,7 @@ function Sidebar() {
               <div className="wallet-card-text">
                 <span className="wallet-label">Prepaid Balance</span>
                 <span className={`wallet-value ${isLowBalance ? 'low-balance-alert' : ''}`}>
-                  ₹{Number(walletBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {currSymbol}{Number(walletBalance || 0).toLocaleString(isUSD ? 'en-US' : 'en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
             </div>

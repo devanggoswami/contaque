@@ -9,6 +9,8 @@
     "build": "vite build",
     "test:entitlements": "node server/test_entitlements.js",
     "test:campaign:safety": "node server/test_campaign_safety.js",
+    "test:usd": "node server/test_usd_payments.js",
+    "test:testmode": "node server/test_razorpay_test_mode.js",
     "lint": "oxlint",
     "preview": "vite preview"
   },

@@ -187,15 +187,16 @@ async function settleJob(userId, jobId, requestedCount, actualInsertedCount, rat
 /**
  * Atomically credit user's wallet balance (e.g. from Razorpay recharge)
  */
-async function creditBalance(userId, amount, reason, referenceId = null, metadata = {}) {
+async function creditBalance(userId, amount, reason, referenceId = null, metadata = {}, clientOverride = null) {
   const numericAmount = parseFloat(amount);
   if (isNaN(numericAmount) || numericAmount <= 0) {
     throw new Error('Invalid credit amount');
   }
 
-  const client = await pool.connect();
+  const client = clientOverride || await pool.connect();
+  const shouldManageTx = !clientOverride;
   try {
-    await client.query('BEGIN');
+    if (shouldManageTx) await client.query('BEGIN');
 
     // Lock user row
     const userRes = await client.query(
@@ -204,7 +205,7 @@ async function creditBalance(userId, amount, reason, referenceId = null, metadat
     );
 
     if (userRes.rows.length === 0) {
-      await client.query('ROLLBACK');
+      if (shouldManageTx) await client.query('ROLLBACK');
       return { success: false, reason: 'USER_NOT_FOUND' };
     }
 
@@ -231,7 +232,7 @@ async function creditBalance(userId, amount, reason, referenceId = null, metadat
       ]
     );
 
-    await client.query('COMMIT');
+    if (shouldManageTx) await client.query('COMMIT');
 
     return {
       success: true,
@@ -239,14 +240,84 @@ async function creditBalance(userId, amount, reason, referenceId = null, metadat
       creditedAmount: numericAmount,
       previousBalance: currentBalance,
       newBalance,
+      currency: 'INR',
       timestamp: ledgerRes.rows[0].created_at
     };
   } catch (err) {
-    await client.query('ROLLBACK');
+    if (shouldManageTx) await client.query('ROLLBACK');
     console.error(`[Wallet Credit Error] User ${userId}, Amount ${numericAmount}:`, err.message);
     throw err;
   } finally {
-    client.release();
+    if (shouldManageTx) client.release();
+  }
+}
+
+/**
+ * Atomically credit user's USD wallet balance (e.g. from Razorpay USD recharge)
+ * Never touches users.wallet_balance (INR)
+ */
+async function creditBalanceUSD(userId, amount, reason, referenceId = null, metadata = {}, clientOverride = null) {
+  const numericAmount = parseFloat(amount);
+  if (isNaN(numericAmount) || numericAmount <= 0) {
+    throw new Error('Invalid USD credit amount');
+  }
+
+  const client = clientOverride || await pool.connect();
+  const shouldManageTx = !clientOverride;
+  try {
+    if (shouldManageTx) await client.query('BEGIN');
+
+    // Lock user row
+    const userRes = await client.query(
+      'SELECT id, wallet_balance_usd, email FROM users WHERE id = $1 FOR UPDATE',
+      [userId]
+    );
+
+    if (userRes.rows.length === 0) {
+      if (shouldManageTx) await client.query('ROLLBACK');
+      return { success: false, reason: 'USER_NOT_FOUND' };
+    }
+
+    const currentBalance = parseFloat(userRes.rows[0].wallet_balance_usd || 0);
+    const newBalance = parseFloat((currentBalance + numericAmount).toFixed(2));
+
+    await client.query(
+      'UPDATE users SET wallet_balance_usd = $1 WHERE id = $2',
+      [newBalance, userId]
+    );
+
+    // Record Immutable CREDIT in USD Ledger
+    const ledgerRes = await client.query(
+      `INSERT INTO wallet_ledger_usd (user_id, amount, balance_after, type, reason, reference_id, metadata)
+       VALUES ($1, $2, $3, 'CREDIT', $4, $5, $6)
+       RETURNING id, created_at`,
+      [
+        userId,
+        numericAmount,
+        newBalance,
+        reason || 'USD Wallet recharge',
+        referenceId ? String(referenceId) : null,
+        JSON.stringify({ ...metadata, currency: 'USD' })
+      ]
+    );
+
+    if (shouldManageTx) await client.query('COMMIT');
+
+    return {
+      success: true,
+      ledgerId: ledgerRes.rows[0].id,
+      creditedAmount: numericAmount,
+      previousBalance: currentBalance,
+      newBalance,
+      currency: 'USD',
+      timestamp: ledgerRes.rows[0].created_at
+    };
+  } catch (err) {
+    if (shouldManageTx) await client.query('ROLLBACK');
+    console.error(`[Wallet Credit USD Error] User ${userId}, Amount ${numericAmount}:`, err.message);
+    throw err;
+  } finally {
+    if (shouldManageTx) client.release();
   }
 }
 
@@ -356,11 +427,303 @@ async function getBillingSummary(userId) {
   };
 }
 
+/**
+ * Atomically reserve/hold USD balance for a lead generation job
+ */
+async function reserveBalanceUSD(userId, amount, jobId = null, metadata = {}, clientOverride = null) {
+  const numericAmount = parseFloat(amount);
+  if (isNaN(numericAmount) || numericAmount <= 0) {
+    throw new Error('Invalid USD reservation amount');
+  }
+
+  const client = clientOverride || await pool.connect();
+  const shouldManageTx = !clientOverride;
+  try {
+    if (shouldManageTx) await client.query('BEGIN');
+
+    const userRes = await client.query(
+      'SELECT id, wallet_balance_usd, email, name, plan FROM users WHERE id = $1 FOR UPDATE',
+      [userId]
+    );
+
+    if (userRes.rows.length === 0) {
+      if (shouldManageTx) await client.query('ROLLBACK');
+      return { success: false, reason: 'USER_NOT_FOUND' };
+    }
+
+    const currentBalance = parseFloat(userRes.rows[0].wallet_balance_usd || 0);
+
+    if (currentBalance < numericAmount) {
+      if (shouldManageTx) await client.query('ROLLBACK');
+      return {
+        success: false,
+        reason: 'INSUFFICIENT_BALANCE',
+        currency: 'USD',
+        currentBalance,
+        required: numericAmount,
+        shortfall: parseFloat((numericAmount - currentBalance).toFixed(2))
+      };
+    }
+
+    const newBalance = parseFloat((currentBalance - numericAmount).toFixed(2));
+    await client.query(
+      'UPDATE users SET wallet_balance_usd = $1 WHERE id = $2',
+      [newBalance, userId]
+    );
+
+    const reason = metadata.reason || `Hold for ${metadata.requestedCount || ''} leads (${metadata.source || 'Scraper'})`;
+    const ledgerRes = await client.query(
+      `INSERT INTO wallet_ledger_usd (user_id, amount, balance_after, type, reason, reference_id, metadata)
+       VALUES ($1, $2, $3, 'DEBIT', $4, $5, $6)
+       RETURNING id, created_at`,
+      [
+        userId,
+        numericAmount,
+        newBalance,
+        reason,
+        jobId ? String(jobId) : null,
+        JSON.stringify({ ...metadata, currency: 'USD' })
+      ]
+    );
+
+    if (shouldManageTx) await client.query('COMMIT');
+
+    return {
+      success: true,
+      ledgerId: ledgerRes.rows[0].id,
+      previousBalance: currentBalance,
+      newBalance,
+      currency: 'USD',
+      reservedAmount: numericAmount,
+      timestamp: ledgerRes.rows[0].created_at
+    };
+  } catch (err) {
+    if (shouldManageTx) await client.query('ROLLBACK');
+    console.error(`[Wallet Reserve USD Error] User ${userId}, Amount ${numericAmount}:`, err.message);
+    throw err;
+  } finally {
+    if (shouldManageTx) client.release();
+  }
+}
+
+/**
+ * Settle a completed or failed lead job for USD
+ */
+async function settleJobUSD(userId, jobId, requestedCount, actualInsertedCount, ratePerLead, metadata = {}, clientOverride = null) {
+  const reqCount = parseInt(requestedCount, 10) || 0;
+  const actualCount = parseInt(actualInsertedCount, 10) || 0;
+  const rate = parseFloat(ratePerLead) || 0.02;
+
+  const estimatedCost = parseFloat((reqCount * rate).toFixed(2));
+  const actualCost = parseFloat((actualCount * rate).toFixed(2));
+  const unfulfilledCount = Math.max(0, reqCount - actualCount);
+  const refundAmount = parseFloat(Math.max(0, estimatedCost - actualCost).toFixed(2));
+
+  const client = clientOverride || await pool.connect();
+  const shouldManageTx = !clientOverride;
+  try {
+    if (shouldManageTx) await client.query('BEGIN');
+
+    const userRes = await client.query(
+      'SELECT id, wallet_balance_usd FROM users WHERE id = $1 FOR UPDATE',
+      [userId]
+    );
+
+    if (userRes.rows.length === 0) {
+      if (shouldManageTx) await client.query('ROLLBACK');
+      return { success: false, reason: 'USER_NOT_FOUND' };
+    }
+
+    const currentBalance = parseFloat(userRes.rows[0].wallet_balance_usd || 0);
+    let finalBalance = currentBalance;
+    let refundLedgerId = null;
+
+    if (refundAmount > 0) {
+      finalBalance = parseFloat((currentBalance + refundAmount).toFixed(2));
+      await client.query(
+        'UPDATE users SET wallet_balance_usd = $1 WHERE id = $2',
+        [finalBalance, userId]
+      );
+
+      const refundReason = `Refund for ${unfulfilledCount} unfulfilled/duplicate leads (Job #${jobId})`;
+      const refundMeta = {
+        ...metadata,
+        jobId,
+        requestedCount: reqCount,
+        actualInsertedCount: actualCount,
+        unfulfilledCount,
+        ratePerLead: rate,
+        estimatedCost,
+        actualCost,
+        refundAmount,
+        currency: 'USD'
+      };
+
+      const ledgerRes = await client.query(
+        `INSERT INTO wallet_ledger_usd (user_id, amount, balance_after, type, reason, reference_id, metadata)
+         VALUES ($1, $2, $3, 'REFUND', $4, $5, $6)
+         RETURNING id`,
+        [userId, refundAmount, finalBalance, refundReason, String(jobId), JSON.stringify(refundMeta)]
+      );
+      refundLedgerId = ledgerRes.rows[0].id;
+    }
+
+    if (jobId) {
+      await client.query(
+        `UPDATE jobs 
+         SET actual_cost = $1, 
+             refunded_amount = $2, 
+             billing_status = 'SETTLED' 
+         WHERE id = $3`,
+        [actualCost, refundAmount, jobId]
+      );
+    }
+
+    if (shouldManageTx) await client.query('COMMIT');
+
+    return {
+      success: true,
+      jobId,
+      currency: 'USD',
+      estimatedCost,
+      actualCost,
+      refundAmount,
+      unfulfilledCount,
+      refundLedgerId,
+      newBalance: finalBalance
+    };
+  } catch (err) {
+    if (shouldManageTx) await client.query('ROLLBACK');
+    console.error(`[Wallet Settle USD Error] Job #${jobId}, User ${userId}:`, err.message);
+    throw err;
+  } finally {
+    if (shouldManageTx) client.release();
+  }
+}
+
+/**
+ * Get live USD wallet balance
+ */
+async function getWalletBalanceUSD(userId, clientOverride = null) {
+  const runner = clientOverride || pool;
+  const res = await runner.query(
+    'SELECT id, name, email, plan, wallet_balance_usd, currency_preference FROM users WHERE id = $1',
+    [userId]
+  );
+  if (res.rows.length === 0) return null;
+  const row = res.rows[0];
+  return {
+    userId: row.id,
+    name: row.name,
+    email: row.email,
+    plan: row.plan || 'free',
+    balance: parseFloat(row.wallet_balance_usd || 0),
+    currency: 'USD'
+  };
+}
+
+/**
+ * Get immutable transaction ledger history for USD
+ */
+async function getLedgerHistoryUSD(userId, limit = 50, offset = 0, clientOverride = null) {
+  const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200);
+  const safeOffset = Math.max(parseInt(offset, 10) || 0, 0);
+  const runner = clientOverride || pool;
+
+  const [countRes, rowsRes] = await Promise.all([
+    runner.query('SELECT COUNT(*) FROM wallet_ledger_usd WHERE user_id = $1', [userId]),
+    runner.query(
+      `SELECT id, amount, balance_after, type, reason, reference_id, metadata, created_at
+       FROM wallet_ledger_usd 
+       WHERE user_id = $1 
+       ORDER BY created_at DESC 
+       LIMIT $2 OFFSET $3`,
+      [userId, safeLimit, safeOffset]
+    )
+  ]);
+
+  return {
+    total: parseInt(countRes.rows[0].count, 10),
+    limit: safeLimit,
+    offset: safeOffset,
+    currency: 'USD',
+    transactions: rowsRes.rows.map(row => ({
+      id: row.id,
+      amount: parseFloat(row.amount),
+      balanceAfter: parseFloat(row.balance_after),
+      type: row.type,
+      reason: row.reason,
+      referenceId: row.reference_id,
+      metadata: row.metadata,
+      createdAt: row.created_at
+    }))
+  };
+}
+
+/**
+ * Aggregate Billing Summary for USD
+ */
+async function getBillingSummaryUSD(userId, clientOverride = null) {
+  const runner = clientOverride || pool;
+  const [ledgerAgg, jobsAgg, activeHolds] = await Promise.all([
+    runner.query(
+      `SELECT 
+         COALESCE(SUM(CASE WHEN type = 'CREDIT' THEN amount ELSE 0 END), 0) as total_credited,
+         COALESCE(SUM(CASE WHEN type = 'DEBIT' THEN amount ELSE 0 END), 0) as total_debited,
+         COALESCE(SUM(CASE WHEN type = 'REFUND' THEN amount ELSE 0 END), 0) as total_refunded,
+         COUNT(*) as total_transactions
+       FROM wallet_ledger_usd 
+       WHERE user_id = $1`,
+      [userId]
+    ),
+    runner.query(
+      `SELECT 
+         COUNT(*) as total_jobs,
+         COALESCE(SUM(fetched_count), 0) as total_unique_leads,
+         COALESCE(SUM(actual_cost), 0) as net_spent_on_leads
+       FROM jobs 
+       WHERE user_id = $1`,
+      [userId]
+    ),
+    runner.query(
+      `SELECT COALESCE(SUM(estimated_cost), 0) as active_hold_amount
+       FROM jobs 
+       WHERE user_id = $1 AND status = 'IN_PROGRESS'`,
+      [userId]
+    )
+  ]);
+
+  const totalCredited = parseFloat(ledgerAgg.rows[0].total_credited);
+  const totalDebited = parseFloat(ledgerAgg.rows[0].total_debited);
+  const totalRefunded = parseFloat(ledgerAgg.rows[0].total_refunded);
+  const netSpent = parseFloat((totalDebited - totalRefunded).toFixed(2));
+  const totalUniqueLeads = parseInt(jobsAgg.rows[0].total_unique_leads, 10);
+
+  return {
+    currency: 'USD',
+    totalCredited,
+    totalDebited,
+    totalRefunded,
+    netSpent,
+    totalUniqueLeads,
+    totalJobs: parseInt(jobsAgg.rows[0].total_jobs, 10),
+    activeHoldAmount: parseFloat(activeHolds.rows[0].active_hold_amount),
+    averageCostPerLead: totalUniqueLeads > 0 ? parseFloat((netSpent / totalUniqueLeads).toFixed(2)) : 0.00
+  };
+}
+
 module.exports = {
   reserveBalance,
   settleJob,
   creditBalance,
   getWalletBalance,
   getLedgerHistory,
-  getBillingSummary
+  getBillingSummary,
+  // Parallel USD Wallet Methods
+  creditBalanceUSD,
+  reserveBalanceUSD,
+  settleJobUSD,
+  getWalletBalanceUSD,
+  getLedgerHistoryUSD,
+  getBillingSummaryUSD
 };

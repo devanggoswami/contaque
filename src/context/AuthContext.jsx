@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { API_URL } from '../config';
+import CurrencySelectionModal from '../components/CurrencySelectionModal';
 
 const AuthContext = createContext(null);
 
@@ -51,23 +52,28 @@ export const AuthProvider = ({ children }) => {
         const data = await parseResponseJson(res);
         setWallet({
           balance: Number(data.balance || 0),
-          currency: data.currency || 'INR',
+          balance_inr: Number(data.balance_inr !== undefined ? data.balance_inr : (data.currency === 'INR' ? data.balance : 0)),
+          balance_usd: Number(data.balance_usd !== undefined ? data.balance_usd : (data.currency === 'USD' ? data.balance : 0)),
+          currency: data.currency || (data.currency_preference === 'USD' ? 'USD' : 'INR'),
+          currency_preference: data.currency_preference || null,
           plan: data.plan || 'free',
           plan_expires_at: data.plan_expires_at || null,
           rates: data.rates || {},
           allTiers: data.allTiers || {}
         });
 
-        // Always sync user object plan and plan_expires_at with server wallet plan
+        // Always sync user object plan, plan_expires_at, and currency_preference with server wallet plan
         setUser(prev => {
           if (!prev) return prev;
           const planChanged = data.plan && prev.plan !== data.plan;
           const expiryChanged = data.plan_expires_at !== undefined && prev.plan_expires_at !== data.plan_expires_at;
-          if (planChanged || expiryChanged) {
+          const currencyChanged = data.currency_preference !== undefined && prev.currency_preference !== data.currency_preference;
+          if (planChanged || expiryChanged || currencyChanged) {
             const upd = { 
               ...prev, 
               ...(data.plan ? { plan: data.plan } : {}),
-              ...(data.plan_expires_at !== undefined ? { plan_expires_at: data.plan_expires_at } : {})
+              ...(data.plan_expires_at !== undefined ? { plan_expires_at: data.plan_expires_at } : {}),
+              ...(data.currency_preference !== undefined ? { currency_preference: data.currency_preference } : {})
             };
             try {
               const s = localStorage.getItem(STORAGE_KEY);
@@ -335,6 +341,37 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const setCurrencyPreference = async (curr) => {
+    try {
+      const res = await authFetch(`${API_URL}/api/user/currency-preference`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currency_preference: curr })
+      });
+      const data = await parseResponseJson(res);
+      if (res.ok) {
+        setUser(prev => {
+          if (!prev) return prev;
+          const upd = { ...prev, currency_preference: curr };
+          try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+              const session = JSON.parse(saved);
+              session.user = upd;
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+            }
+          } catch {}
+          return upd;
+        });
+        await refreshWallet();
+        return { success: true };
+      }
+      return { success: false, error: data.error };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem(STORAGE_KEY);
     setUser(null);
@@ -354,12 +391,17 @@ export const AuthProvider = ({ children }) => {
       token, 
       wallet,
       walletBalance: wallet.balance,
+      walletBalanceUSD: wallet.balance_usd || 0,
+      walletBalanceINR: wallet.balance_inr || wallet.balance || 0,
+      walletCurrency: wallet.currency || 'INR',
+      currencyPreference: user?.currency_preference || wallet.currency || 'INR',
       walletRates: wallet.rates,
       walletAllTiers: wallet.allTiers,
       userPlan: wallet.plan || (user && user.plan) || 'free',
       planExpiresAt: wallet.plan_expires_at || (user && user.plan_expires_at) || null,
       updateUserPlan,
       refreshWallet,
+      setCurrencyPreference,
       authFetch,
       isAuthenticated: Boolean(user && token), 
       loading, 
@@ -372,6 +414,9 @@ export const AuthProvider = ({ children }) => {
       logout 
     }}>
       {children}
+      <CurrencySelectionModal 
+        isOpen={Boolean(!loading && user && token && !user.currency_preference)} 
+      />
     </AuthContext.Provider>
   );
 };

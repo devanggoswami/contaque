@@ -60,7 +60,9 @@ router.post('/create-order', async (req, res) => {
     }
 
     const requestedPlan = req.body.planId || req.body.plan;
-    const planConfig = getPlanConfig(requestedPlan);
+    const requestedCurrency = (req.body.currency || (user.currency_preference === 'USD' ? 'USD' : 'INR')).toString().toUpperCase().trim();
+    const isUSD = requestedCurrency === 'USD';
+    const planConfig = getPlanConfig(requestedPlan, isUSD ? 'USD' : 'INR');
 
     if (!planConfig) {
       return res.status(400).json({ 
@@ -78,22 +80,23 @@ router.post('/create-order', async (req, res) => {
     }
 
     // Authoritative Server-Side Amount (NEVER trust frontend amount)
-    const amountInPaise = planConfig.pricePaise;
-    const receiptId = `rcpt_p_${user.id}_${Date.now()}`;
+    const amountInSmallestUnit = planConfig.amountInSmallestUnit;
+    const receiptId = `rcpt_p_${isUSD ? 'usd_' : ''}${user.id}_${Date.now()}`;
     const billingDetails = req.body.billingDetails || {};
 
     const basicAuth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
     const orderResponse = await axios.post(
       'https://api.razorpay.com/v1/orders',
       {
-        amount: amountInPaise,
-        currency: 'INR',
+        amount: amountInSmallestUnit,
+        currency: isUSD ? 'USD' : 'INR',
         receipt: receiptId,
         notes: {
           purpose: 'PLAN_UPGRADE',
           planId: planConfig.id,
           userId: String(user.id),
-          email: user.email
+          email: user.email,
+          currency: isUSD ? 'USD' : 'INR'
         }
       },
       {
@@ -112,13 +115,14 @@ router.post('/create-order', async (req, res) => {
         order_id, user_id, purpose, plan_id, amount_paise, currency, 
         receipt, status, billing_details, metadata
       )
-      VALUES ($1, $2, 'PLAN_UPGRADE', $3, $4, 'INR', $5, 'CREATED', $6, $7)
+      VALUES ($1, $2, 'PLAN_UPGRADE', $3, $4, $5, $6, 'CREATED', $7, $8)
       ON CONFLICT (order_id) DO NOTHING
     `, [
       razorpayOrder.id,
       user.id,
       planConfig.id,
-      amountInPaise,
+      amountInSmallestUnit,
+      isUSD ? 'USD' : 'INR',
       receiptId,
       JSON.stringify(billingDetails),
       JSON.stringify({ notes: razorpayOrder.notes })
@@ -129,9 +133,11 @@ router.post('/create-order', async (req, res) => {
       orderId: razorpayOrder.id,
       planId: planConfig.id,
       planName: planConfig.name,
-      amountPaise: amountInPaise,
+      amountPaise: amountInSmallestUnit,
       amountINR: planConfig.priceINR,
-      currency: 'INR',
+      amountUSD: planConfig.priceUSD,
+      amount: isUSD ? planConfig.priceUSD : planConfig.priceINR,
+      currency: isUSD ? 'USD' : 'INR',
       keyId,
       user: {
         name: user.name,
@@ -266,10 +272,12 @@ router.post('/verify', async (req, res) => {
       });
     }
 
-    // Verify paid amount matches expected plan amount in paise
+    // Verify paid amount matches expected plan amount in smallest unit
+    const isUSD = (storedOrder.currency || 'INR').toUpperCase() === 'USD';
+    const symbol = isUSD ? '$' : '₹';
     if (paymentData.amount !== storedOrder.amount_paise) {
       return res.status(400).json({ 
-        error: `Paid amount (₹${paymentData.amount / 100}) does not match expected plan price (₹${storedOrder.amount_paise / 100})` 
+        error: `Paid amount (${symbol}${(paymentData.amount / 100).toFixed(2)}) does not match expected plan price (${symbol}${(storedOrder.amount_paise / 100).toFixed(2)})` 
       });
     }
 
@@ -281,7 +289,8 @@ router.post('/verify', async (req, res) => {
       orderId: razorpay_order_id,
       paymentId: razorpay_payment_id,
       billingDetails: effectiveBilling,
-      amountPaid: storedOrder.amount_paise / 100
+      amountPaid: storedOrder.amount_paise / 100,
+      currency: isUSD ? 'USD' : 'INR'
     });
 
     // Update payment_order with signature

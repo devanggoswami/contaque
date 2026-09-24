@@ -38,13 +38,21 @@ async function ensureUserReferralCode(userId, name, dbRunner = pool) {
   return code;
 }
 
+let isDbInitialized = false;
+let initDbPromise = null;
+
 // Auto-initialize schema on Postgres database
 const initDb = async () => {
-  try {
-    const client = await pool.connect();
-    console.log(`[PostgreSQL ${isNeon ? 'Neon Cloud' : 'Localhost'}] Connected successfully.`);
+  if (isDbInitialized) return;
+  if (initDbPromise) return initDbPromise;
 
-    await client.query(`
+  initDbPromise = (async () => {
+    let client;
+    try {
+      client = await pool.connect();
+      console.log(`[PostgreSQL ${isNeon ? 'Neon Cloud' : 'Localhost'}] Connected successfully.`);
+
+      await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255),
@@ -193,6 +201,29 @@ const initDb = async () => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
+      -- USD Parallel Wallet & Ledger Schema (Additive & Non-Breaking)
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_balance_usd NUMERIC(12, 2) DEFAULT 0.00;
+      ALTER TABLE users ALTER COLUMN wallet_balance_usd SET DEFAULT 0.00;
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_wallet_balance_usd_positive') THEN
+          ALTER TABLE users ADD CONSTRAINT chk_wallet_balance_usd_positive CHECK (wallet_balance_usd >= 0);
+        END IF;
+      END $$;
+
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS currency_preference VARCHAR(10) DEFAULT NULL;
+
+      CREATE TABLE IF NOT EXISTS wallet_ledger_usd (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        amount NUMERIC(12, 2) NOT NULL,
+        balance_after NUMERIC(12, 2) NOT NULL,
+        type VARCHAR(20) NOT NULL CHECK (type IN ('CREDIT', 'DEBIT', 'REFUND')),
+        reason VARCHAR(255) NOT NULL,
+        reference_id VARCHAR(255),
+        metadata JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
       CREATE TABLE IF NOT EXISTS idempotency_keys (
         key VARCHAR(255) PRIMARY KEY,
         user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -237,6 +268,11 @@ const initDb = async () => {
       CREATE INDEX IF NOT EXISTS idx_wallet_ledger_created ON wallet_ledger(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_wallet_ledger_type ON wallet_ledger(type);
       CREATE INDEX IF NOT EXISTS idx_wallet_ledger_ref ON wallet_ledger(reference_id);
+      CREATE INDEX IF NOT EXISTS idx_wallet_ledger_usd_user ON wallet_ledger_usd(user_id);
+      CREATE INDEX IF NOT EXISTS idx_wallet_ledger_usd_created ON wallet_ledger_usd(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_wallet_ledger_usd_type ON wallet_ledger_usd(type);
+      CREATE INDEX IF NOT EXISTS idx_wallet_ledger_usd_ref ON wallet_ledger_usd(reference_id);
+      CREATE INDEX IF NOT EXISTS idx_users_currency_preference ON users(currency_preference);
       CREATE INDEX IF NOT EXISTS idx_queue_status ON email_queue(status);
       CREATE INDEX IF NOT EXISTS idx_email_queue_campaign_status ON email_queue(campaign_id, status);
       CREATE INDEX IF NOT EXISTS idx_inbox_threads_account ON inbox_threads(account_id);
@@ -403,11 +439,18 @@ const initDb = async () => {
       console.log(`[Security Audit]: Reset ${unverifiedPlanReset.rowCount} unverified user(s) with unverified paid plans back to 'free'.`);
     }
 
-    client.release();
+    isDbInitialized = true;
     console.log(`[PostgreSQL ${isNeon ? 'Neon Cloud' : 'Localhost'}] Schema verified & all tables ready.`);
   } catch (err) {
     console.error(`[PostgreSQL ${isNeon ? 'Neon Cloud' : 'Localhost'}] Database initialization error:`, err.message);
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
+  })();
+
+  return initDbPromise;
 };
 
 initDb();

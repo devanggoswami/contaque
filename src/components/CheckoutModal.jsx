@@ -27,7 +27,7 @@ export default function CheckoutModal({
 
   if (!isOpen || !plan) return null;
 
-  const displayPrice = currency === 'INR' ? plan.price?.INR || '₹299' : plan.price?.USD || '$3.12';
+  const displayPrice = currency === 'INR' ? plan.price?.INR || '₹299' : plan.price?.USD || (plan.id === 'pack' ? '$5' : '$3');
 
   const handlePay = (e) => {
     e.preventDefault();

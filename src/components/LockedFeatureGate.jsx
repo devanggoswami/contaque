@@ -13,7 +13,7 @@ const PLUS_PLAN_DATA = {
   name: 'Value Plus',
   icon: '⚡',
   badge: 'POPULAR CHOICE',
-  price: { INR: '₹299', USD: '$3.50' },
+  price: { INR: '₹299', USD: '$3' },
   period: '/month',
   tagline: 'Email campaigns + 1 Gmail account (400 emails/day)'
 };
@@ -24,13 +24,14 @@ export default function LockedFeatureGate({
   featureIcon: FeatureIcon = Mail,
   bullets = [
     'Email Campaigns enabled with automated background queue',
-    'Value Plus (₹299/mo): 1 Gmail sending account · 400 emails/day',
-    'Value Pack (₹499/mo): Up to 4 Gmail sending accounts · 1,600 emails/day',
+    'Value Plus: 1 Gmail sending account · 400 emails/day',
+    'Value Pack: Up to 4 Gmail sending accounts · 1,600 emails/day',
     'Rich personalized template editor with dynamic lead data merge'
   ],
   children
 }) {
   const { userPlan, user, refreshWallet } = useAuth();
+  const isUSD = user?.currency_preference === 'USD';
   const [showCheckout, setShowCheckout] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
 
@@ -90,7 +91,7 @@ export default function LockedFeatureGate({
           {/* Pricing & Value Summary */}
           <div className="locked-pricing-strip">
             <div className="pricing-left">
-              <span className="price-tag">Starting ₹299</span>
+              <span className="price-tag">{isUSD ? 'Starting $3' : 'Starting ₹299'}</span>
               <span className="price-period">/month</span>
             </div>
             <div className="pricing-right">
@@ -107,7 +108,7 @@ export default function LockedFeatureGate({
               id="btn-upgrade-plan-gate"
             >
               <Zap size={18} />
-              <span>Upgrade to Value Plus (₹299)</span>
+              <span>{isUSD ? 'Upgrade to Value Plus ($3)' : 'Upgrade to Value Plus (₹299)'}</span>
               <ArrowRight size={18} />
             </button>
 
@@ -134,7 +135,7 @@ export default function LockedFeatureGate({
           isOpen={showCheckout}
           onClose={() => setShowCheckout(false)}
           plan={PLUS_PLAN_DATA}
-          currency="INR"
+          currency={user?.currency_preference || 'INR'}
           onSuccess={async () => {
             setShowCheckout(false);
             if (refreshWallet) await refreshWallet();

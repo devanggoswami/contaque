@@ -45,11 +45,11 @@ const PLAN_DEFINITIONS = {
     icon: Sparkles,
     color: '#6366f1',
     leadRates: [
-      { engine: 'Google Business Index', rate: '₹1.10' },
-      { engine: 'Social / Custom Discovery', rate: '₹0.80' },
-      { engine: 'WhatsApp Radar', rate: '₹0.80' },
-      { engine: 'Yellow Pages', rate: '₹0.50' },
-      { engine: 'Yandex', rate: '₹1.50' },
+      { engine: 'Google Business Index', rate: '₹1.10', rateUSD: '$0.011' },
+      { engine: 'Social / Custom Discovery', rate: '₹0.80', rateUSD: '$0.008' },
+      { engine: 'WhatsApp Radar', rate: '₹0.80', rateUSD: '$0.008' },
+      { engine: 'Yellow Pages', rate: '₹0.50', rateUSD: '$0.005' },
+      { engine: 'Yandex', rate: '₹1.50', rateUSD: '$0.016' },
     ],
     featuresTitle: '🔥 Features Included:',
     features: [
@@ -69,11 +69,11 @@ const PLAN_DEFINITIONS = {
     icon: Crown,
     color: '#0ea5e9',
     leadRates: [
-      { engine: 'Google Business Index', rate: '₹1.00' },
-      { engine: 'Social / Custom Discovery', rate: '₹0.80' },
-      { engine: 'WhatsApp Radar', rate: '₹0.80' },
-      { engine: 'Yellow Pages', rate: '₹0.50' },
-      { engine: 'Yandex', rate: '₹1.30' },
+      { engine: 'Google Business Index', rate: '₹1.00', rateUSD: '$0.010' },
+      { engine: 'Social / Custom Discovery', rate: '₹0.80', rateUSD: '$0.008' },
+      { engine: 'WhatsApp Radar', rate: '₹0.80', rateUSD: '$0.008' },
+      { engine: 'Yellow Pages', rate: '₹0.50', rateUSD: '$0.005' },
+      { engine: 'Yandex', rate: '₹1.30', rateUSD: '$0.014' },
     ],
     featuresTitle: '🔥 Includes Outreach Suite:',
     features: [
@@ -153,6 +153,8 @@ const FEATURE_CATALOG = [
 
 export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
   const { user, wallet, walletBalance, updateUserPlan, refreshWallet } = useAuth();
+  const isUSD = user?.currency_preference === 'USD' || wallet?.currency === 'USD';
+  const currSymbol = isUSD ? '$' : '₹';
   const [activeTab, setActiveTab] = useState('RATES_FEATURES'); // 'RATES_FEATURES' | 'ALL_PLANS'
   const [changingPlan, setChangingPlan] = useState(false);
   const [switchFeedback, setSwitchFeedback] = useState(null);
@@ -203,7 +205,7 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
         name: PLAN_DEFINITIONS[targetPlanKey].name,
         price: {
           INR: PLAN_DEFINITIONS[targetPlanKey].price,
-          USD: targetPlanKey === 'plus' ? '$5.20' : '$3.12'
+          USD: targetPlanKey === 'pack' ? '$5' : '$3'
         }
       });
     }
@@ -246,7 +248,7 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
           <div className="status-stat-item">
             <span className="stat-label">Wallet Balance</span>
             <strong className="stat-val balance">
-              ₹{Number(walletBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {currSymbol}{Number(walletBalance || 0).toLocaleString(isUSD ? 'en-US' : 'en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </strong>
           </div>
           <div className="status-stat-item">
@@ -258,7 +260,7 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
           </div>
           <div className="status-stat-item">
             <span className="stat-label">Maps Rate</span>
-            <strong className="stat-val rate">₹{Number(rates.maps || 1.00).toFixed(2)}/lead</strong>
+            <strong className="stat-val rate">{currSymbol}{Number(rates.maps || (isUSD ? 0.012 : 1.00)).toFixed(isUSD ? 3 : 2)}/lead</strong>
           </div>
           <div className="status-stat-item">
             <span className="stat-label">Security & Session</span>
@@ -306,10 +308,10 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
                     <span className="engine-title">Google Business Index</span>
                   </div>
                   <div className="engine-price-tag">
-                    <span className="price-main">₹{Number(rates.maps || (currentPlanKey === 'plus' ? 1.00 : currentPlanKey === 'pack' ? 1.10 : 1.30)).toFixed(2)}</span>
+                    <span className="price-main">{currSymbol}{Number(rates.maps || (isUSD ? (currentPlanKey === 'plus' ? 0.011 : currentPlanKey === 'pack' ? 0.010 : 0.014) : (currentPlanKey === 'plus' ? 1.10 : currentPlanKey === 'pack' ? 1.00 : 1.30))).toFixed(isUSD ? 3 : 2)}</span>
                     <span className="price-unit">/ lead</span>
                   </div>
-                  <span className="engine-std-compare">Standard: ₹1.30</span>
+                  <span className="engine-std-compare">Standard: {isUSD ? '$0.014' : '₹1.30'}</span>
                 </div>
 
                 <div className="engine-rate-tile">
@@ -318,10 +320,10 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
                     <span className="engine-title">Social / Custom Discovery</span>
                   </div>
                   <div className="engine-price-tag">
-                    <span className="price-main">₹{Number(rates.dorking || (currentPlanKey === 'free' ? 1.00 : 0.80)).toFixed(2)}</span>
+                    <span className="price-main">{currSymbol}{Number(rates.dorking || (isUSD ? (currentPlanKey === 'free' ? 0.010 : 0.008) : (currentPlanKey === 'free' ? 1.00 : 0.80))).toFixed(isUSD ? 3 : 2)}</span>
                     <span className="price-unit">/ lead</span>
                   </div>
-                  <span className="engine-std-compare">Standard: ₹1.00</span>
+                  <span className="engine-std-compare">Standard: {isUSD ? '$0.010' : '₹1.00'}</span>
                 </div>
 
                 <div className="engine-rate-tile">
@@ -330,10 +332,10 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
                     <span className="engine-title">WhatsApp Radar</span>
                   </div>
                   <div className="engine-price-tag">
-                    <span className="price-main">₹{Number(rates.whatsapp || (currentPlanKey === 'free' ? 1.00 : 0.80)).toFixed(2)}</span>
+                    <span className="price-main">{currSymbol}{Number(rates.whatsapp || (isUSD ? (currentPlanKey === 'free' ? 0.010 : 0.008) : (currentPlanKey === 'free' ? 1.00 : 0.80))).toFixed(isUSD ? 3 : 2)}</span>
                     <span className="price-unit">/ lead</span>
                   </div>
-                  <span className="engine-std-compare">Standard: ₹1.00</span>
+                  <span className="engine-std-compare">Standard: {isUSD ? '$0.010' : '₹1.00'}</span>
                 </div>
 
                 <div className="engine-rate-tile">
@@ -342,10 +344,10 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
                     <span className="engine-title">Yellow Pages</span>
                   </div>
                   <div className="engine-price-tag">
-                    <span className="price-main">₹{Number(rates.yellowpages || (currentPlanKey === 'free' ? 0.60 : 0.50)).toFixed(2)}</span>
+                    <span className="price-main">{currSymbol}{Number(rates.yellowpages || (isUSD ? (currentPlanKey === 'free' ? 0.006 : 0.005) : (currentPlanKey === 'free' ? 0.60 : 0.50))).toFixed(isUSD ? 3 : 2)}</span>
                     <span className="price-unit">/ lead</span>
                   </div>
-                  <span className="engine-std-compare">Standard: ₹0.60</span>
+                  <span className="engine-std-compare">Standard: {isUSD ? '$0.006' : '₹0.60'}</span>
                 </div>
 
                 <div className="engine-rate-tile">
@@ -354,10 +356,10 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
                     <span className="engine-title">Yandex</span>
                   </div>
                   <div className="engine-price-tag">
-                    <span className="price-main">₹{Number(rates.yandex || (currentPlanKey === 'plus' ? 1.30 : currentPlanKey === 'pack' ? 1.50 : 1.70)).toFixed(2)}</span>
+                    <span className="price-main">{currSymbol}{Number(rates.yandex || (isUSD ? (currentPlanKey === 'plus' ? 0.016 : currentPlanKey === 'pack' ? 0.014 : 0.018) : (currentPlanKey === 'plus' ? 1.50 : currentPlanKey === 'pack' ? 1.30 : 1.70))).toFixed(isUSD ? 3 : 2)}</span>
                     <span className="price-unit">/ lead</span>
                   </div>
-                  <span className="engine-std-compare">Standard: ₹1.70</span>
+                  <span className="engine-std-compare">Standard: {isUSD ? '$0.018' : '₹1.70'}</span>
                 </div>
               </div>
             </div>
@@ -450,7 +452,7 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
                     {/* Price and Tagline */}
                     <div className="plan-price-block">
                       <div className="plan-price-number-row">
-                        <span className="price-big">{p.price}</span>
+                        <span className="price-big">{isUSD ? (p.id === 'pack' ? '$5' : p.id === 'plus' ? '$3' : '$0') : p.price}</span>
                         <span className="price-sub">{p.period}</span>
                       </div>
                       <p className="plan-tagline-p">• {p.tagline}</p>
@@ -466,7 +468,7 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
                         {p.leadRates.map((r, rIdx) => (
                           <div key={rIdx} className="plan-rate-row">
                             <span className="plan-engine-name">{r.engine}</span>
-                            <strong className="plan-engine-cost">{r.rate}</strong>
+                            <strong className="plan-engine-cost">{isUSD ? (r.rateUSD || r.rate) : r.rate}</strong>
                           </div>
                         ))}
                       </div>
@@ -554,7 +556,7 @@ export default function UserProfileModal({ isOpen, onClose, onOpenRecharge }) {
           isOpen={!!checkoutPlan}
           onClose={() => setCheckoutPlan(null)}
           plan={checkoutPlan}
-          currency="INR"
+          currency={user?.currency_preference || 'INR'}
           onSuccess={async () => {
             setCheckoutPlan(null);
             if (refreshWallet) await refreshWallet();

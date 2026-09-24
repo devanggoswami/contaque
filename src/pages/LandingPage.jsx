@@ -283,7 +283,7 @@ const PRICING_PLANS = [
     badge: 'MOST POPULAR',
     price: {
       INR: '₹299',
-      USD: '$3.50'
+      USD: '$3'
     },
     period: '/month',
     tagline: 'Email outreach + discounted rates',
@@ -313,7 +313,7 @@ const PRICING_PLANS = [
     badge: 'ALL-IN-ONE POWERHOUSE',
     price: {
       INR: '₹499',
-      USD: '$5.50'
+      USD: '$5'
     },
     period: '/month',
     tagline: 'Lowest rates + multi-account outreach',

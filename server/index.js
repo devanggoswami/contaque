@@ -73,8 +73,8 @@ const walletRouter = require('./routes/wallet');
 const plansRouter = require('./routes/plans');
 const adminRouter = require('./routes/admin');
 const referralRouter = require('./routes/referral');
-const { reserveBalance, settleJob } = require('./utils/wallet');
-const { getRatePerLead } = require('./utils/pricing');
+const { reserveBalance, settleJob, reserveBalanceUSD, settleJobUSD } = require('./utils/wallet');
+const { getRatePerLead, getRatePerLeadUSD } = require('./utils/pricing');
 
 app.use('/api/campaigns', campaignsRouter);
 app.use('/api/inbox', inboxRouter);
@@ -210,6 +210,8 @@ app.post('/api/auth/login', async (req, res) => {
             plan: u.plan || 'free',
             plan_expires_at: u.plan_expires_at || null,
             wallet_balance: parseFloat(u.wallet_balance ?? 50.00),
+            wallet_balance_usd: parseFloat(u.wallet_balance_usd ?? 0.00),
+            currency_preference: u.currency_preference || null,
             auth_provider: u.auth_provider,
             role: isUserAdmin ? 'Administrator' : 'User',
             isAdmin: isUserAdmin,
@@ -340,6 +342,8 @@ app.post('/api/auth/signup', async (req, res) => {
         plan: newUser.plan,
         plan_expires_at: newUser.plan_expires_at || null,
         wallet_balance: parseFloat(newUser.wallet_balance || 50.00),
+        wallet_balance_usd: parseFloat(newUser.wallet_balance_usd || 0.00),
+        currency_preference: newUser.currency_preference || null,
         auth_provider: newUser.auth_provider,
         referral_code: newUser.referral_code || newReferralCode,
         referral_claimed: false,
@@ -447,8 +451,8 @@ app.post('/api/auth/google', async (req, res) => {
       }
 
       const insertRes = await db.query(
-        `INSERT INTO users (name, email, password_hash, country, auth_provider, email_verified, plan, wallet_balance, referral_code, referral_claimed, referral_prompt_dismissed)
-         VALUES ($1, $2, 'GOOGLE_OAUTH', 'India', 'google', true, $3, $4, $5, false, false)
+        `INSERT INTO users (name, email, password_hash, country, auth_provider, email_verified, plan, wallet_balance, wallet_balance_usd, currency_preference, referral_code, referral_claimed, referral_prompt_dismissed)
+         VALUES ($1, $2, 'GOOGLE_OAUTH', 'India', 'google', true, $3, $4, 0.00, NULL, $5, false, false)
          RETURNING *`,
         [cleanName, cleanEmail, userPlan, initialBalance, googleReferralCode]
       );
@@ -494,6 +498,8 @@ app.post('/api/auth/google', async (req, res) => {
         plan: userRow.plan || 'free',
         plan_expires_at: userRow.plan_expires_at || null,
         wallet_balance: parseFloat(userRow.wallet_balance || 0),
+        wallet_balance_usd: parseFloat(userRow.wallet_balance_usd || 0),
+        currency_preference: userRow.currency_preference || null,
         auth_provider: 'google',
         role: isUserAdmin ? 'Administrator' : 'User',
         isAdmin: isUserAdmin,
@@ -755,6 +761,44 @@ app.post('/api/checkout/razorpay', (req, res) => {
   });
 });
 
+// POST /api/user/currency-preference - One-time mandatory user currency preference (INR or USD)
+app.post('/api/user/currency-preference', async (req, res) => {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : (req.query.token || req.headers['x-access-token']);
+  const verified = verifyAuthToken(token);
+  if (!verified || !verified.email) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  const { currency } = req.body;
+  const cleanCurrency = (currency || '').toString().trim().toUpperCase();
+  if (cleanCurrency !== 'INR' && cleanCurrency !== 'USD') {
+    return res.status(400).json({ error: 'Invalid currency. Must be either INR or USD.' });
+  }
+
+  try {
+    const updateRes = await db.query(
+      `UPDATE users 
+       SET currency_preference = $1 
+       WHERE LOWER(email) = $2 
+       RETURNING id, name, email, currency_preference, wallet_balance, wallet_balance_usd`,
+      [cleanCurrency, verified.email.toLowerCase()]
+    );
+    if (updateRes.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const updatedUser = updateRes.rows[0];
+    return res.json({
+      success: true,
+      currency_preference: updatedUser.currency_preference,
+      message: `Currency preference set to ${updatedUser.currency_preference}`
+    });
+  } catch (err) {
+    console.error('Failed to set currency preference:', err);
+    return res.status(500).json({ error: 'Failed to save currency preference' });
+  }
+});
+
 // GET /api/auth/verify - Verify session token against database
 app.get('/api/auth/verify', async (req, res) => {
   const authHeader = req.headers.authorization || '';
@@ -766,7 +810,7 @@ app.get('/api/auth/verify', async (req, res) => {
 
   try {
     const uRes = await db.query(
-      'SELECT id, name, email, plan, plan_expires_at, plan_started_at, wallet_balance, email_verified, country, referral_code, referral_claimed, referral_prompt_dismissed FROM users WHERE LOWER(email) = $1',
+      'SELECT id, name, email, plan, plan_expires_at, plan_started_at, wallet_balance, wallet_balance_usd, currency_preference, email_verified, country, referral_code, referral_claimed, referral_prompt_dismissed FROM users WHERE LOWER(email) = $1',
       [verified.email.toLowerCase()]
     );
     if (uRes.rows.length === 0) {
@@ -788,6 +832,8 @@ app.get('/api/auth/verify', async (req, res) => {
         plan_expires_at: u.plan_expires_at || null,
         plan_started_at: u.plan_started_at || null,
         wallet_balance: parseFloat(u.wallet_balance || 0),
+        wallet_balance_usd: parseFloat(u.wallet_balance_usd || 0),
+        currency_preference: u.currency_preference || null,
         email_verified: !!u.email_verified,
         country: u.country || 'India',
         role: isUserAdmin ? 'Administrator' : 'User',
@@ -1166,26 +1212,40 @@ app.post('/api/generate', requireAuth, async (req, res) => {
     }
     const jobUserId = user.id;
 
+    const isUSD = (user.currency_preference || '').toString().toUpperCase() === 'USD';
+    const currency = isUSD ? 'USD' : 'INR';
+
     // 1. Calculate per-lead pricing & estimated hold
-    const ratePerLead = getRatePerLead(source, user.plan);
+    const ratePerLead = isUSD ? getRatePerLeadUSD(source, user.plan) : getRatePerLead(source, user.plan);
     const estimatedCost = parseFloat((requestedCount * ratePerLead).toFixed(2));
 
     // 2. Atomically reserve/hold balance with PostgreSQL row-lock
-    const reserveResult = await reserveBalance(user.id, estimatedCost, null, {
-      source,
-      location,
-      keyword,
-      requestedCount,
-      ratePerLead
-    });
+    const reserveResult = isUSD 
+      ? await reserveBalanceUSD(user.id, estimatedCost, null, {
+          source,
+          location,
+          keyword,
+          requestedCount,
+          ratePerLead,
+          currency: 'USD'
+        })
+      : await reserveBalance(user.id, estimatedCost, null, {
+          source,
+          location,
+          keyword,
+          requestedCount,
+          ratePerLead,
+          currency: 'INR'
+        });
 
     if (!reserveResult.success) {
       if (reserveResult.reason === 'INSUFFICIENT_BALANCE') {
         return res.status(402).json({
-          error: 'Insufficient wallet balance. Please recharge your wallet to launch this job.',
+          error: `Insufficient ${currency} wallet balance. Please recharge your wallet to launch this job.`,
           currentBalance: reserveResult.currentBalance,
           required: reserveResult.required,
           shortfall: reserveResult.shortfall,
+          currency,
           ratePerLead,
           requestedCount
         });
@@ -1203,13 +1263,15 @@ app.post('/api/generate', requireAuth, async (req, res) => {
 
     // Attach reference_id to the DEBIT ledger record
     if (reserveResult.ledgerId) {
-      await db.query('UPDATE wallet_ledger SET reference_id = $1 WHERE id = $2', [String(jobId), reserveResult.ledgerId]).catch(() => {});
+      const ledgerTable = isUSD ? 'wallet_ledger_usd' : 'wallet_ledger';
+      await db.query(`UPDATE ${ledgerTable} SET reference_id = $1 WHERE id = $2`, [String(jobId), reserveResult.ledgerId]).catch(() => {});
     }
 
     // Send initial response so UI doesn't hang
     res.json({ 
       message: "Job started", 
       jobId,
+      currency,
       ratePerLead,
       estimatedCost,
       remainingBalance: reserveResult.newBalance
@@ -1937,11 +1999,21 @@ app.post('/api/generate', requireAuth, async (req, res) => {
         console.log(`Job ${jobId} [${source}] completed: ${finalCount} leads.`);
 
         // Settle job billing: strictly charge unique leads and automatically refund unfulfilled/duplicate slots
-        await settleJob(user.id, jobId, requestedCount, finalCount, ratePerLead, {
-          source,
-          keyword,
-          location
-        });
+        if (isUSD) {
+          await settleJobUSD(user.id, jobId, requestedCount, finalCount, ratePerLead, {
+            source,
+            keyword,
+            location,
+            currency: 'USD'
+          });
+        } else {
+          await settleJob(user.id, jobId, requestedCount, finalCount, ratePerLead, {
+            source,
+            keyword,
+            location,
+            currency: 'INR'
+          });
+        }
         console.log(`Job ${jobId} [${source}] billing settled.`);
 
       } catch (error) {
@@ -1952,10 +2024,19 @@ app.post('/api/generate', requireAuth, async (req, res) => {
         try {
           const countRes = await db.query(`SELECT COUNT(*) FROM leads WHERE job_id = $1`, [jobId]);
           const partialCount = parseInt(countRes.rows[0]?.count, 10) || 0;
-          await settleJob(user.id, jobId, requestedCount, partialCount, ratePerLead, {
-            failed: true,
-            error: error.message
-          });
+          if (isUSD) {
+            await settleJobUSD(user.id, jobId, requestedCount, partialCount, ratePerLead, {
+              failed: true,
+              error: error.message,
+              currency: 'USD'
+            });
+          } else {
+            await settleJob(user.id, jobId, requestedCount, partialCount, ratePerLead, {
+              failed: true,
+              error: error.message,
+              currency: 'INR'
+            });
+          }
         } catch (settleErr) {
           console.error(`Error settling failed job ${jobId}:`, settleErr.message);
         }

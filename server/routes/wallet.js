@@ -12,9 +12,13 @@ const {
   getWalletBalance, 
   creditBalance, 
   getLedgerHistory, 
-  getBillingSummary 
+  getBillingSummary,
+  getWalletBalanceUSD,
+  creditBalanceUSD,
+  getLedgerHistoryUSD,
+  getBillingSummaryUSD
 } = require('../utils/wallet');
-const { getEngineRates, normalizePlanKey } = require('../utils/pricing');
+const { getEngineRates, getEngineRatesUSD, normalizePlanKey } = require('../utils/pricing');
 const { syncUserToGoogleSheets } = require('../utils/googleSheetsService');
 
 // Helper to extract JWT token from request
@@ -79,6 +83,9 @@ router.get('/balance', async (req, res) => {
     let wallet = await getWalletBalance(user.id);
     let currentBalance = wallet ? wallet.balance : 0.00;
 
+    let walletUSD = await getWalletBalanceUSD(user.id);
+    let currentBalanceUSD = walletUSD ? walletUSD.balance : 0.00;
+
     // Bulletproof welcome credit: if any non-admin user has 0 or null balance, grant ₹50 welcome credit
     const adminEmail = (process.env.ADMIN_USER || process.env.AUTH_USER || '').trim().toLowerCase();
     const isUserAdmin = adminEmail && user.email.toLowerCase() === adminEmail;
@@ -94,12 +101,17 @@ router.get('/balance', async (req, res) => {
       }
     }
 
-    const engineRates = getEngineRates(user.plan || 'free');
+    const userPref = (user.currency_preference || '').toUpperCase();
+    const isUSD = userPref === 'USD';
+    const engineRates = isUSD ? getEngineRatesUSD(user.plan || 'free') : getEngineRates(user.plan || 'free');
 
     return res.json({
       success: true,
-      balance: currentBalance,
-      currency: 'INR',
+      balance: isUSD ? currentBalanceUSD : currentBalance,
+      balance_inr: currentBalance,
+      balance_usd: currentBalanceUSD,
+      currency_preference: user.currency_preference || null,
+      currency: isUSD ? 'USD' : 'INR',
       plan: normalizePlanKey(user.plan),
       plan_expires_at: user.plan_expires_at || null,
       rates: engineRates.rates,
@@ -121,10 +133,21 @@ router.get('/transactions', async (req, res) => {
 
     const limit = parseInt(req.query.limit, 10) || 50;
     const offset = parseInt(req.query.offset, 10) || 0;
+    const requestedCurrency = (req.query.currency || user.currency_preference || 'INR').toString().toUpperCase();
+
+    if (requestedCurrency === 'USD') {
+      const ledgerUSD = await getLedgerHistoryUSD(user.id, limit, offset);
+      return res.json({
+        success: true,
+        currency: 'USD',
+        ...ledgerUSD
+      });
+    }
 
     const ledger = await getLedgerHistory(user.id, limit, offset);
     return res.json({
       success: true,
+      currency: 'INR',
       ...ledger
     });
   } catch (err) {
@@ -140,6 +163,20 @@ router.get('/billing-summary', async (req, res) => {
   try {
     const user = await resolveUser(req);
     if (!user) return res.status(401).json({ error: 'User not authenticated' });
+
+    const requestedCurrency = (req.query.currency || user.currency_preference || 'INR').toString().toUpperCase();
+
+    if (requestedCurrency === 'USD') {
+      const summaryUSD = await getBillingSummaryUSD(user.id);
+      const balanceInfoUSD = await getWalletBalanceUSD(user.id);
+      return res.json({
+        success: true,
+        balance: balanceInfoUSD ? balanceInfoUSD.balance : 0.00,
+        currency: 'USD',
+        plan: normalizePlanKey(user.plan),
+        ...summaryUSD
+      });
+    }
 
     const summary = await getBillingSummary(user.id);
     const balanceInfo = await getWalletBalance(user.id);
@@ -165,9 +202,18 @@ router.post('/recharge/create-order', async (req, res) => {
     const user = await resolveUser(req);
     if (!user) return res.status(401).json({ error: 'User not authenticated' });
 
+    const requestedCurrency = (req.body.currency || (user.currency_preference === 'USD' ? 'USD' : 'INR')).toString().toUpperCase().trim();
+    const isUSD = requestedCurrency === 'USD';
     const amount = parseFloat(req.body.amount);
-    if (isNaN(amount) || amount < 10) {
-      return res.status(400).json({ error: 'Minimum recharge amount is ₹10.00' });
+
+    if (isUSD) {
+      if (isNaN(amount) || amount < 1.00) {
+        return res.status(400).json({ error: 'Minimum recharge amount is $1.00' });
+      }
+    } else {
+      if (isNaN(amount) || amount < 10) {
+        return res.status(400).json({ error: 'Minimum recharge amount is ₹10.00' });
+      }
     }
 
     const keyId = (process.env.RAZORPAY_KEY_ID || '').trim();
@@ -179,20 +225,21 @@ router.post('/recharge/create-order', async (req, res) => {
       });
     }
 
-    const amountInPaise = Math.round(amount * 100);
-    const receiptId = `rcpt_w_${user.id}_${Date.now()}`;
+    const amountInSmallestUnit = Math.round(amount * 100);
+    const receiptId = isUSD ? `rcpt_w_usd_${user.id}_${Date.now()}` : `rcpt_w_${user.id}_${Date.now()}`;
 
     const basicAuth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
     const orderResponse = await axios.post(
       'https://api.razorpay.com/v1/orders',
       {
-        amount: amountInPaise,
-        currency: 'INR',
+        amount: amountInSmallestUnit,
+        currency: isUSD ? 'USD' : 'INR',
         receipt: receiptId,
         notes: {
           userId: String(user.id),
           email: user.email,
-          purpose: 'WALLET_TOPUP'
+          purpose: 'WALLET_TOPUP',
+          currency: isUSD ? 'USD' : 'INR'
         }
       },
       {
@@ -209,21 +256,22 @@ router.post('/recharge/create-order', async (req, res) => {
         order_id, user_id, purpose, plan_id, amount_paise, currency, 
         receipt, status, metadata
       )
-      VALUES ($1, $2, 'WALLET_TOPUP', NULL, $3, 'INR', $4, 'CREATED', $5)
+      VALUES ($1, $2, 'WALLET_TOPUP', NULL, $3, $4, $5, 'CREATED', $6)
       ON CONFLICT (order_id) DO NOTHING
     `, [
       orderResponse.data.id,
       user.id,
-      amountInPaise,
+      amountInSmallestUnit,
+      isUSD ? 'USD' : 'INR',
       receiptId,
-      JSON.stringify({ notes: { userId: String(user.id), purpose: 'WALLET_TOPUP' } })
+      JSON.stringify({ notes: { userId: String(user.id), purpose: 'WALLET_TOPUP', currency: isUSD ? 'USD' : 'INR' } })
     ]);
 
     return res.json({
       success: true,
       orderId: orderResponse.data.id,
       amount,
-      currency: 'INR',
+      currency: isUSD ? 'USD' : 'INR',
       keyId,
       user: {
         name: user.name,
@@ -258,6 +306,7 @@ router.post('/recharge/verify', async (req, res) => {
     }
 
     // Verify order in payment_orders if exists
+    let orderCurrency = 'INR';
     const orderCheck = await db.query('SELECT * FROM payment_orders WHERE order_id = $1', [razorpay_order_id]);
     if (orderCheck.rows.length > 0) {
       const ord = orderCheck.rows[0];
@@ -267,7 +316,12 @@ router.post('/recharge/verify', async (req, res) => {
       if (ord.purpose !== 'WALLET_TOPUP') {
         return res.status(400).json({ error: 'Invalid order purpose: expected WALLET_TOPUP' });
       }
+      if (ord.currency) {
+        orderCurrency = ord.currency.toUpperCase();
+      }
     }
+
+    const isUSD = orderCurrency === 'USD';
 
     // Cryptographic HMAC SHA256 Verification (Constant-Time Safe)
     const generatedSignature = crypto
@@ -283,15 +337,16 @@ router.post('/recharge/verify', async (req, res) => {
     }
 
     // Idempotency check: Ensure this payment ID was not already credited
-    const idempotencyKey = `recharge_${razorpay_payment_id}`;
+    const idempotencyKey = isUSD ? `recharge_usd_${razorpay_payment_id}` : `recharge_${razorpay_payment_id}`;
     const existing = await db.query('SELECT * FROM idempotency_keys WHERE key = $1', [idempotencyKey]);
     if (existing.rows.length > 0) {
-      const balance = await getWalletBalance(user.id);
+      const balanceInfo = isUSD ? await getWalletBalanceUSD(user.id) : await getWalletBalance(user.id);
       return res.json({
         success: true,
         alreadyProcessed: true,
+        currency: isUSD ? 'USD' : 'INR',
         message: 'Payment already processed and credited',
-        balance: balance ? balance.balance : 0
+        balance: balanceInfo ? balanceInfo.balance : 0
       });
     }
 
@@ -300,24 +355,40 @@ router.post('/recharge/verify', async (req, res) => {
       return res.status(400).json({ error: 'Invalid recharge credit amount' });
     }
 
-    // Atomic credit with row lock
-    const creditResult = await creditBalance(
-      user.id,
-      rechargeAmount,
-      `Prepaid recharge via Razorpay (Ref: ${razorpay_payment_id})`,
-      razorpay_payment_id,
-      {
-        orderId: razorpay_order_id,
-        paymentId: razorpay_payment_id
-      }
-    );
+    // Atomic credit with row lock - STRICT ISOLATION BY CURRENCY
+    let creditResult;
+    if (isUSD) {
+      creditResult = await creditBalanceUSD(
+        user.id,
+        rechargeAmount,
+        `Prepaid recharge via Razorpay USD (Ref: ${razorpay_payment_id})`,
+        razorpay_payment_id,
+        {
+          orderId: razorpay_order_id,
+          paymentId: razorpay_payment_id,
+          currency: 'USD'
+        }
+      );
+    } else {
+      creditResult = await creditBalance(
+        user.id,
+        rechargeAmount,
+        `Prepaid recharge via Razorpay (Ref: ${razorpay_payment_id})`,
+        razorpay_payment_id,
+        {
+          orderId: razorpay_order_id,
+          paymentId: razorpay_payment_id,
+          currency: 'INR'
+        }
+      );
+    }
 
     // Save Idempotency record
     await db.query(
       `INSERT INTO idempotency_keys (key, user_id, action, response_data)
-       VALUES ($1, $2, 'WALLET_RECHARGE', $3)
+       VALUES ($1, $2, $3, $4)
        ON CONFLICT (key) DO NOTHING`,
-      [idempotencyKey, user.id, JSON.stringify(creditResult)]
+      [idempotencyKey, user.id, isUSD ? 'WALLET_RECHARGE_USD' : 'WALLET_RECHARGE', JSON.stringify(creditResult)]
     );
 
     // Update payment_orders status
@@ -339,9 +410,11 @@ router.post('/recharge/verify', async (req, res) => {
       payment_status: 'ACTIVE'
     }).catch(gsErr => console.warn('[Google Sheets Sync Wallet Recharge Warning]:', gsErr.message));
 
+    const symbol = isUSD ? '$' : '₹';
     return res.json({
       success: true,
-      message: `Successfully credited ₹${rechargeAmount.toFixed(2)} to your wallet!`,
+      currency: isUSD ? 'USD' : 'INR',
+      message: `Successfully credited ${symbol}${rechargeAmount.toFixed(2)} to your ${isUSD ? 'USD ' : ''}wallet!`,
       newBalance: creditResult.newBalance,
       transactionId: creditResult.ledgerId
     });
@@ -394,7 +467,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
       const paymentId = payment?.id;
       const orderId = payment?.order_id || orderEntity?.id;
       const amountPaise = payment?.amount || orderEntity?.amount;
-      const amountINR = amountPaise ? amountPaise / 100 : 0;
+      const amountParsed = amountPaise ? amountPaise / 100 : 0;
 
       // Check order in payment_orders
       let storedOrder = null;
@@ -407,6 +480,8 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
 
       const purpose = storedOrder?.purpose || payment?.notes?.purpose || orderEntity?.notes?.purpose || 'WALLET_TOPUP';
       const userId = storedOrder?.user_id || payment?.notes?.userId || orderEntity?.notes?.userId;
+      const orderCurrency = (storedOrder?.currency || payment?.currency || orderEntity?.currency || 'INR').toUpperCase();
+      const isUSD = orderCurrency === 'USD';
 
       if (purpose === 'PLAN_UPGRADE') {
         // ACTIVATE SUBSCRIPTION PLAN - NEVER TOUCH WALLET
@@ -419,28 +494,46 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
             orderId,
             paymentId,
             billingDetails: storedOrder?.billing_details || {},
-            amountPaid: amountINR
+            amountPaid: amountParsed,
+            currency: isUSD ? 'USD' : 'INR'
           });
         }
       } else if (purpose === 'WALLET_TOPUP') {
-        // CREDIT PREPAID WALLET
-        if (paymentId && userId && amountINR > 0) {
-          const idempotencyKey = `recharge_${paymentId}`;
+        // CREDIT PREPAID WALLET - ISOLATED BY CURRENCY
+        if (paymentId && userId && amountParsed > 0) {
+          const idempotencyKey = isUSD ? `recharge_usd_${paymentId}` : `recharge_${paymentId}`;
           const existing = await db.query('SELECT * FROM idempotency_keys WHERE key = $1', [idempotencyKey]);
           if (existing.rows.length === 0) {
-            const creditRes = await creditBalance(
-              parseInt(userId, 10),
-              amountINR,
-              `Webhook credit for payment ${paymentId}`,
-              paymentId,
-              { event: eventType, webhook: true }
-            );
-            await db.query(
-              `INSERT INTO idempotency_keys (key, user_id, action, response_data)
-               VALUES ($1, $2, 'WALLET_WEBHOOK', $3)
-               ON CONFLICT (key) DO NOTHING`,
-              [idempotencyKey, parseInt(userId, 10), JSON.stringify(creditRes)]
-            );
+            let creditRes;
+            if (isUSD) {
+              creditRes = await creditBalanceUSD(
+                parseInt(userId, 10),
+                amountParsed,
+                `Webhook credit for payment ${paymentId}`,
+                paymentId,
+                { event: eventType, webhook: true, currency: 'USD' }
+              );
+              await db.query(
+                `INSERT INTO idempotency_keys (key, user_id, action, response_data)
+                 VALUES ($1, $2, 'WALLET_WEBHOOK_USD', $3)
+                 ON CONFLICT (key) DO NOTHING`,
+                [idempotencyKey, parseInt(userId, 10), JSON.stringify(creditRes)]
+              );
+            } else {
+              creditRes = await creditBalance(
+                parseInt(userId, 10),
+                amountParsed,
+                `Webhook credit for payment ${paymentId}`,
+                paymentId,
+                { event: eventType, webhook: true, currency: 'INR' }
+              );
+              await db.query(
+                `INSERT INTO idempotency_keys (key, user_id, action, response_data)
+                 VALUES ($1, $2, 'WALLET_WEBHOOK', $3)
+                 ON CONFLICT (key) DO NOTHING`,
+                [idempotencyKey, parseInt(userId, 10), JSON.stringify(creditRes)]
+              );
+            }
             if (orderId) {
               await db.query("UPDATE payment_orders SET status = 'PAID', paid_at = NOW() WHERE order_id = $1", [orderId]);
             }

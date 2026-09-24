@@ -22,7 +22,7 @@ const UPGRADE_PLANS = {
     name: 'Value Plus',
     icon: '⚡',
     badge: 'MOST POPULAR',
-    price: { INR: '₹299', USD: '$3.50' },
+    price: { INR: '₹299', USD: '$3' },
     period: '/month',
     tagline: '1 Gmail sending account · 400 emails/day'
   },
@@ -31,7 +31,7 @@ const UPGRADE_PLANS = {
     name: 'Value Pack',
     icon: '🚀',
     badge: 'ALL-IN-ONE POWERHOUSE',
-    price: { INR: '₹499', USD: '$5.50' },
+    price: { INR: '₹499', USD: '$5' },
     period: '/month',
     tagline: 'Up to 4 Gmail sending accounts · 1,600 emails/day'
   }
@@ -396,7 +396,7 @@ function Dashboard() {
                   title="Upgrade to Value Pack for 4 Gmail accounts & 1,600 emails/day"
                 >
                   <Crown size={13} />
-                  <span>Upgrade to Value Pack (₹499/mo)</span>
+                  <span>Upgrade to Value Pack ({user?.currency_preference === 'USD' ? '$5/mo' : '₹499/mo'})</span>
                   <ArrowRight size={13} />
                 </button>
               </div>
@@ -417,10 +417,10 @@ function Dashboard() {
                     setSelectedUpgradePlan(UPGRADE_PLANS.plus);
                     setShowUpgradeCheckout(true);
                   }}
-                  title="Upgrade to Value Plus (₹299/mo) or Value Pack (₹499/mo)"
+                  title={user?.currency_preference === 'USD' ? "Upgrade to Value Plus ($3/mo) or Value Pack ($5/mo)" : "Upgrade to Value Plus (₹299/mo) or Value Pack (₹499/mo)"}
                 >
                   <Crown size={14} />
-                  <span>Upgrade Plan (Starting ₹299)</span>
+                  <span>Upgrade Plan ({user?.currency_preference === 'USD' ? 'Starting $3' : 'Starting ₹299'})</span>
                   <ArrowRight size={14} />
                 </button>
               </div>
@@ -541,8 +541,11 @@ function Dashboard() {
 
         {/* 4. Prepaid Wallet Balance Metric Card (Replaced Google Places Card) */}
         {(() => {
-          const activeBal = Number(walletBalance !== undefined && walletBalance !== null ? walletBalance : (billingSummary ? billingSummary.balance : 50));
-          const isLow = activeBal < 100;
+          const isUSD = user?.currency_preference === 'USD';
+          const currSymbol = isUSD ? '$' : '₹';
+          const activeBal = Number(walletBalance !== undefined && walletBalance !== null ? walletBalance : (billingSummary ? billingSummary.balance : (isUSD ? 1 : 50)));
+          const isLow = isUSD ? activeBal < 2 : activeBal < 100;
+          const leadRateEst = isUSD ? 0.015 : 1.10;
           return (
             <div className={`metric-card interactive-hover ${isLow ? 'low-balance-card' : ''}`} onClick={() => setDashboardTab('LEDGER')}>
               <div className="metric-header">
@@ -565,11 +568,11 @@ function Dashboard() {
               <div className="metric-body">
                 <span className="metric-label">Prepaid Wallet Balance</span>
                 <h2 className={`metric-value ${isLow ? 'low-balance-alert' : ''}`}>
-                  ₹<AnimatedNumber value={activeBal} />
+                  {currSymbol}<AnimatedNumber value={activeBal} />
                 </h2>
                 <div className="metric-footer">
                   <span style={isLow ? { color: '#ef4444', fontWeight: 600 } : {}}>
-                    {isLow ? '⚠️ Low balance • ' : ''}Available for ~{Math.floor(activeBal / 1.10)} leads
+                    {isLow ? '⚠️ Low balance • ' : ''}Available for ~{Math.floor(activeBal / leadRateEst)} leads
                   </span>
                 </div>
               </div>
@@ -866,7 +869,7 @@ function Dashboard() {
           isOpen={showUpgradeCheckout}
           onClose={() => setShowUpgradeCheckout(false)}
           plan={selectedUpgradePlan}
-          currency="INR"
+          currency={user?.currency_preference || 'INR'}
           onSuccess={async () => {
             setShowUpgradeCheckout(false);
             if (refreshWallet) {

@@ -35,7 +35,9 @@ const PLATFORM_PRESETS = [
 
 function GenerateData() {
   const navigate = useNavigate();
-  const { wallet, walletBalance, walletRates, refreshWallet, authFetch } = useAuth();
+  const { user, wallet, walletBalance, walletRates, refreshWallet, authFetch } = useAuth();
+  const isUSD = user?.currency_preference === 'USD' || wallet?.currency === 'USD';
+  const currSymbol = isUSD ? '$' : '₹';
   const [source, setSource] = useState('maps');
   const [location, setLocation] = useState('');
   const [keyword, setKeyword] = useState('');
@@ -53,7 +55,8 @@ function GenerateData() {
   const [justDispatched, setJustDispatched] = useState(false);
 
   // Dynamic cost calculation
-  const ratePerLead = (walletRates && walletRates[source]) !== undefined ? walletRates[source] : (source === 'yellowpages' ? 0.60 : source === 'yandex' ? 1.70 : 1.10);
+  const defaultRate = isUSD ? (source === 'yellowpages' ? 0.008 : source === 'yandex' ? 0.022 : 0.015) : (source === 'yellowpages' ? 0.60 : source === 'yandex' ? 1.70 : 1.10);
+  const ratePerLead = (walletRates && walletRates[source]) !== undefined ? walletRates[source] : defaultRate;
   const countNum = parseInt(targetCount, 10) || 0;
   const estimatedCost = parseFloat((countNum * ratePerLead).toFixed(2));
   const hasSufficientBalance = walletBalance >= estimatedCost;
@@ -438,19 +441,19 @@ function GenerateData() {
                 </div>
                 <div className="cost-row total-row">
                   <span>Estimated Total:</span>
-                  <strong className="cost-total-val">₹{estimatedCost.toFixed(2)}</strong>
+                  <strong className="cost-total-val">{currSymbol}{estimatedCost.toFixed(2)}</strong>
                 </div>
                 <div className="cost-row wallet-row">
                   <span>Your Available Balance:</span>
                   <strong className={hasSufficientBalance ? 'bal-good' : 'bal-short'}>
-                    ₹{walletBalance.toFixed(2)}
+                    {currSymbol}{walletBalance.toFixed(2)}
                   </strong>
                 </div>
               </div>
               {!hasSufficientBalance && (
                 <div className="shortfall-warning">
                   <AlertTriangle size={14} style={{ flexShrink: 0 }} />
-                  <span>You need ₹{shortfall.toFixed(2)} more to execute this batch.</span>
+                  <span>You need {currSymbol}{shortfall.toFixed(2)} more to execute this batch.</span>
                 </div>
               )}
             </div>

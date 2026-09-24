@@ -50,6 +50,8 @@ const SUBSCRIPTION_PLANS = {
     name: 'Value Plus',
     priceINR: 299.00,
     pricePaise: 29900,
+    priceUSD: 3.00,
+    priceCents: 300,
     durationDays: 30,
     maxAccounts: 1,
     dailyEmailLimit: 400,
@@ -68,6 +70,8 @@ const SUBSCRIPTION_PLANS = {
     name: 'Value Pack',
     priceINR: 499.00,
     pricePaise: 49900,
+    priceUSD: 5.00,
+    priceCents: 500,
     durationDays: 30,
     maxAccounts: 4,
     dailyEmailLimit: 1600,
@@ -97,9 +101,17 @@ function normalizePlanId(rawId) {
 /**
  * Retrieve server-side authoritative plan configuration
  */
-function getPlanConfig(planId) {
+function getPlanConfig(planId, currency = 'INR') {
   const normalized = normalizePlanId(planId);
-  return normalized ? SUBSCRIPTION_PLANS[normalized] : null;
+  if (!normalized) return null;
+  const base = SUBSCRIPTION_PLANS[normalized];
+  const isUSD = (currency || '').toString().toUpperCase() === 'USD';
+  return {
+    ...base,
+    currency: isUSD ? 'USD' : 'INR',
+    price: isUSD ? base.priceUSD : base.priceINR,
+    amountInSmallestUnit: isUSD ? base.priceCents : base.pricePaise
+  };
 }
 
 /**
@@ -199,15 +211,17 @@ async function activateUserPlan({
   orderId,
   paymentId,
   billingDetails = {},
-  amountPaid = null
+  amountPaid = null,
+  currency = 'INR'
 }) {
   const normalized = normalizePlanId(planId);
   if (!normalized || !SUBSCRIPTION_PLANS[normalized]) {
     throw new Error(`Invalid plan identifier: ${planId}`);
   }
 
+  const isUSD = (currency || '').toUpperCase() === 'USD';
   const planConfig = SUBSCRIPTION_PLANS[normalized];
-  const finalAmount = amountPaid !== null ? amountPaid : planConfig.priceINR;
+  const finalAmount = amountPaid !== null ? amountPaid : (isUSD ? planConfig.priceUSD : planConfig.priceINR);
 
   const client = await db.pool.connect();
   try {
@@ -261,7 +275,7 @@ async function activateUserPlan({
         user_id, order_id, payment_id, plan_id, amount_paid, currency, 
         billing_details, started_at, expires_at
       )
-      VALUES ($1, $2, $3, $4, $5, 'INR', $6, NOW(), $7)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8)
       RETURNING *
     `, [
       userId,
@@ -269,6 +283,7 @@ async function activateUserPlan({
       paymentId || `manual_act_${Date.now()}`,
       normalized,
       finalAmount,
+      isUSD ? 'USD' : 'INR',
       JSON.stringify(billingDetails),
       calendarExpiry
     ]);

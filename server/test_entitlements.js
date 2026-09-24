@@ -1,4 +1,4 @@
-const { pool } = require('./db');
+const { pool, initDb } = require('./db');
 const { getUserPlanEntitlement, SUBSCRIPTION_PLANS, normalizePlanId } = require('./utils/plans');
 const { getAvailableAccount } = require('./utils/mailer');
 
@@ -6,6 +6,8 @@ async function runTests() {
   console.log('====================================================');
   console.log('STARTING PLAN ENTITLEMENT VERIFICATION SUITE');
   console.log('====================================================\n');
+
+  await initDb();
 
   const client = await pool.connect();
   let testUserId = null;

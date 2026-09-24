@@ -19,7 +19,7 @@ export default function ReferAndEarn() {
     referral_history: []
   });
 
-  const isUSD = user?.country && user.country !== 'India';
+  const isUSD = user?.currency_preference === 'USD' || (user?.country && user.country !== 'India');
   const rewardUnit = isUSD ? '$2' : '₹100';
 
   const fetchReferralInfo = async () => {
@@ -205,7 +205,7 @@ export default function ReferAndEarn() {
           <div className="stat-content">
             <div className="stat-label">Current Wallet Balance</div>
             <div className="stat-value">
-              {isUSD ? `$${((walletBalance || 0) / 50).toFixed(2)}` : `₹${Number(walletBalance || 0).toLocaleString('en-IN')}`}
+              {isUSD ? `$${Number(walletBalance || 0).toFixed(2)}` : `₹${Number(walletBalance || 0).toLocaleString('en-IN')}`}
             </div>
             <div className="stat-help">Ready for lead generation & exports</div>
           </div>

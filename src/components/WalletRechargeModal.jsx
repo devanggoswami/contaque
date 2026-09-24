@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
 import './WalletRechargeModal.css';
 
-const PRESET_AMOUNTS = [
+const PRESET_AMOUNTS_INR = [
   { amount: 250, label: '₹250' },
   { amount: 500, label: '₹500' },
   { amount: 1000, label: '₹1,000' },
@@ -16,21 +16,38 @@ const PRESET_AMOUNTS = [
   { amount: 5000, label: '₹5,000' }
 ];
 
-const parseInitialAmountStr = (init) => {
+const PRESET_AMOUNTS_USD = [
+  { amount: 5, label: '$5' },
+  { amount: 10, label: '$10' },
+  { amount: 25, label: '$25' },
+  { amount: 50, label: '$50' },
+  { amount: 100, label: '$100' }
+];
+
+const parseInitialAmountStr = (init, isUSD = false) => {
   if (init !== null && init !== undefined && String(init).trim() !== '') {
     const num = Number(init);
     if (!isNaN(num) && num > 0) {
-      return String(Math.max(Math.round(num), 100));
+      return String(Math.max(Math.round(num), isUSD ? 1 : 10));
     }
   }
-  return '500';
+  return isUSD ? '10' : '500';
 };
 
 export default function WalletRechargeModal({ isOpen, onClose, initialAmount = null, onSuccess }) {
-  const { user, walletBalance, refreshWallet, authFetch } = useAuth();
+  const { user, wallet, walletBalance, refreshWallet, authFetch } = useAuth();
+  const isUSD = user?.currency_preference === 'USD' || wallet?.currency === 'USD';
+  const currencySymbol = isUSD ? '$' : '₹';
+  const currencyCode = isUSD ? 'USD' : 'INR';
+  const minAmount = isUSD ? 1 : 10;
+  const presetAmounts = isUSD ? PRESET_AMOUNTS_USD : PRESET_AMOUNTS_INR;
+  const ratePerLeadEst = isUSD ? 0.015 : 1.10;
+  const activeBalance = isUSD 
+    ? (wallet?.balance_usd !== undefined ? wallet.balance_usd : (wallet?.currency === 'USD' ? walletBalance : 0))
+    : (wallet?.balance_inr !== undefined ? wallet.balance_inr : (wallet?.currency === 'INR' ? walletBalance : 0));
   
   // Amount kept strictly as a string state while typing
-  const [amount, setAmount] = useState(() => parseInitialAmountStr(initialAmount));
+  const [amount, setAmount] = useState(() => parseInitialAmountStr(initialAmount, isUSD));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [successData, setSuccessData] = useState(null);
@@ -38,12 +55,12 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
   // Sync state whenever modal opens or initialAmount changes
   useEffect(() => {
     if (isOpen) {
-      setAmount(parseInitialAmountStr(initialAmount));
+      setAmount(parseInitialAmountStr(initialAmount, isUSD));
       setError(null);
       setSuccessData(null);
       setLoading(false);
     }
-  }, [isOpen, initialAmount]);
+  }, [isOpen, initialAmount, isUSD]);
 
   // Handle preset selection
   const handlePresetClick = (presetNum) => {
@@ -76,10 +93,10 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
 
   if (hasDigits) {
     const parsed = parseInt(trimmed, 10);
-    if (!isNaN(parsed) && parsed >= 10) {
+    if (!isNaN(parsed) && parsed >= minAmount) {
       previewNumeric = parsed;
-      approxLeads = Math.round(parsed / 1.10);
-      formattedAmount = parsed.toLocaleString('en-IN');
+      approxLeads = Math.round(parsed / ratePerLeadEst);
+      formattedAmount = parsed.toLocaleString(isUSD ? 'en-US' : 'en-IN');
     }
   }
 
@@ -95,19 +112,19 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
       const currentVal = typeof amount === 'string' ? amount.trim() : String(amount || '').trim();
 
       if (!currentVal) {
-        setError('Minimum amount is ₹10');
+        setError(`Minimum amount is ${currencySymbol}${minAmount}`);
         return;
       }
 
       if (!/^[0-9]+$/.test(currentVal)) {
-        setError('Minimum amount is ₹10');
+        setError(`Minimum amount is ${currencySymbol}${minAmount}`);
         return;
       }
 
       // Convert to number strictly on submit
       const numericAmount = parseInt(currentVal, 10);
-      if (isNaN(numericAmount) || numericAmount < 10) {
-        setError('Minimum amount is ₹10');
+      if (isNaN(numericAmount) || numericAmount < minAmount) {
+        setError(`Minimum amount is ${currencySymbol}${minAmount}`);
         return;
       }
 
@@ -117,7 +134,10 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
       const orderRes = await authFetch(`${API_URL}/api/wallet/recharge/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: numericAmount })
+        body: JSON.stringify({ 
+          amount: numericAmount,
+          currency: currencyCode
+        })
       });
 
       let orderData = null;
@@ -144,9 +164,9 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
       const options = {
         key: orderData.keyId,
         amount: Math.round(orderData.amount * 100),
-        currency: orderData.currency || 'INR',
+        currency: orderData.currency || currencyCode,
         name: 'ContaQue Technologies',
-        description: `Wallet Balance Top-Up: ₹${orderData.amount}`,
+        description: `Wallet Balance Top-Up: ${currencySymbol}${orderData.amount}`,
         order_id: orderData.orderId,
         prefill: {
           name: user?.name || '',
@@ -171,7 +191,8 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
-                amount: numericAmount
+                amount: numericAmount,
+                currency: currencyCode
               })
             });
 
@@ -197,7 +218,7 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
               amount: numericAmount,
               newBalance: typeof verifyData?.newBalance === 'number' 
                 ? verifyData.newBalance 
-                : ((Number(walletBalance) || 0) + numericAmount),
+                : ((Number(activeBalance) || 0) + numericAmount),
               paymentId: response.razorpay_payment_id
             });
 
@@ -269,11 +290,11 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
             </div>
             <h3>Wallet Successfully Recharged!</h3>
             <p>
-              An amount of <strong>₹{Number(successData?.amount || 0).toFixed(2)}</strong> has been credited to your prepaid account.
+              An amount of <strong>{currencySymbol}{Number(successData?.amount || 0).toFixed(2)}</strong> has been credited to your prepaid account.
             </p>
             <div className="wallet-balance-banner" style={{ width: '100%' }}>
               <span>Updated Balance:</span>
-              <strong>₹{Number(successData?.newBalance || 0).toFixed(2)}</strong>
+              <strong>{currencySymbol}{Number(successData?.newBalance || 0).toFixed(2)}</strong>
             </div>
             <button className="wallet-pay-btn" style={{ width: '100%' }} onClick={onClose}>
               Continue to Dashboard <ArrowRight size={18} />
@@ -284,14 +305,14 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
             {/* Current Balance Banner */}
             <div className="wallet-balance-banner">
               <span>Current Available Balance:</span>
-              <strong>₹{Number(walletBalance || 0).toFixed(2)}</strong>
+              <strong>{currencySymbol}{Number(activeBalance || 0).toFixed(2)}</strong>
             </div>
 
             {/* Presets */}
             <div>
               <label className="section-sub-label">Select Top-Up Amount:</label>
               <div className="wallet-preset-grid">
-                {PRESET_AMOUNTS.map((item) => {
+                {presetAmounts.map((item) => {
                   const isPresetActive = trimmed === String(item.amount);
                   return (
                     <button
@@ -301,7 +322,7 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
                       onClick={() => handlePresetClick(item.amount)}
                     >
                       <span>{item.label}</span>
-                      <span className="lead-hint">~{Math.round(item.amount / 1.10)} leads</span>
+                      <span className="lead-hint">~{Math.round(item.amount / ratePerLeadEst)} leads</span>
                     </button>
                   );
                 })}
@@ -310,14 +331,14 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
 
             {/* Custom Amount */}
             <div className="wallet-custom-input-wrap">
-              <label htmlFor="custom-wallet-input">Or enter custom amount (INR):</label>
+              <label htmlFor="custom-wallet-input">Or enter custom amount ({currencyCode}):</label>
               <div className="wallet-input-container">
-                <span className="wallet-currency-prefix">₹</span>
+                <span className="wallet-currency-prefix">{currencySymbol}</span>
                 <input
                   id="custom-wallet-input"
                   type="text"
                   inputMode="numeric"
-                  placeholder="e.g. 750"
+                  placeholder={isUSD ? 'e.g. 15' : 'e.g. 750'}
                   value={amount}
                   onChange={handleAmountChange}
                   onKeyDown={(e) => {
@@ -336,8 +357,8 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
               <div className="wallet-yield-preview">
                 <Sparkles size={16} style={{ flexShrink: 0 }} />
                 <span>
-                  <strong>₹{formattedAmount}</strong> top-up powers extraction for approximately{' '}
-                  <strong>~{approxLeads.toLocaleString('en-IN')}</strong> verified B2B leads.
+                  <strong>{currencySymbol}{formattedAmount}</strong> top-up powers extraction for approximately{' '}
+                  <strong>~{approxLeads.toLocaleString(isUSD ? 'en-US' : 'en-IN')}</strong> verified B2B leads.
                 </span>
               </div>
             )}
@@ -367,7 +388,7 @@ export default function WalletRechargeModal({ isOpen, onClose, initialAmount = n
                   <Lock size={17} />
                   <span>
                     {previewNumeric !== null 
-                      ? `Proceed to Pay ₹${formattedAmount}` 
+                      ? `Proceed to Pay ${currencySymbol}${formattedAmount}` 
                       : 'Proceed to Pay'}
                   </span>
                 </>

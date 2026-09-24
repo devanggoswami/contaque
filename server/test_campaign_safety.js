@@ -1,10 +1,12 @@
-const { pool } = require('./db');
+const { pool, initDb } = require('./db');
 const { getUserPlanEntitlement } = require('./utils/plans');
 
 async function runCampaignSafetyTests() {
   console.log('====================================================');
   console.log('STARTING CAMPAIGN SAFETY & SENDER VERIFICATION SUITE');
   console.log('====================================================\n');
+
+  await initDb();
 
   const client = await pool.connect();
   let user1Id = null;

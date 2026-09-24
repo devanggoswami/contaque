@@ -70,8 +70,15 @@ export default function RazorpayCheckoutModal({
     }
   }, [isOpen, isAuthenticated]);
 
-  const displayPrice = plan ? (currency === 'INR' ? plan.price?.INR || '₹299' : plan.price?.USD || '$3.12') : '₹299';
-  const numericAmount = plan ? (currency === 'INR' ? (plan.id === 'plus' ? '499.00' : '299.00') : (plan.id === 'plus' ? '5.20' : '3.12')) : '299.00';
+  const effectiveCurrency = user?.currency_preference || currency || 'INR';
+  const isUSD = effectiveCurrency === 'USD';
+  const planId = plan ? (plan.id === 'pack' || plan.id === 'pro' ? 'pack' : 'plus') : 'plus';
+  const displayPrice = isUSD 
+    ? (planId === 'pack' ? '$5' : '$3')
+    : (planId === 'pack' ? '₹499' : '₹299');
+  const numericAmount = isUSD
+    ? (planId === 'pack' ? '5.00' : '3.00')
+    : (planId === 'pack' ? '499.00' : '299.00');
 
   // Handle Step 1 Submit (Account Creation or Login)
   const handleAuthSubmit = async (e) => {
@@ -136,6 +143,7 @@ export default function RazorpayCheckoutModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           planId: plan.id,
+          currency: isUSD ? 'USD' : 'INR',
           billingDetails: billingForm
         })
       });
@@ -151,7 +159,7 @@ export default function RazorpayCheckoutModal({
       const options = {
         key: activeKey,
         amount: orderData.amountPaise,
-        currency: orderData.currency || 'INR',
+        currency: orderData.currency || (isUSD ? 'USD' : 'INR'),
         name: 'ContaQue Technologies',
         description: `${orderData.planName || plan.name} Subscription Upgrade`,
         order_id: orderData.orderId,
@@ -190,10 +198,12 @@ export default function RazorpayCheckoutModal({
             const receipt = {
               paymentId: response.razorpay_payment_id,
               orderId: response.razorpay_order_id,
-              amount: `₹${(orderData.amountPaise / 100).toFixed(2)}`,
+              amount: isUSD 
+                ? `$${(orderData.amountPaise / 100).toFixed(2)}` 
+                : `₹${(orderData.amountPaise / 100).toFixed(2)}`,
               planName: verifyData.planName || plan.name,
               activePlan: verifyData.plan || plan.id,
-              date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+              date: new Date().toLocaleDateString(isUSD ? 'en-US' : 'en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
               email: billingForm.email || user?.email
             };
 
