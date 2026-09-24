@@ -116,6 +116,7 @@ const initDb = async () => {
         attachment_type VARCHAR(50),
         image_link TEXT,
         is_manual BOOLEAN DEFAULT FALSE,
+        sender_account_id INTEGER REFERENCES email_accounts(id) ON DELETE SET NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         completed_at TIMESTAMP
       );
@@ -166,6 +167,23 @@ const initDb = async () => {
       ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS target_job_id TEXT;
       ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS is_manual BOOLEAN DEFAULT FALSE;
       ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS attachment_type VARCHAR(50);
+      ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS sender_account_id INTEGER;
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint 
+          WHERE conrelid = 'campaigns'::regclass 
+            AND (conname = 'campaigns_sender_account_id_fkey' OR conname = 'fk_campaigns_sender_account')
+        ) THEN
+          BEGIN
+            ALTER TABLE campaigns 
+            ADD CONSTRAINT fk_campaigns_sender_account 
+            FOREIGN KEY (sender_account_id) REFERENCES email_accounts(id) ON DELETE SET NULL;
+          EXCEPTION WHEN others THEN
+            NULL;
+          END;
+        END IF;
+      END $$;
+      CREATE INDEX IF NOT EXISTS idx_campaigns_sender_account ON campaigns(sender_account_id);
       ALTER TABLE leads ADD COLUMN IF NOT EXISTS source_link TEXT;
       ALTER TABLE leads ADD COLUMN IF NOT EXISTS emails TEXT;
       ALTER TABLE leads ADD COLUMN IF NOT EXISTS instagram TEXT;
@@ -378,6 +396,19 @@ const initDb = async () => {
       CREATE INDEX IF NOT EXISTS idx_users_referral_code ON users(referral_code);
     `);
 
+    // Safely backfill sender_account_id for older historical campaigns using their user's first email account if available
+    await client.query(`
+      UPDATE campaigns c
+      SET sender_account_id = (
+        SELECT ea.id 
+        FROM email_accounts ea 
+        WHERE ea.user_id = c.user_id 
+        ORDER BY ea.id ASC 
+        LIMIT 1
+      )
+      WHERE c.sender_account_id IS NULL;
+    `);
+
     // Backfill unique referral codes for existing users who don't have one
     // Mark existing users with referral_prompt_dismissed = TRUE so existing users don't see the popup
     const usersWithoutCode = await client.query('SELECT id, name FROM users WHERE referral_code IS NULL');
@@ -479,6 +510,9 @@ const initDb = async () => {
 initDb();
 
 const query = async (text, params, retries = 3) => {
+  if (initDbPromise && !isDbInitialized) {
+    try { await initDbPromise; } catch (_) {}
+  }
   let attempt = 0;
   while (true) {
     try {

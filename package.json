@@ -9,6 +9,7 @@
     "build": "vite build",
     "test:entitlements": "node server/test_entitlements.js",
     "test:campaign:safety": "node server/test_campaign_safety.js",
+    "test:campaign:sender": "node server/test_sender_migration_and_binding.js",
     "test:usd": "node server/test_usd_payments.js",
     "test:testmode": "node server/test_razorpay_test_mode.js",
     "test:auth": "node server/test_auth_role_security.js",

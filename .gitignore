@@ -63,5 +63,6 @@ server/test_*.js
 !server/test_campaign_safety.js
 !server/test_auth_role_security.js
 !server/test_welcome_credit_flow.js
+!server/test_sender_migration_and_binding.js
 server/alter_db.js
 scratch/
