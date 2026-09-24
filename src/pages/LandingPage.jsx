@@ -453,17 +453,20 @@ function LandingPage() {
 
           <div className="nav-cta-actions">
             <button 
-              className="btn-glass-subtle" 
+              type="button"
+              className="nav-btn-login" 
               onClick={() => navigate('/login')}
+              title="Log In to Contaques"
             >
               <span>Log In</span>
             </button>
             <button 
-              className="btn-primary-gradient border-shimmer" 
+              type="button"
+              className="nav-btn-launch" 
               onClick={() => navigate(isAuthenticated ? '/dashboard' : '/login')} 
-              title="Launch Contaques"
+              title="Launch Contaques Dashboard"
             >
-              <Zap size={15} />
+              <Zap size={14} />
               <span>Launch</span>
             </button>
           </div>

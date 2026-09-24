@@ -109,17 +109,20 @@ export default function ContactUs() {
 
           <div className="nav-cta-actions">
             <button 
-              className="btn-glass-subtle" 
+              type="button"
+              className="nav-btn-login" 
               onClick={() => navigate('/login')}
+              title="Log In to Contaques"
             >
               <span>Log In</span>
             </button>
             <button 
-              className="btn-primary-gradient border-shimmer" 
+              type="button"
+              className="nav-btn-launch" 
               onClick={() => navigate('/signup')} 
               title="Launch Contaques"
             >
-              <Zap size={15} />
+              <Zap size={14} />
               <span>Launch</span>
             </button>
           </div>

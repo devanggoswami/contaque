@@ -209,23 +209,59 @@
   gap: 10px;
 }
 
+.nav-btn-login,
 .nav-login-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  color: #e2e8f0;
-  padding: 8px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #f1f5f9;
+  padding: 8px 18px;
   border-radius: 9999px;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   font-family: inherit;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-decoration: none;
 }
 
+.nav-btn-login:hover,
 .nav-login-btn:hover {
   background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.3);
   color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.nav-btn-launch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #10367d 0%, #2563eb 100%);
+  color: #ffffff;
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  padding: 8px 20px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: inherit;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+.nav-btn-launch:hover {
+  background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
+  transform: translateY(-1px);
 }
 
 .btn-glass-subtle {
@@ -2400,13 +2436,32 @@
 
   /* Compact Clean Mobile Navbar */
   .landing-navbar {
+    width: 100%;
+    max-width: 100vw;
+    box-sizing: border-box;
     padding: 0;
   }
   .navbar-inner {
     padding: 10px 14px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .brand-group {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
   .brand-logo-img {
-    height: 34px;
+    height: 32px;
+    width: 32px;
+    border-radius: 8px;
+    object-fit: contain;
   }
   .brand-name {
     font-size: 15px;
@@ -2420,20 +2475,37 @@
   }
   .nav-cta-actions,
   .nav-actions {
-    gap: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    margin-left: auto;
   }
+  .nav-btn-login,
   .nav-login-btn {
-    padding: 6px 10px;
-    font-size: 11.5px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    height: 32px;
+    box-sizing: border-box;
+    flex-shrink: 0;
   }
+  .nav-btn-launch,
   .nav-cta,
   .btn-primary-gradient {
-    padding: 6px 12px;
-    font-size: 11.5px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    height: 32px;
+    gap: 5px;
+    box-sizing: border-box;
+    flex-shrink: 0;
     white-space: nowrap;
   }
-  .nav-cta span {
-    font-size: 11.5px;
+  .nav-btn-launch svg {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
   }
 
   /* Hero Section */
@@ -2821,15 +2893,16 @@
     width: 100%;
     gap: 10px;
   }
-  .btn-primary-gradient.big {
+  .final-cta-actions .btn-primary-gradient.big {
     width: 100%;
     justify-content: center;
     padding: 13px 20px;
     box-sizing: border-box;
   }
-  .btn-glass-subtle {
+  .final-cta-actions .btn-glass-subtle {
     width: 100%;
     justify-content: center;
+    padding: 13px 20px;
     box-sizing: border-box;
   }
 
