@@ -770,8 +770,8 @@ app.post('/api/user/currency-preference', async (req, res) => {
     return res.status(401).json({ error: 'Authentication required' });
   }
 
-  const { currency } = req.body;
-  const cleanCurrency = (currency || '').toString().trim().toUpperCase();
+  const rawCurrency = req.body.currency_preference || req.body.currency;
+  const cleanCurrency = (rawCurrency || '').toString().trim().toUpperCase();
   if (cleanCurrency !== 'INR' && cleanCurrency !== 'USD') {
     return res.status(400).json({ error: 'Invalid currency. Must be either INR or USD.' });
   }

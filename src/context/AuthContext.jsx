@@ -346,7 +346,7 @@ export const AuthProvider = ({ children }) => {
       const res = await authFetch(`${API_URL}/api/user/currency-preference`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currency_preference: curr })
+        body: JSON.stringify({ currency: curr, currency_preference: curr })
       });
       const data = await parseResponseJson(res);
       if (res.ok) {
