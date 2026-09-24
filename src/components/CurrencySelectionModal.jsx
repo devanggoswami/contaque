@@ -71,6 +71,10 @@ export default function CurrencySelectionModal({ isOpen }) {
                   <strong className="plan-price">₹499/mo</strong>
                 </div>
               </div>
+              <div className="currency-trial-badge">
+                <Sparkles size={11} />
+                <span>Includes ₹50 Free Credits</span>
+              </div>
               <div className="currency-payment-methods">
                 <CreditCard size={12} />
                 <span>UPI, Domestic Cards, Netbanking</span>
@@ -102,6 +106,10 @@ export default function CurrencySelectionModal({ isOpen }) {
                   <span className="plan-name">Value Pack:</span>
                   <strong className="plan-price">$5/mo</strong>
                 </div>
+              </div>
+              <div className="currency-trial-badge">
+                <Sparkles size={11} />
+                <span>Includes $2 Free Credits</span>
               </div>
               <div className="currency-payment-methods">
                 <Globe size={12} />

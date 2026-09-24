@@ -103,6 +103,25 @@ router.get('/balance', async (req, res) => {
 
     const userPref = (user.currency_preference || '').toUpperCase();
     const isUSD = userPref === 'USD';
+
+    // Bulletproof USD welcome credit: if any non-admin USD user has 0 or null balance, grant $2.00 welcome credit
+    if (isUSD && !isUserAdmin && (currentBalanceUSD <= 0 || isNaN(currentBalanceUSD))) {
+      try {
+        const bonusCheck = await db.query(
+          "SELECT id FROM wallet_ledger_usd WHERE user_id = $1 AND reference_id = 'WELCOME_BONUS'",
+          [user.id]
+        );
+        if (bonusCheck.rows.length === 0) {
+          await creditBalanceUSD(user.id, 2.00, 'Welcome Free Credits ($2)', 'WELCOME_BONUS', { bonus: true, currency: 'USD' });
+          currentBalanceUSD = 2.00;
+        }
+      } catch (cErr) {
+        console.warn('Auto USD welcome credit warning:', cErr.message);
+        await db.query('UPDATE users SET wallet_balance_usd = 2.0000 WHERE id = $1', [user.id]);
+        currentBalanceUSD = 2.00;
+      }
+    }
+
     const engineRates = isUSD ? getEngineRatesUSD(user.plan || 'free') : getEngineRates(user.plan || 'free');
 
     return res.json({

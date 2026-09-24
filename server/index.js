@@ -73,7 +73,7 @@ const walletRouter = require('./routes/wallet');
 const plansRouter = require('./routes/plans');
 const adminRouter = require('./routes/admin');
 const referralRouter = require('./routes/referral');
-const { reserveBalance, settleJob, reserveBalanceUSD, settleJobUSD } = require('./utils/wallet');
+const { reserveBalance, settleJob, reserveBalanceUSD, settleJobUSD, creditBalanceUSD } = require('./utils/wallet');
 const { getRatePerLead, getRatePerLeadUSD } = require('./utils/pricing');
 
 app.use('/api/campaigns', campaignsRouter);
@@ -788,9 +788,37 @@ app.post('/api/user/currency-preference', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     const updatedUser = updateRes.rows[0];
+
+    // If user chose USD, grant $2.00 free welcome credit if not already claimed
+    let currentBalanceUSD = parseFloat(updatedUser.wallet_balance_usd || 0);
+    if (cleanCurrency === 'USD') {
+      const bonusCheck = await db.query(
+        "SELECT id FROM wallet_ledger_usd WHERE user_id = $1 AND reference_id = 'WELCOME_BONUS'",
+        [updatedUser.id]
+      );
+      if (bonusCheck.rows.length === 0 && currentBalanceUSD <= 0) {
+        try {
+          const creditRes = await creditBalanceUSD(
+            updatedUser.id, 
+            2.00, 
+            'Welcome Free Credits ($2)', 
+            'WELCOME_BONUS', 
+            { bonus: true, currency: 'USD' }
+          );
+          currentBalanceUSD = creditRes.newBalance;
+        } catch (cErr) {
+          console.warn('[USD Welcome Bonus Warning]:', cErr.message);
+          await db.query('UPDATE users SET wallet_balance_usd = 2.0000 WHERE id = $1', [updatedUser.id]);
+          currentBalanceUSD = 2.00;
+        }
+      }
+    }
+
     return res.json({
       success: true,
       currency_preference: updatedUser.currency_preference,
+      wallet_balance_usd: currentBalanceUSD,
+      wallet_balance: parseFloat(updatedUser.wallet_balance || 0),
       message: `Currency preference set to ${updatedUser.currency_preference}`
     });
   } catch (err) {
