@@ -65,13 +65,23 @@ export const AuthProvider = ({ children }) => {
 
         // Always sync user object plan, plan_expires_at, and currency_preference with server wallet plan
         setUser(prev => {
-          if (!prev) return prev;
-          const planChanged = data.plan && prev.plan !== data.plan;
-          const expiryChanged = data.plan_expires_at !== undefined && prev.plan_expires_at !== data.plan_expires_at;
-          const currencyChanged = data.currency_preference !== undefined && prev.currency_preference !== data.currency_preference;
+          let current = prev;
+          if (!current) {
+            try {
+              const s = localStorage.getItem(STORAGE_KEY);
+              if (s) {
+                const parsed = JSON.parse(s);
+                current = parsed?.user || null;
+              }
+            } catch {}
+          }
+          if (!current) return null;
+          const planChanged = data.plan && current.plan !== data.plan;
+          const expiryChanged = data.plan_expires_at !== undefined && current.plan_expires_at !== data.plan_expires_at;
+          const currencyChanged = data.currency_preference !== undefined && current.currency_preference !== data.currency_preference;
           if (planChanged || expiryChanged || currencyChanged) {
             const upd = { 
-              ...prev, 
+              ...current, 
               ...(data.plan ? { plan: data.plan } : {}),
               ...(data.plan_expires_at !== undefined ? { plan_expires_at: data.plan_expires_at } : {}),
               ...(data.currency_preference !== undefined ? { currency_preference: data.currency_preference } : {})
@@ -86,7 +96,7 @@ export const AuthProvider = ({ children }) => {
             } catch {}
             return upd;
           }
-          return prev;
+          return current;
         });
       }
     } catch {
@@ -161,13 +171,30 @@ export const AuthProvider = ({ children }) => {
                   setLoading(false);
                   return;
                 }
+              } else if (vRes.status === 401) {
+                // Token explicitly rejected by server
+                localStorage.removeItem(STORAGE_KEY);
+                setUser(null);
+                setToken(null);
+                setLoading(false);
+                return;
+              }
+              // If status is 500, 502, 503 or transient network failure:
+              // Fall back to cached session instead of dropping user
+              if (session.user && session.token) {
+                setUser(session.user);
+                setToken(session.token);
+                setLoading(false);
+                return;
               }
             } catch {
               // Server verification offline; fallback to cached session
-              setUser(session.user);
-              setToken(session.token);
-              setLoading(false);
-              return;
+              if (session.user && session.token) {
+                setUser(session.user);
+                setToken(session.token);
+                setLoading(false);
+                return;
+              }
             }
           }
         }
@@ -277,6 +304,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
       setUser(data.user);
       setToken(data.token);
+      setLoading(false);
       if (data.user?.currency_preference) {
         const bal = data.user.currency_preference === 'USD' 
           ? Number(data.user.wallet_balance_usd || 0) 
@@ -380,8 +408,14 @@ export const AuthProvider = ({ children }) => {
       const data = await parseResponseJson(res);
       if (res.ok) {
         setUser(prev => {
-          if (!prev) return prev;
-          const upd = { ...prev, currency_preference: curr };
+          let current = prev;
+          if (!current) {
+            try {
+              const s = localStorage.getItem(STORAGE_KEY);
+              if (s) current = JSON.parse(s)?.user;
+            } catch {}
+          }
+          const upd = { ...(current || {}), currency_preference: curr };
           try {
             const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) {
@@ -418,6 +452,7 @@ export const AuthProvider = ({ children }) => {
   return (
     <AuthContext.Provider value={{ 
       user, 
+      setUser,
       token, 
       wallet,
       walletBalance: wallet.balance,

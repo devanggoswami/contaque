@@ -14,6 +14,7 @@
     "test:testmode": "node server/test_razorpay_test_mode.js",
     "test:auth": "node server/test_auth_role_security.js",
     "test:welcome": "node server/test_welcome_credit_flow.js",
+    "test:onboarding": "node server/test_onboarding_and_redirect_flow.js",
     "lint": "oxlint",
     "preview": "vite preview"
   },

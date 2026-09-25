@@ -46,10 +46,23 @@ function ProtectedLayout() {
   );
 }
 
+function CatchAllRoute() {
+  const { isAuthenticated, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="auth-loading-screen">
+        <div className="loading-spinner"></div>
+        <p>Verifying secure session...</p>
+      </div>
+    );
+  }
+  return <Navigate to={isAuthenticated ? "/dashboard" : "/"} replace />;
+}
+
 function App() {
   return (
-    <AuthProvider>
-      <Router>
+    <Router>
+      <AuthProvider>
         <Routes>
           {/* Public Root Route: Always renders Public Landing Page */}
           <Route path="/" element={<LandingPage />} />
@@ -94,11 +107,11 @@ function App() {
             <Route path="/admin" element={<Administrative />} />
           </Route>
 
-          {/* Catch-all fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          {/* Catch-all fallback: Authenticated users stay on /dashboard; unauthenticated go to / */}
+          <Route path="*" element={<CatchAllRoute />} />
         </Routes>
-      </Router>
-    </AuthProvider>
+      </AuthProvider>
+    </Router>
   );
 }
 

@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { Globe, Check, ArrowRight, ShieldCheck, CreditCard, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import './CurrencySelectionModal.css';
 
 export default function CurrencySelectionModal({ isOpen }) {
   const { user, setCurrencyPreference } = useAuth();
+  const navigate = useNavigate();
   const [selectedCurrency, setSelectedCurrency] = useState('INR');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -19,7 +21,9 @@ export default function CurrencySelectionModal({ isOpen }) {
 
     const res = await setCurrencyPreference(selectedCurrency);
     setLoading(false);
-    if (!res.success) {
+    if (res.success) {
+      navigate('/dashboard', { replace: true });
+    } else {
       setError(res.error || 'Failed to save currency preference. Please try again.');
     }
   };

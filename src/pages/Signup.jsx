@@ -19,8 +19,19 @@ export default function Signup() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const { isAuthenticated, loginWithGoogle, logout } = useAuth();
+  const { isAuthenticated, loading, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
+
+  // If already authenticated, redirect deterministically to dashboard
+  useEffect(() => {
+    if (isAuthenticated && !loading) {
+      if (requestedPlan && requestedPlan !== 'free') {
+        navigate(`/dashboard?upgrade=${requestedPlan}`, { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [isAuthenticated, loading, navigate, requestedPlan]);
 
   // Capture referral code silently into session storage for referral reward attribution
   useEffect(() => {
@@ -32,9 +43,6 @@ export default function Signup() {
   const handleGoogleSuccess = async (credential) => {
     setError('');
     setSubmitting(true);
-    if (isAuthenticated) {
-      logout();
-    }
     const res = await loginWithGoogle(credential, requestedPlan);
     setSubmitting(false);
 

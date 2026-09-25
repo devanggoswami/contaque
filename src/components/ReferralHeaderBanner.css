@@ -1,0 +1,273 @@
+/* ==============================================================================
+   REFERRAL HEADER BANNER STYLING
+   ContaQue Design System: High-Trust Enterprise SaaS Aesthetics
+   ============================================================================== */
+
+.referral-banner-container {
+  width: 100%;
+  margin-bottom: 20px;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.85) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 14px;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.25), 0 0 15px rgba(99, 102, 241, 0.08);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.referral-banner-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  gap: 16px;
+  position: relative;
+  box-sizing: border-box;
+}
+
+/* Left: Icon & Description */
+.referral-banner-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  flex: 1;
+}
+
+.referral-banner-icon-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(16, 185, 129, 0.15) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #818cf8;
+  flex-shrink: 0;
+}
+
+.referral-gift-glow {
+  color: #10b981;
+}
+
+.referral-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.referral-banner-headline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #f8fafc;
+  line-height: 1.3;
+}
+
+.referral-banner-tag {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #34d399;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 1px 7px;
+  border-radius: 6px;
+  text-transform: uppercase;
+}
+
+.referral-banner-subtext {
+  margin: 0;
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.referral-banner-subtext strong {
+  color: #e2e8f0;
+}
+
+/* Right: Form & Controls */
+.referral-banner-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.referral-banner-input-wrap {
+  display: flex;
+  align-items: center;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  padding: 3px 3px 3px 10px;
+  transition: all 0.18s ease;
+}
+
+.referral-banner-input-wrap:focus-within {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.referral-banner-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #ffffff;
+  width: 140px;
+  letter-spacing: 0.05em;
+  font-family: inherit;
+}
+
+.referral-banner-input::placeholder {
+  color: #64748b;
+  font-weight: 400;
+  letter-spacing: normal;
+}
+
+.referral-banner-input.has-error {
+  color: #f87171;
+}
+
+.referral-banner-apply-btn {
+  background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.referral-banner-apply-btn:hover:not(:disabled) {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.referral-banner-apply-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.referral-banner-error {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #f87171;
+  margin-top: 2px;
+}
+
+.referral-banner-success {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 6px 14px;
+  border-radius: 8px;
+  color: #34d399;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+/* Close (X) Button */
+.referral-banner-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.referral-banner-close-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Slide Down Animation */
+@keyframes referralBannerSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-down {
+  animation: referralBannerSlideDown 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Spin animation */
+.spin-icon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Responsive adjustments */
+@media (max-width: 900px) {
+  .referral-banner-main {
+    flex-wrap: wrap;
+    padding: 12px 14px;
+  }
+  
+  .referral-banner-info {
+    width: calc(100% - 36px);
+  }
+
+  .referral-banner-subtext {
+    white-space: normal;
+  }
+
+  .referral-banner-form {
+    width: 100%;
+    align-items: stretch;
+    margin-top: 6px;
+  }
+
+  .referral-banner-input-wrap {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .referral-banner-input {
+    flex: 1;
+  }
+
+  .referral-banner-close-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+  }
+}

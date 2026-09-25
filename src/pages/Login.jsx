@@ -10,8 +10,20 @@ function Login() {
   const [submitting, setSubmitting] = useState(false);
   const [searchParams] = useSearchParams();
 
-  const { user, isAuthenticated, loginWithGoogle } = useAuth();
+  const { user, isAuthenticated, loading, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
+
+  // If already authenticated, redirect deterministically to dashboard
+  useEffect(() => {
+    if (isAuthenticated && !loading) {
+      const requestedPlan = searchParams.get('plan') || 'free';
+      if (requestedPlan && requestedPlan !== 'free') {
+        navigate(`/dashboard?upgrade=${requestedPlan}`, { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [isAuthenticated, loading, navigate, searchParams]);
 
   // Capture referral code into session storage if present in URL
   useEffect(() => {

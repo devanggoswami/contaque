@@ -12,7 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import WalletRechargeModal from '../components/WalletRechargeModal';
 import RazorpayCheckoutModal from '../components/RazorpayCheckoutModal';
 import UserProfileModal from '../components/UserProfileModal';
-import ReferralModal from '../components/ReferralModal';
+import ReferralHeaderBanner from '../components/ReferralHeaderBanner';
 import { getPlanExpiryInfo } from '../utils/planExpiry';
 import './Dashboard.css';
 
@@ -72,7 +72,6 @@ function Dashboard() {
   const [showUpgradeCheckout, setShowUpgradeCheckout] = useState(false);
   const [selectedUpgradePlan, setSelectedUpgradePlan] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [showReferralModal, setShowReferralModal] = useState(false);
 
   // Auto-open upgrade checkout modal if navigated from plan selection (?upgrade=pack / ?upgrade=plus)
   useEffect(() => {
@@ -86,33 +85,13 @@ function Dashboard() {
     }
   }, [searchParams, setSearchParams]);
 
-  // Check and trigger one-time "Have a referral code?" popup for new users
+  // Capture pending referral code silently into session storage if navigated with ?ref=
   useEffect(() => {
     const refCode = searchParams.get('ref');
     if (refCode) {
       sessionStorage.setItem('pending_referral_code', refCode.trim().toUpperCase());
     }
-
-    const checkReferralPrompt = async () => {
-      try {
-        const res = await authFetch(`${API_URL}/api/referral/info`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.should_show_popup) {
-            setShowReferralModal(true);
-          }
-        }
-      } catch {
-        if (user && !user.referral_claimed && !user.referral_prompt_dismissed) {
-          setShowReferralModal(true);
-        }
-      }
-    };
-
-    if (user) {
-      checkReferralPrompt();
-    }
-  }, [user, searchParams, authFetch]);
+  }, [searchParams]);
 
   const [stats, setStats] = useState({
     todayLeads: 0,
@@ -303,6 +282,16 @@ function Dashboard() {
 
   return (
     <div className="page-content animate-slide-up">
+      {/* Dismissible Refer & Earn Header Banner */}
+      <ReferralHeaderBanner 
+        onClaimSuccess={() => {
+          if (refreshWallet) {
+            refreshWallet();
+          }
+          fetchDashboardData(true);
+        }} 
+      />
+
       {/* Top Header Bar */}
       <div className="dashboard-header-bar">
         <div className="dashboard-title-group">
@@ -839,18 +828,6 @@ function Dashboard() {
         isOpen={showProfileModal}
         onClose={() => setShowProfileModal(false)}
         onOpenRecharge={() => setShowRechargeModal(true)}
-      />
-
-      {/* One-time Referral Code Entry Popup */}
-      <ReferralModal
-        isOpen={showReferralModal}
-        onClose={() => setShowReferralModal(false)}
-        onSuccess={async () => {
-          if (refreshWallet) {
-            await refreshWallet();
-          }
-          fetchDashboardData(true);
-        }}
       />
     </div>
   );
