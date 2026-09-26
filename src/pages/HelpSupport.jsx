@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   HelpCircle, Send, CheckCircle2, AlertCircle, Mail, Clock, 
   ShieldCheck, MessageSquare, Headphones, Copy, Check, ExternalLink,
-  ChevronDown, Phone, Sparkles, Loader2
+  ChevronDown, Phone, Sparkles, Loader2, BookOpen, Download, FileText, ArrowRight
 } from 'lucide-react';
 import { API_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
@@ -173,6 +174,50 @@ export default function HelpSupport() {
               Have questions, experiencing issues, or need help with your account? Our support team is here for you.
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* USER MANUAL & GUIDE BANNER */}
+      <div className="help-manual-banner">
+        <div className="help-manual-banner-left">
+          <div className="help-manual-badge">
+            <Sparkles size={14} />
+            <span>OFFICIAL PRODUCT DOCUMENTATION</span>
+          </div>
+          <h2 className="help-manual-title">ContaQue — Complete User Guide (Manual)</h2>
+          <p className="help-manual-desc">
+            New to ContaQue? Learn how our 5 specialized lead engines work, which engine to pick for your specific business niche, how lead databases connect to bulk Gmail outreach, and best practices.
+          </p>
+          <div className="help-manual-tags">
+            <span className="manual-tag blue">🔵 Google Business</span>
+            <span className="manual-tag indigo">🔵 Business Index</span>
+            <span className="manual-tag amber">🟡 Yellow Pages</span>
+            <span className="manual-tag red">🔴 Yandex</span>
+            <span className="manual-tag emerald">🟢 WhatsApp Radar</span>
+          </div>
+        </div>
+        <div className="help-manual-banner-actions">
+          <a
+            href="/ContaQue_User_Guide.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="help-manual-btn primary"
+            title="Open User Manual PDF directly in a new tab"
+          >
+            <Download size={16} />
+            <span>Open User Manual (PDF)</span>
+            <ExternalLink size={14} className="manual-ext-icon" />
+          </a>
+          <Link
+            to="/user-manual"
+            target="_blank"
+            className="help-manual-btn secondary"
+            title="Read Interactive Guide"
+          >
+            <FileText size={16} />
+            <span>Read Interactive Guide</span>
+            <ArrowRight size={14} />
+          </Link>
         </div>
       </div>
 
@@ -436,6 +481,61 @@ export default function HelpSupport() {
               <p className="direct-tip-text">
                 For faster assistance, please include your registered email address and a clear description of the issue.
               </p>
+            </div>
+          </div>
+
+          {/* RIGHT COLUMN: Quick User Guide Card */}
+          <div className="direct-guide-card">
+            <div className="direct-guide-header">
+              <div className="direct-guide-icon-pill">
+                <BookOpen size={20} />
+              </div>
+              <div>
+                <h3 className="direct-guide-title">Platform Manual &amp; Engines</h3>
+                <p className="direct-guide-desc">
+                  Learn which lead engine fits your niche &amp; outreach strategy.
+                </p>
+              </div>
+            </div>
+
+            <div className="direct-guide-features">
+              <div className="guide-feature-item">
+                <span className="bullet-dot"></span>
+                <span>All 5 lead generation engines explained</span>
+              </div>
+              <div className="guide-feature-item">
+                <span className="bullet-dot"></span>
+                <span>Engine selection comparison matrix</span>
+              </div>
+              <div className="guide-feature-item">
+                <span className="bullet-dot"></span>
+                <span>Gmail App Password &amp; bulk outreach setup</span>
+              </div>
+            </div>
+
+            <div className="direct-guide-actions">
+              <a 
+                href="/ContaQue_User_Guide.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="direct-guide-pdf-btn"
+                title="Download or open PDF in new tab"
+              >
+                <Download size={15} />
+                <span>Open PDF Manual</span>
+                <ExternalLink size={13} className="ml-auto" />
+              </a>
+
+              <Link 
+                to="/user-manual"
+                target="_blank"
+                className="direct-guide-web-btn"
+                title="Browse interactive manual"
+              >
+                <FileText size={15} />
+                <span>Interactive Web Guide</span>
+                <ArrowRight size={13} className="ml-auto" />
+              </Link>
             </div>
           </div>
         </div>

@@ -17,6 +17,7 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import PaymentRefundPolicy from './pages/PaymentRefundPolicy';
 import ReferAndEarn from './pages/ReferAndEarn';
 import HelpSupport from './pages/HelpSupport';
+import UserManual from './pages/UserManual';
 import './App.css';
 
 // Protected App Layout: Strict route guard requiring valid session & JWT
@@ -73,6 +74,10 @@ function App() {
           <Route path="/welcome" element={<LandingPage />} />
           <Route path="/contact" element={<ContactUs />} />
           <Route path="/contact-us" element={<ContactUs />} />
+          <Route path="/user-manual" element={<UserManual />} />
+          <Route path="/user-guide" element={<UserManual />} />
+          <Route path="/guide" element={<UserManual />} />
+          <Route path="/manual" element={<UserManual />} />
 
           {/* Public Legal & Policy Pages */}
           <Route path="/terms" element={<TermsAndConditions />} />

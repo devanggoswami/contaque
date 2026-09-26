@@ -1,0 +1,1155 @@
+/* ==============================================================================
+   CONTAQUE — USER MANUAL & PRODUCT GUIDE STYLES
+   High-Aesthetic Modern B2B SaaS Documentation Theme
+   ============================================================================== */
+
+.user-manual-page {
+  min-height: 100vh;
+  background-color: #f8fafc;
+  color: #0f172a;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+}
+
+.manual-container {
+  max-width: 1020px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ------------------------------------------------------------------------------
+   1. STICKY TOPBAR
+   ------------------------------------------------------------------------------ */
+.manual-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid #e2e8f0;
+  padding: 12px 0;
+  transition: all 0.2s ease;
+}
+
+.manual-topbar-content {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.manual-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.manual-brand-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.manual-logo-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.manual-logo-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.manual-brand-name {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.manual-doc-tag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: #eff6ff;
+  color: #2563eb;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid #dbeafe;
+}
+
+.manual-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.manual-nav-links a {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #64748b;
+  text-decoration: none;
+  transition: color 0.15s ease;
+  white-space: nowrap;
+}
+
+.manual-nav-links a:hover {
+  color: #2563eb;
+}
+
+.manual-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.manual-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 8px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  border: none;
+}
+
+.manual-action-btn.primary {
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+}
+
+.manual-action-btn.primary:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35);
+}
+
+.manual-action-btn.secondary {
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.manual-action-btn.secondary:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+/* ------------------------------------------------------------------------------
+   2. HERO SECTION
+   ------------------------------------------------------------------------------ */
+.manual-hero {
+  padding: 48px 0 36px 0;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.manual-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #eef2ff;
+  color: #4f46e5;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-bottom: 16px;
+  border: 1px solid #e0e7ff;
+}
+
+.manual-hero-title {
+  font-size: 2.35rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+  line-height: 1.15;
+  margin-bottom: 12px;
+}
+
+.manual-hero-subtitle {
+  font-size: 1.05rem;
+  color: #475569;
+  max-width: 760px;
+  line-height: 1.55;
+  margin-bottom: 20px;
+}
+
+.manual-hero-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+
+.hero-chip {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #334155;
+  background: #f1f5f9;
+  padding: 4px 11px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+/* PDF Download Banner */
+.manual-pdf-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #ffffff;
+  padding: 16px 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
+}
+
+.pdf-banner-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pdf-banner-icon {
+  color: #38bdf8;
+  flex-shrink: 0;
+}
+
+.pdf-banner-info strong {
+  display: block;
+  font-size: 0.95rem;
+  color: #f8fafc;
+}
+
+.pdf-banner-info p {
+  font-size: 0.82rem;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.pdf-banner-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #38bdf8;
+  color: #0f172a;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 8px 16px;
+  border-radius: 8px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+  flex-shrink: 0;
+}
+
+.pdf-banner-download-btn:hover {
+  background: #7dd3fc;
+  transform: translateY(-1px);
+}
+
+/* ------------------------------------------------------------------------------
+   3. MAIN CONTENT SECTIONS
+   ------------------------------------------------------------------------------ */
+.manual-main {
+  padding: 44px 0 64px 0;
+}
+
+.manual-section {
+  margin-bottom: 56px;
+}
+
+.section-head {
+  margin-bottom: 24px;
+}
+
+.section-num {
+  display: inline-block;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #2563eb;
+  margin-bottom: 6px;
+}
+
+.section-title {
+  font-size: 1.65rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+
+.section-desc {
+  font-size: 0.96rem;
+  color: #475569;
+  line-height: 1.55;
+}
+
+/* ------------------------------------------------------------------------------
+   4. SECTION 1: ENGINES GRID & CARDS
+   ------------------------------------------------------------------------------ */
+.engines-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.engine-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.engine-card:hover {
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.07);
+}
+
+.engine-card-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.engine-icon-pill {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.google-pill { background: #eff6ff; color: #2563eb; }
+.dorking-pill { background: #f5f3ff; color: #7c3aed; }
+.yp-pill { background: #fef3c7; color: #d97706; }
+.yandex-pill { background: #fee2e2; color: #dc2626; }
+.whatsapp-pill { background: #d1fae5; color: #059669; }
+
+.engine-tag {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  display: inline-block;
+  margin-bottom: 2px;
+}
+
+.google-tag { color: #2563eb; }
+.dorking-tag { color: #7c3aed; }
+.yp-tag { color: #d97706; }
+.yandex-tag { color: #dc2626; }
+.whatsapp-tag { color: #059669; }
+
+.engine-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.engine-bestfor-badge {
+  display: inline-block;
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  margin-bottom: 14px;
+}
+
+.engine-bestfor-badge strong {
+  color: #0f172a;
+}
+
+.engine-text {
+  font-size: 0.92rem;
+  color: #334155;
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+
+.engine-subtext {
+  font-size: 0.88rem;
+  color: #64748b;
+  margin-bottom: 14px;
+}
+
+.engine-target-list {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 0.85rem;
+}
+
+.engine-target-list strong {
+  display: block;
+  color: #0f172a;
+  margin-bottom: 6px;
+}
+
+.engine-target-list ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #475569;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 4px 12px;
+}
+
+/* Custom URL Subcard for Business Index */
+.custom-url-subcard {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.subcard-badge {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #7c3aed;
+  margin-bottom: 4px;
+}
+
+.custom-url-subcard h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 6px 0;
+}
+
+.custom-url-subcard p {
+  font-size: 0.85rem;
+  color: #475569;
+  margin: 0;
+}
+
+/* Yandex highlight box */
+.yandex-highlight-box {
+  background: #fef2f2;
+  border-left: 3px solid #dc2626;
+  padding: 10px 14px;
+  border-radius: 0 6px 6px 0;
+  margin-bottom: 16px;
+  font-size: 0.85rem;
+  color: #7f1d1d;
+}
+
+.yandex-highlight-box strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.yandex-highlight-box p {
+  margin: 0;
+}
+
+/* Example Box */
+.engine-example-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+}
+
+.example-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #64748b;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.example-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: #1e293b;
+}
+
+.example-row code {
+  background: #e2e8f0;
+  color: #0f172a;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.example-arrow {
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.example-solution strong {
+  color: #2563eb;
+}
+
+/* Rule Box */
+.engine-rule-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.88rem;
+  color: #334155;
+  background: #f1f5f9;
+  padding: 10px 14px;
+  border-radius: 8px;
+}
+
+.rule-icon {
+  color: #2563eb;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+/* ------------------------------------------------------------------------------
+   5. SECTION 2: MATRIX TABLE & DECISION RULES
+   ------------------------------------------------------------------------------ */
+.matrix-table-wrap {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  margin-bottom: 24px;
+  background: #ffffff;
+}
+
+.matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.88rem;
+}
+
+.matrix-table th {
+  background: #0f172a;
+  color: #ffffff;
+  font-weight: 700;
+  padding: 14px 18px;
+  font-size: 0.84rem;
+  letter-spacing: 0.02em;
+}
+
+.matrix-table td {
+  padding: 14px 18px;
+  border-bottom: 1px solid #e2e8f0;
+  color: #334155;
+}
+
+.matrix-table tr:last-child td {
+  border-bottom: none;
+}
+
+.matrix-table tr:hover td {
+  background: #f8fafc;
+}
+
+.engine-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.engine-badge.blue { background: #eff6ff; color: #2563eb; }
+.engine-badge.purple { background: #f5f3ff; color: #7c3aed; }
+.engine-badge.amber { background: #fef3c7; color: #d97706; }
+.engine-badge.red { background: #fee2e2; color: #dc2626; }
+.engine-badge.emerald { background: #d1fae5; color: #059669; }
+
+/* Decision Rules Box */
+.decision-rules-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px 24px;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+}
+
+.rules-heading {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 14px;
+}
+
+.rules-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.rule-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.86rem;
+}
+
+.rule-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.rule-dot.blue { background: #2563eb; }
+.rule-dot.purple { background: #7c3aed; }
+.rule-dot.amber { background: #d97706; }
+.rule-dot.red { background: #dc2626; }
+.rule-dot.emerald { background: #059669; }
+
+.rule-arrow {
+  color: #94a3b8;
+  margin: 0 6px;
+}
+
+.rule-target {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* ------------------------------------------------------------------------------
+   6. SECTION 3: PIPELINE FLOW
+   ------------------------------------------------------------------------------ */
+.pipeline-flow-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 28px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.pipeline-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 20px;
+}
+
+.pipeline-steps-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.pipeline-step-item {
+  flex: 1;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 18px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.step-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.step-tag {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #2563eb;
+  display: block;
+  margin-bottom: 3px;
+}
+
+.step-content h4 {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 6px 0;
+}
+
+.step-content p {
+  font-size: 0.84rem;
+  color: #475569;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.pipeline-connector {
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pipeline-note-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 0.88rem;
+  color: #166534;
+}
+
+.note-icon {
+  color: #16a34a;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+/* ------------------------------------------------------------------------------
+   7. SECTION 4: OUTREACH STEPS
+   ------------------------------------------------------------------------------ */
+.workflow-summary-pill {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  padding: 10px 18px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  font-size: 0.88rem;
+}
+
+.workflow-seq {
+  font-weight: 700;
+  color: #4338ca;
+}
+
+.workflow-div {
+  color: #818cf8;
+  font-weight: 700;
+}
+
+.steps-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.outreach-step-card {
+  display: flex;
+  gap: 18px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 22px;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+}
+
+.step-card-num {
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  background: #eff6ff;
+  color: #2563eb;
+  padding: 6px 12px;
+  border-radius: 6px;
+  height: fit-content;
+  white-space: nowrap;
+}
+
+.step-card-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 8px 0;
+}
+
+.step-card-desc {
+  font-size: 0.9rem;
+  color: #334155;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.app-password-requirements {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+}
+
+.app-password-requirements strong {
+  display: block;
+  color: #0f172a;
+  margin-bottom: 6px;
+}
+
+.app-password-requirements ol {
+  margin: 0;
+  padding-left: 20px;
+  color: #475569;
+}
+
+.step-card-tip {
+  font-size: 0.84rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.lead-selection-examples {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.sel-pill {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 0.84rem;
+  color: #334155;
+}
+
+.campaign-setup-list {
+  margin: 0 0 12px 0;
+  padding-left: 20px;
+  color: #475569;
+  font-size: 0.86rem;
+  line-height: 1.6;
+}
+
+/* ------------------------------------------------------------------------------
+   8. SECTION 5: ARCHITECTURAL DISTINCTION
+   ------------------------------------------------------------------------------ */
+.distinction-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.distinction-card {
+  border-radius: 12px;
+  padding: 22px;
+  border: 1px solid transparent;
+}
+
+.gen-card {
+  background: #f0fdfa;
+  border-color: #ccfbf1;
+}
+
+.outreach-card {
+  background: #eef2ff;
+  border-color: #e0e7ff;
+}
+
+.dist-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.gen-card .dist-icon { color: #0d9488; }
+.outreach-card .dist-icon { color: #4f46e5; }
+
+.dist-tag {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  display: block;
+}
+
+.gen-card .dist-tag { color: #0f766e; }
+.outreach-card .dist-tag { color: #4338ca; }
+
+.dist-head h3 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+}
+
+.dist-desc {
+  font-size: 0.88rem;
+  color: #334155;
+  margin-bottom: 14px;
+  line-height: 1.55;
+}
+
+.dist-formula {
+  background: rgba(255, 255, 255, 0.7);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.dist-formula span {
+  font-weight: 800;
+  color: #64748b;
+}
+
+.dist-formula strong {
+  color: #0f172a;
+}
+
+/* Core Mantra */
+.core-mantra-card {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #ffffff;
+  padding: 24px;
+  border-radius: 14px;
+  text-align: center;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
+  margin-bottom: 32px;
+}
+
+.mantra-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.mantra-chain {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mantra-step {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 1.05rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #38bdf8;
+}
+
+.mantra-arrow {
+  color: #64748b;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+/* Footer CTA */
+.manual-footer-cta {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 24px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.footer-cta-info h3 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 4px 0;
+}
+
+.footer-cta-info p {
+  font-size: 0.88rem;
+  color: #475569;
+  margin: 0;
+}
+
+.footer-cta-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* ------------------------------------------------------------------------------
+   9. FOOTER
+   ------------------------------------------------------------------------------ */
+.manual-footer {
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  padding: 24px 0;
+  font-size: 0.84rem;
+  color: #64748b;
+}
+
+.manual-footer .manual-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.footer-links {
+  display: flex;
+  gap: 16px;
+}
+
+.footer-links a {
+  color: #64748b;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.footer-links a:hover {
+  color: #2563eb;
+}
+
+/* ------------------------------------------------------------------------------
+   10. PRINT OPTIMIZATION
+   ------------------------------------------------------------------------------ */
+@media print {
+  .manual-topbar,
+  .manual-actions,
+  .manual-pdf-banner,
+  .manual-footer-cta,
+  .manual-footer {
+    display: none !important;
+  }
+
+  body, .user-manual-page {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .manual-container {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  .engine-card,
+  .matrix-table-wrap,
+  .pipeline-flow-card,
+  .outreach-step-card,
+  .distinction-card {
+    box-shadow: none !important;
+    border: 1px solid #cccccc !important;
+    page-break-inside: avoid;
+  }
+}
+
+/* ------------------------------------------------------------------------------
+   11. RESPONSIVE BREAKPOINTS
+   ------------------------------------------------------------------------------ */
+@media (max-width: 900px) {
+  .manual-nav-links {
+    display: none;
+  }
+
+  .pipeline-steps-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pipeline-connector {
+    transform: rotate(90deg);
+    padding: 6px 0;
+  }
+
+  .distinction-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .manual-footer-cta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .footer-cta-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 600px) {
+  .manual-hero-title {
+    font-size: 1.85rem;
+  }
+
+  .manual-pdf-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .pdf-banner-download-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .outreach-step-card {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .mantra-chain {
+    gap: 6px;
+  }
+
+  .mantra-step {
+    padding: 6px 12px;
+    font-size: 0.9rem;
+  }
+}

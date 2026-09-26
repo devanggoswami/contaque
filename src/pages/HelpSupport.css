@@ -709,3 +709,335 @@
     margin-bottom: 8px;
   }
 }
+
+/* ==============================================================================
+   USER MANUAL & GUIDE HERO BANNER
+   ============================================================================== */
+
+.help-manual-banner {
+  background: linear-gradient(135deg, #0B192C 0%, #0F2746 55%, #16365F 100%);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  border-radius: 18px;
+  padding: 26px 32px;
+  margin-bottom: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  box-shadow: 0 12px 30px -8px rgba(11, 25, 44, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.help-manual-banner::before {
+  content: '';
+  position: absolute;
+  top: -80px;
+  right: -80px;
+  width: 240px;
+  height: 240px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.25) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.help-manual-banner-left {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.help-manual-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(59, 130, 246, 0.18);
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #93C5FD;
+  letter-spacing: 0.05em;
+  margin-bottom: 10px;
+}
+
+.help-manual-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #FFFFFF;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.015em;
+}
+
+.help-manual-desc {
+  font-size: 13.5px;
+  color: #CBD5E1;
+  line-height: 1.55;
+  margin: 0 0 14px 0;
+  max-width: 720px;
+}
+
+.help-manual-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.manual-tag {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #E2E8F0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.manual-tag.blue {
+  background: rgba(37, 99, 235, 0.18);
+  border-color: rgba(96, 165, 250, 0.35);
+  color: #BFDBFE;
+}
+
+.manual-tag.indigo {
+  background: rgba(79, 70, 229, 0.18);
+  border-color: rgba(129, 140, 248, 0.35);
+  color: #C7D2FE;
+}
+
+.manual-tag.amber {
+  background: rgba(217, 119, 6, 0.18);
+  border-color: rgba(251, 191, 36, 0.35);
+  color: #FDE68A;
+}
+
+.manual-tag.red {
+  background: rgba(220, 38, 38, 0.18);
+  border-color: rgba(248, 113, 113, 0.35);
+  color: #FECACA;
+}
+
+.manual-tag.emerald {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: rgba(52, 211, 153, 0.35);
+  color: #A7F3D0;
+}
+
+.help-manual-banner-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.help-manual-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 20px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.help-manual-btn.primary {
+  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+  color: #FFFFFF;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.help-manual-btn.primary:hover {
+  background: linear-gradient(135deg, #1D4ED8 0%, #1E40AF 100%);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.5);
+  transform: translateY(-1px);
+}
+
+.help-manual-btn.secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: #E2E8F0;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.help-manual-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #FFFFFF;
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.manual-ext-icon {
+  opacity: 0.75;
+}
+
+/* ==============================================================================
+   RIGHT COLUMN: DIRECT GUIDE CARD
+   ============================================================================== */
+
+.direct-guide-card {
+  margin-top: 20px;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 18px;
+  padding: 24px 26px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.direct-guide-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.direct-guide-icon-pill {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
+  border: 1px solid #BFDBFE;
+  color: #2563EB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.direct-guide-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0F172A;
+  margin: 0 0 2px 0;
+}
+
+.direct-guide-desc {
+  font-size: 12.5px;
+  color: #64748B;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.direct-guide-features {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  background: #F8FAFC;
+  border-radius: 10px;
+  border: 1px solid #EDF2F7;
+}
+
+.guide-feature-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #334155;
+  font-weight: 500;
+}
+
+.bullet-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2563EB;
+  flex-shrink: 0;
+}
+
+.direct-guide-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.direct-guide-pdf-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  background: #2563EB;
+  color: #FFFFFF;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.18s ease;
+}
+
+.direct-guide-pdf-btn:hover {
+  background: #1D4ED8;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+}
+
+.direct-guide-web-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  background: #F1F5F9;
+  color: #334155;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid #E2E8F0;
+  transition: all 0.18s ease;
+}
+
+.direct-guide-web-btn:hover {
+  background: #E2E8F0;
+  color: #0F172A;
+}
+
+.ml-auto {
+  margin-left: auto;
+}
+
+/* Responsive adjustments for manual banner */
+@media (max-width: 900px) {
+  .help-manual-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 22px 24px;
+    gap: 20px;
+  }
+
+  .help-manual-banner-actions {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .help-manual-btn {
+    flex: 1;
+    min-width: 200px;
+  }
+}
+
+@media (max-width: 600px) {
+  .help-manual-title {
+    font-size: 18px;
+  }
+
+  .help-manual-desc {
+    font-size: 12.5px;
+  }
+
+  .help-manual-banner-actions {
+    flex-direction: column;
+  }
+
+  .help-manual-btn {
+    width: 100%;
+  }
+}
+
