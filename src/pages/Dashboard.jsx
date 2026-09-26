@@ -153,9 +153,10 @@ function Dashboard() {
 
       // Fetch live wallet & billing ledger
       try {
+        const currPref = user?.currency_preference || '';
         const [ledgerRes, summaryRes] = await Promise.all([
-          authFetch(`${API_URL}/api/wallet/transactions?limit=25`),
-          authFetch(`${API_URL}/api/wallet/billing-summary`)
+          authFetch(`${API_URL}/api/wallet/transactions?limit=25${currPref ? `&currency=${currPref}` : ''}`),
+          authFetch(`${API_URL}/api/wallet/billing-summary${currPref ? `?currency=${currPref}` : ''}`)
         ]);
         if (ledgerRes.ok) {
           const lData = await ledgerRes.json();
@@ -476,9 +477,12 @@ function Dashboard() {
           const isUSD = user?.currency_preference === 'USD';
           const currSymbol = !hasPreference ? '' : (isUSD ? '$' : '₹');
           const isPending = !hasPreference;
+          const fallbackBal = isUSD 
+            ? (user?.wallet_balance_usd ?? billingSummary?.balance ?? 0) 
+            : (user?.wallet_balance ?? billingSummary?.balance ?? 0);
           const activeBal = isPending
             ? null
-            : Number(walletBalance !== undefined && walletBalance !== null ? walletBalance : (billingSummary ? billingSummary.balance : 0));
+            : Number(walletBalance !== undefined && walletBalance !== null ? walletBalance : fallbackBal);
           const isLow = isPending ? false : (isUSD ? activeBal < 2 : activeBal < 100);
           const leadRateEst = isUSD ? 0.015 : 1.10;
           return (

@@ -19,17 +19,60 @@ async function parseResponseJson(res) {
   }
 }
 
+// Helper to extract authoritative wallet state from a user profile object
+function extractWalletFromUser(u, prevWallet = {}) {
+  if (!u) {
+    return {
+      balance: 0.00,
+      balance_inr: 0.00,
+      balance_usd: 0.00,
+      currency: null,
+      currency_preference: null,
+      plan: 'free',
+      plan_expires_at: null,
+      rates: prevWallet.rates || {},
+      allTiers: prevWallet.allTiers || {}
+    };
+  }
+  const pref = u.currency_preference || prevWallet.currency_preference || null;
+  const isUSD = (pref || '').toUpperCase() === 'USD';
+  const balUSD = Number(u.wallet_balance_usd !== undefined && u.wallet_balance_usd !== null ? u.wallet_balance_usd : (prevWallet.balance_usd || 0));
+  const balINR = Number(u.wallet_balance !== undefined && u.wallet_balance !== null ? u.wallet_balance : (prevWallet.balance_inr || 0));
+  const activeBal = pref ? (isUSD ? balUSD : balINR) : 0;
+  return {
+    balance: activeBal,
+    balance_inr: balINR,
+    balance_usd: balUSD,
+    currency: pref,
+    currency_preference: pref,
+    plan: u.plan || prevWallet.plan || 'free',
+    plan_expires_at: u.plan_expires_at !== undefined ? u.plan_expires_at : (prevWallet.plan_expires_at || null),
+    rates: prevWallet.rates || {},
+    allTiers: prevWallet.allTiers || {}
+  };
+}
+
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
+  // Synchronous session restore helper to prevent initial $0 flash upon reload/edit
+  const getInitialSession = () => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const session = JSON.parse(saved);
+        if (session?.token && session?.expiresAt && Date.now() < session.expiresAt) {
+          return session;
+        }
+      }
+    } catch {}
+    return null;
+  };
+
+  const initialSession = getInitialSession();
+
+  const [user, setUser] = useState(() => initialSession?.user || null);
+  const [token, setToken] = useState(() => initialSession?.token || null);
   const [loading, setLoading] = useState(true);
-  const [wallet, setWallet] = useState({
-    balance: 0.00,
-    currency: null,
-    currency_preference: null,
-    plan: 'free',
-    rates: {}
-  });
+  const [wallet, setWallet] = useState(() => extractWalletFromUser(initialSession?.user));
 
   const refreshWallet = async (overrideToken) => {
     let activeToken = overrideToken || token;
@@ -51,19 +94,25 @@ export const AuthProvider = ({ children }) => {
       const res = await fetch(`${API_URL}/api/wallet/balance`, { headers });
       if (res.ok) {
         const data = await parseResponseJson(res);
+        const bInr = Number(data.balance_inr !== undefined && data.balance_inr !== null ? data.balance_inr : 0);
+        const bUsd = Number(data.balance_usd !== undefined && data.balance_usd !== null ? data.balance_usd : 0);
+        const pref = data.currency_preference || null;
+        const isUSD = (pref || '').toUpperCase() === 'USD';
+        const activeBal = pref ? (isUSD ? bUsd : bInr) : Number(data.balance || 0);
+
         setWallet({
-          balance: Number(data.balance || 0),
-          balance_inr: Number(data.balance_inr !== undefined ? data.balance_inr : 0),
-          balance_usd: Number(data.balance_usd !== undefined ? data.balance_usd : 0),
-          currency: data.currency || null,
-          currency_preference: data.currency_preference || null,
+          balance: activeBal,
+          balance_inr: bInr,
+          balance_usd: bUsd,
+          currency: data.currency || pref,
+          currency_preference: pref,
           plan: data.plan || 'free',
           plan_expires_at: data.plan_expires_at || null,
           rates: data.rates || {},
           allTiers: data.allTiers || {}
         });
 
-        // Always sync user object plan, plan_expires_at, and currency_preference with server wallet plan
+        // Always sync user object & localStorage with authoritative server balances & plan
         setUser(prev => {
           let current = prev;
           if (!current) {
@@ -76,27 +125,23 @@ export const AuthProvider = ({ children }) => {
             } catch {}
           }
           if (!current) return null;
-          const planChanged = data.plan && current.plan !== data.plan;
-          const expiryChanged = data.plan_expires_at !== undefined && current.plan_expires_at !== data.plan_expires_at;
-          const currencyChanged = data.currency_preference !== undefined && current.currency_preference !== data.currency_preference;
-          if (planChanged || expiryChanged || currencyChanged) {
-            const upd = { 
-              ...current, 
-              ...(data.plan ? { plan: data.plan } : {}),
-              ...(data.plan_expires_at !== undefined ? { plan_expires_at: data.plan_expires_at } : {}),
-              ...(data.currency_preference !== undefined ? { currency_preference: data.currency_preference } : {})
-            };
-            try {
-              const s = localStorage.getItem(STORAGE_KEY);
-              if (s) {
-                const parsed = JSON.parse(s);
-                parsed.user = upd;
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
-              }
-            } catch {}
-            return upd;
-          }
-          return current;
+          const upd = { 
+            ...current,
+            wallet_balance: bInr,
+            wallet_balance_usd: bUsd,
+            ...(data.plan ? { plan: data.plan } : {}),
+            ...(data.plan_expires_at !== undefined ? { plan_expires_at: data.plan_expires_at } : {}),
+            ...(pref !== null ? { currency_preference: pref } : {})
+          };
+          try {
+            const s = localStorage.getItem(STORAGE_KEY);
+            if (s) {
+              const parsed = JSON.parse(s);
+              parsed.user = upd;
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+            }
+          } catch {}
+          return upd;
         });
       }
     } catch {
@@ -160,6 +205,8 @@ export const AuthProvider = ({ children }) => {
                 if (vData.valid && vData.user) {
                   setUser(vData.user);
                   setToken(session.token);
+                  setWallet(prev => extractWalletFromUser(vData.user, prev));
+
                   const renewalTimestamp = Date.now() + 48 * 60 * 60 * 1000;
                   const renewedSession = {
                     ...session,
@@ -180,10 +227,12 @@ export const AuthProvider = ({ children }) => {
                 return;
               }
               // If status is 500, 502, 503 or transient network failure:
-              // Fall back to cached session instead of dropping user
+              // Fall back to cached session instead of dropping user or resetting wallet
               if (session.user && session.token) {
                 setUser(session.user);
                 setToken(session.token);
+                setWallet(prev => extractWalletFromUser(session.user, prev));
+                refreshWallet(session.token).catch(() => {});
                 setLoading(false);
                 return;
               }
@@ -192,6 +241,8 @@ export const AuthProvider = ({ children }) => {
               if (session.user && session.token) {
                 setUser(session.user);
                 setToken(session.token);
+                setWallet(prev => extractWalletFromUser(session.user, prev));
+                refreshWallet(session.token).catch(() => {});
                 setLoading(false);
                 return;
               }
@@ -202,10 +253,12 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem(STORAGE_KEY);
         setUser(null);
         setToken(null);
+        setWallet(extractWalletFromUser(null));
       } catch {
         localStorage.removeItem(STORAGE_KEY);
         setUser(null);
         setToken(null);
+        setWallet(extractWalletFromUser(null));
       } finally {
         setLoading(false);
       }
@@ -238,9 +291,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
       setUser(data.user);
       setToken(data.token);
-      if (data.user?.wallet_balance !== undefined) {
-        setWallet(prev => ({ ...prev, balance: Number(data.user.wallet_balance) }));
-      }
+      setWallet(prev => extractWalletFromUser(data.user, prev));
       await refreshWallet(data.token);
       return { success: true };
     } catch (err) {
@@ -271,9 +322,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
       setUser(data.user);
       setToken(data.token);
-      if (data.user?.wallet_balance !== undefined) {
-        setWallet(prev => ({ ...prev, balance: Number(data.user.wallet_balance) }));
-      }
+      setWallet(prev => extractWalletFromUser(data.user, prev));
       await refreshWallet(data.token);
       return { success: true, user: data.user };
     } catch (err) {
@@ -305,24 +354,7 @@ export const AuthProvider = ({ children }) => {
       setUser(data.user);
       setToken(data.token);
       setLoading(false);
-      if (data.user?.currency_preference) {
-        const bal = data.user.currency_preference === 'USD' 
-          ? Number(data.user.wallet_balance_usd || 0) 
-          : Number(data.user.wallet_balance || 0);
-        setWallet(prev => ({ 
-          ...prev, 
-          balance: bal,
-          currency: data.user.currency_preference,
-          currency_preference: data.user.currency_preference
-        }));
-      } else {
-        setWallet(prev => ({ 
-          ...prev, 
-          balance: 0.00,
-          currency: null,
-          currency_preference: null
-        }));
-      }
+      setWallet(prev => extractWalletFromUser(data.user, prev));
       await refreshWallet(data.token);
       return { success: true, user: data.user };
     } catch (err) {
@@ -368,19 +400,13 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
         setUser(data.user);
         setToken(data.token);
-        if (data.user?.wallet_balance !== undefined) {
-          setWallet(prev => ({ 
-            ...prev, 
-            balance: Number(data.user.wallet_balance),
-            balance_usd: Number(data.user.wallet_balance_usd || 0),
-            currency_preference: data.user.currency_preference || null
-          }));
-        }
+        setWallet(prev => extractWalletFromUser(data.user, prev));
         await refreshWallet(data.token);
       } else {
         localStorage.removeItem(STORAGE_KEY);
         setUser(null);
         setToken(null);
+        setWallet(extractWalletFromUser(null));
       }
 
       return { success: true, message: data.message, user: data.user, token: data.token };
@@ -407,6 +433,15 @@ export const AuthProvider = ({ children }) => {
       });
       const data = await parseResponseJson(res);
       if (res.ok) {
+        // Immediately flip active wallet balance without waiting for network roundtrip
+        const isUSD = (curr || '').toUpperCase() === 'USD';
+        setWallet(prev => ({
+          ...prev,
+          currency: curr,
+          currency_preference: curr,
+          balance: isUSD ? prev.balance_usd : prev.balance_inr
+        }));
+
         setUser(prev => {
           let current = prev;
           if (!current) {
@@ -439,15 +474,37 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem(STORAGE_KEY);
     setUser(null);
     setToken(null);
-    setWallet({
-      balance: 0.00,
-      currency: null,
-      currency_preference: null,
-      plan: 'free',
-      rates: {},
-      allTiers: {}
-    });
+    setWallet(extractWalletFromUser(null));
   };
+
+  const effectiveCurrency = user?.currency_preference || wallet.currency_preference || null;
+  const isUSD = (effectiveCurrency || '').toUpperCase() === 'USD';
+
+  // Resilient authoritative balance resolution:
+  // If user currency is USD:
+  // Priority 1: wallet.balance_usd (if defined & non-null)
+  // Priority 2: user.wallet_balance_usd (if defined & non-null)
+  // Priority 3: wallet.balance
+  const resolvedBalanceUSD = Number(
+    wallet.balance_usd !== undefined && wallet.balance_usd !== null
+      ? wallet.balance_usd
+      : (user?.wallet_balance_usd !== undefined && user?.wallet_balance_usd !== null ? user.wallet_balance_usd : 0)
+  );
+
+  const resolvedBalanceINR = Number(
+    wallet.balance_inr !== undefined && wallet.balance_inr !== null
+      ? wallet.balance_inr
+      : (user?.wallet_balance !== undefined && user?.wallet_balance !== null ? user.wallet_balance : 0)
+  );
+
+  let activeWalletBalance = 0;
+  if (effectiveCurrency === 'USD') {
+    activeWalletBalance = resolvedBalanceUSD;
+  } else if (effectiveCurrency === 'INR') {
+    activeWalletBalance = resolvedBalanceINR;
+  } else {
+    activeWalletBalance = Number(wallet.balance || 0);
+  }
 
   return (
     <AuthContext.Provider value={{ 
@@ -455,11 +512,11 @@ export const AuthProvider = ({ children }) => {
       setUser,
       token, 
       wallet,
-      walletBalance: wallet.balance,
-      walletBalanceUSD: wallet.balance_usd || 0,
-      walletBalanceINR: wallet.balance_inr || 0,
-      walletCurrency: wallet.currency || null,
-      currencyPreference: user?.currency_preference || wallet.currency_preference || null,
+      walletBalance: activeWalletBalance,
+      walletBalanceUSD: resolvedBalanceUSD,
+      walletBalanceINR: resolvedBalanceINR,
+      walletCurrency: wallet.currency || effectiveCurrency,
+      currencyPreference: effectiveCurrency,
       walletRates: wallet.rates,
       walletAllTiers: wallet.allTiers,
       userPlan: wallet.plan || (user && user.plan) || 'free',
