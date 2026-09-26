@@ -88,32 +88,76 @@ async function reserveBalance(userId, amount, jobId = null, metadata = {}) {
 }
 
 /**
- * Settle a completed or failed lead job
+ * Settle a completed or failed lead job (INR)
  * Deducts strictly for unique leads successfully inserted.
- * Refunds difference to wallet for duplicate, invalid, or unfulfilled leads.
+ * REQUIRED BILLING RULE:
+ * actual_charge = successfully_generated_unique_leads * exact_per_lead_rate
+ * unused_hold = estimated_hold - actual_charge
+ * For 0 leads: actual_charge = 0, unused_hold = full estimated hold (100% refunded)
  */
-async function settleJob(userId, jobId, requestedCount, actualInsertedCount, ratePerLead, metadata = {}) {
-  const reqCount = parseInt(requestedCount, 10) || 0;
-  const actualCount = parseInt(actualInsertedCount, 10) || 0;
-  const rate = parseFloat(ratePerLead) || 1.0;
-
-  const estimatedCost = parseFloat((reqCount * rate).toFixed(2));
-  const actualCost = parseFloat((actualCount * rate).toFixed(2));
-  const unfulfilledCount = Math.max(0, reqCount - actualCount);
-  const refundAmount = parseFloat(Math.max(0, estimatedCost - actualCost).toFixed(2));
-
-  const client = await pool.connect();
+async function settleJob(userId, jobId, requestedCount, actualInsertedCount, ratePerLead, metadata = {}, clientOverride = null) {
+  const client = clientOverride || await pool.connect();
+  const shouldManageTx = !clientOverride;
   try {
-    await client.query('BEGIN');
+    if (shouldManageTx) await client.query('BEGIN');
 
-    // 1. Lock user row
+    let effectiveJobId = jobId ? parseInt(jobId, 10) : null;
+    let jobRow = null;
+
+    if (effectiveJobId) {
+      // 1. Lock job row to ensure idempotency and prevent double refunds
+      const jobRes = await client.query(
+        'SELECT id, user_id, requested_count, fetched_count, rate_per_lead, estimated_cost, actual_cost, refunded_amount, billing_status, status, currency FROM jobs WHERE id = $1 FOR UPDATE',
+        [effectiveJobId]
+      );
+      if (jobRes.rows.length > 0) {
+        jobRow = jobRes.rows[0];
+        // Idempotency guard: If already settled, do not process again
+        if (jobRow.billing_status === 'SETTLED') {
+          if (shouldManageTx) await client.query('COMMIT');
+          return {
+            success: true,
+            alreadySettled: true,
+            jobId: effectiveJobId,
+            currency: 'INR',
+            actualCost: parseFloat(jobRow.actual_cost || 0),
+            refundAmount: parseFloat(jobRow.refunded_amount || 0),
+            fetchedCount: parseInt(jobRow.fetched_count || 0, 10)
+          };
+        }
+      }
+    }
+
+    const actualCount = Math.max(0, parseInt(actualInsertedCount, 10) || 0);
+    const reqCount = jobRow && jobRow.requested_count != null ? parseInt(jobRow.requested_count, 10) : (parseInt(requestedCount, 10) || 0);
+    const rate = jobRow && jobRow.rate_per_lead != null ? parseFloat(jobRow.rate_per_lead) : (parseFloat(ratePerLead) || 1.0);
+    const targetUserId = (jobRow && jobRow.user_id) ? jobRow.user_id : userId;
+
+    // Source of truth for estimated hold: read from job row if present
+    const estimatedCost = jobRow && jobRow.estimated_cost != null 
+      ? parseFloat(parseFloat(jobRow.estimated_cost).toFixed(2))
+      : parseFloat((reqCount * rate).toFixed(2));
+
+    // REQUIRED BILLING RULE:
+    // actual_charge = successfully_generated_unique_leads * exact_per_lead_rate
+    // For 0 leads: actual_charge = 0, unused_hold = full estimated hold
+    const actualCost = actualCount === 0 
+      ? 0.00 
+      : parseFloat((actualCount * rate).toFixed(2));
+
+    const unfulfilledCount = Math.max(0, reqCount - actualCount);
+    const refundAmount = actualCount === 0
+      ? estimatedCost
+      : parseFloat(Math.max(0, estimatedCost - actualCost).toFixed(2));
+
+    // Lock user row exclusively
     const userRes = await client.query(
       'SELECT id, wallet_balance FROM users WHERE id = $1 FOR UPDATE',
-      [userId]
+      [targetUserId]
     );
 
     if (userRes.rows.length === 0) {
-      await client.query('ROLLBACK');
+      if (shouldManageTx) await client.query('ROLLBACK');
       return { success: false, reason: 'USER_NOT_FOUND' };
     }
 
@@ -121,53 +165,60 @@ async function settleJob(userId, jobId, requestedCount, actualInsertedCount, rat
     let finalBalance = currentBalance;
     let refundLedgerId = null;
 
-    // 2. If unfulfilled/duplicate leads exist, execute REFUND transaction
     if (refundAmount > 0) {
       finalBalance = parseFloat((currentBalance + refundAmount).toFixed(2));
       await client.query(
         'UPDATE users SET wallet_balance = $1 WHERE id = $2',
-        [finalBalance, userId]
+        [finalBalance, targetUserId]
       );
 
-      const refundReason = `Refund for ${unfulfilledCount} unfulfilled/duplicate leads (Job #${jobId})`;
+      const refundReason = actualCount === 0
+        ? `Full refund for 0 leads generated (Job #${effectiveJobId || ''})`
+        : `Refund for ${unfulfilledCount} unfulfilled/duplicate leads (Job #${effectiveJobId || ''})`;
+
       const refundMeta = {
         ...metadata,
-        jobId,
+        jobId: effectiveJobId,
         requestedCount: reqCount,
         actualInsertedCount: actualCount,
         unfulfilledCount,
         ratePerLead: rate,
         estimatedCost,
         actualCost,
-        refundAmount
+        refundAmount,
+        currency: 'INR'
       };
 
       const ledgerRes = await client.query(
         `INSERT INTO wallet_ledger (user_id, amount, balance_after, type, reason, reference_id, metadata)
          VALUES ($1, $2, $3, 'REFUND', $4, $5, $6)
          RETURNING id`,
-        [userId, refundAmount, finalBalance, refundReason, String(jobId), JSON.stringify(refundMeta)]
+        [targetUserId, refundAmount, finalBalance, refundReason, effectiveJobId ? String(effectiveJobId) : null, JSON.stringify(refundMeta)]
       );
       refundLedgerId = ledgerRes.rows[0].id;
     }
 
-    // 3. Mark job billing settled
-    if (jobId) {
+    // Mark job billing SETTLED and update actual_cost, refunded_amount, fetched_count, and status
+    if (effectiveJobId) {
+      const finalStatus = metadata.status || (actualCount > 0 ? 'COMPLETED' : (metadata.failed ? 'FAILED' : 'COMPLETED'));
       await client.query(
         `UPDATE jobs 
          SET actual_cost = $1, 
              refunded_amount = $2, 
-             billing_status = 'SETTLED' 
-         WHERE id = $3`,
-        [actualCost, refundAmount, jobId]
+             fetched_count = $3, 
+             billing_status = 'SETTLED',
+             status = $4
+         WHERE id = $5`,
+        [actualCost, refundAmount, actualCount, finalStatus, effectiveJobId]
       );
     }
 
-    await client.query('COMMIT');
+    if (shouldManageTx) await client.query('COMMIT');
 
     return {
       success: true,
-      jobId,
+      jobId: effectiveJobId,
+      currency: 'INR',
       estimatedCost,
       actualCost,
       refundAmount,
@@ -176,13 +227,14 @@ async function settleJob(userId, jobId, requestedCount, actualInsertedCount, rat
       newBalance: finalBalance
     };
   } catch (err) {
-    await client.query('ROLLBACK');
+    if (shouldManageTx) await client.query('ROLLBACK');
     console.error(`[Wallet Settle Error] Job #${jobId}, User ${userId}:`, err.message);
     throw err;
   } finally {
-    client.release();
+    if (shouldManageTx) client.release();
   }
 }
+
 
 /**
  * Atomically credit user's wallet balance (e.g. from Razorpay recharge)
@@ -508,25 +560,71 @@ async function reserveBalanceUSD(userId, amount, jobId = null, metadata = {}, cl
 
 /**
  * Settle a completed or failed lead job for USD
+ * Deducts strictly for unique leads successfully inserted.
+ * REQUIRED BILLING RULE:
+ * actual_charge = successfully_generated_unique_leads * exact_per_lead_rate
+ * unused_hold = estimated_hold - actual_charge
+ * For 0 leads: actual_charge = 0, unused_hold = full estimated hold (100% refunded)
  */
 async function settleJobUSD(userId, jobId, requestedCount, actualInsertedCount, ratePerLead, metadata = {}, clientOverride = null) {
-  const reqCount = parseInt(requestedCount, 10) || 0;
-  const actualCount = parseInt(actualInsertedCount, 10) || 0;
-  const rate = parseFloat(ratePerLead) || 0.014;
-
-  const estimatedCost = parseFloat((reqCount * rate).toFixed(4));
-  const actualCost = parseFloat((actualCount * rate).toFixed(4));
-  const unfulfilledCount = Math.max(0, reqCount - actualCount);
-  const refundAmount = parseFloat(Math.max(0, estimatedCost - actualCost).toFixed(4));
-
   const client = clientOverride || await pool.connect();
   const shouldManageTx = !clientOverride;
   try {
     if (shouldManageTx) await client.query('BEGIN');
 
+    let effectiveJobId = jobId ? parseInt(jobId, 10) : null;
+    let jobRow = null;
+
+    if (effectiveJobId) {
+      // 1. Lock job row to ensure idempotency and prevent double refunds
+      const jobRes = await client.query(
+        'SELECT id, user_id, requested_count, fetched_count, rate_per_lead, estimated_cost, actual_cost, refunded_amount, billing_status, status, currency FROM jobs WHERE id = $1 FOR UPDATE',
+        [effectiveJobId]
+      );
+      if (jobRes.rows.length > 0) {
+        jobRow = jobRes.rows[0];
+        // Idempotency guard: If already settled, do not process again
+        if (jobRow.billing_status === 'SETTLED') {
+          if (shouldManageTx) await client.query('COMMIT');
+          return {
+            success: true,
+            alreadySettled: true,
+            jobId: effectiveJobId,
+            currency: 'USD',
+            actualCost: parseFloat(jobRow.actual_cost || 0),
+            refundAmount: parseFloat(jobRow.refunded_amount || 0),
+            fetchedCount: parseInt(jobRow.fetched_count || 0, 10)
+          };
+        }
+      }
+    }
+
+    const actualCount = Math.max(0, parseInt(actualInsertedCount, 10) || 0);
+    const reqCount = jobRow && jobRow.requested_count != null ? parseInt(jobRow.requested_count, 10) : (parseInt(requestedCount, 10) || 0);
+    const rate = jobRow && jobRow.rate_per_lead != null ? parseFloat(jobRow.rate_per_lead) : (parseFloat(ratePerLead) || 0.014);
+    const targetUserId = (jobRow && jobRow.user_id) ? jobRow.user_id : userId;
+
+    // Source of truth for estimated hold: read from job row if present
+    const estimatedCost = jobRow && jobRow.estimated_cost != null 
+      ? parseFloat(parseFloat(jobRow.estimated_cost).toFixed(4))
+      : parseFloat((reqCount * rate).toFixed(4));
+
+    // REQUIRED BILLING RULE:
+    // actual_charge = successfully_generated_unique_leads * exact_per_lead_rate
+    // For 0 leads: actual_charge = 0, unused_hold = full estimated hold
+    const actualCost = actualCount === 0 
+      ? 0.0000 
+      : parseFloat((actualCount * rate).toFixed(4));
+
+    const unfulfilledCount = Math.max(0, reqCount - actualCount);
+    const refundAmount = actualCount === 0
+      ? estimatedCost
+      : parseFloat(Math.max(0, estimatedCost - actualCost).toFixed(4));
+
+    // Lock user row exclusively
     const userRes = await client.query(
       'SELECT id, wallet_balance_usd FROM users WHERE id = $1 FOR UPDATE',
-      [userId]
+      [targetUserId]
     );
 
     if (userRes.rows.length === 0) {
@@ -542,13 +640,16 @@ async function settleJobUSD(userId, jobId, requestedCount, actualInsertedCount, 
       finalBalance = parseFloat((currentBalance + refundAmount).toFixed(4));
       await client.query(
         'UPDATE users SET wallet_balance_usd = $1 WHERE id = $2',
-        [finalBalance, userId]
+        [finalBalance, targetUserId]
       );
 
-      const refundReason = `Refund for ${unfulfilledCount} unfulfilled/duplicate leads (Job #${jobId})`;
+      const refundReason = actualCount === 0
+        ? `Full refund for 0 leads generated (Job #${effectiveJobId || ''})`
+        : `Refund for ${unfulfilledCount} unfulfilled/duplicate leads (Job #${effectiveJobId || ''})`;
+
       const refundMeta = {
         ...metadata,
-        jobId,
+        jobId: effectiveJobId,
         requestedCount: reqCount,
         actualInsertedCount: actualCount,
         unfulfilledCount,
@@ -563,19 +664,23 @@ async function settleJobUSD(userId, jobId, requestedCount, actualInsertedCount, 
         `INSERT INTO wallet_ledger_usd (user_id, amount, balance_after, type, reason, reference_id, metadata)
          VALUES ($1, $2, $3, 'REFUND', $4, $5, $6)
          RETURNING id`,
-        [userId, refundAmount, finalBalance, refundReason, String(jobId), JSON.stringify(refundMeta)]
+        [targetUserId, refundAmount, finalBalance, refundReason, effectiveJobId ? String(effectiveJobId) : null, JSON.stringify(refundMeta)]
       );
       refundLedgerId = ledgerRes.rows[0].id;
     }
 
-    if (jobId) {
+    // Mark job billing SETTLED and update actual_cost, refunded_amount, fetched_count, and status
+    if (effectiveJobId) {
+      const finalStatus = metadata.status || (actualCount > 0 ? 'COMPLETED' : (metadata.failed ? 'FAILED' : 'COMPLETED'));
       await client.query(
         `UPDATE jobs 
          SET actual_cost = $1, 
              refunded_amount = $2, 
-             billing_status = 'SETTLED' 
-         WHERE id = $3`,
-        [actualCost, refundAmount, jobId]
+             fetched_count = $3, 
+             billing_status = 'SETTLED',
+             status = $4
+         WHERE id = $5`,
+        [actualCost, refundAmount, actualCount, finalStatus, effectiveJobId]
       );
     }
 
@@ -583,7 +688,7 @@ async function settleJobUSD(userId, jobId, requestedCount, actualInsertedCount, 
 
     return {
       success: true,
-      jobId,
+      jobId: effectiveJobId,
       currency: 'USD',
       estimatedCost,
       actualCost,
@@ -712,6 +817,49 @@ async function getBillingSummaryUSD(userId, clientOverride = null) {
   };
 }
 
+/**
+ * Automatically audit and settle any lingering jobs in 'HELD' status
+ * (e.g. from server restarts, aborted requests, or unhandled exceptions)
+ */
+async function autoSettleHeldJobs(userId = null) {
+  try {
+    let query = `
+      SELECT id, user_id, requested_count, fetched_count, rate_per_lead, estimated_cost, billing_status, status, currency, created_at
+      FROM jobs
+      WHERE billing_status = 'HELD' 
+        AND (status IN ('COMPLETED', 'FAILED') OR created_at < NOW() - INTERVAL '15 minutes')
+    `;
+    const params = [];
+    if (userId) {
+      query += ` AND user_id = $1`;
+      params.push(userId);
+    }
+    query += ` ORDER BY id ASC LIMIT 20`;
+
+    const heldJobs = await pool.query(query, params);
+    for (const job of heldJobs.rows) {
+      const countRes = await pool.query('SELECT COUNT(*) FROM leads WHERE job_id = $1', [job.id]);
+      const actualCount = parseInt(countRes.rows[0]?.count, 10) || 0;
+      const isUSD = (job.currency || '').toUpperCase() === 'USD';
+
+      if (isUSD) {
+        await settleJobUSD(job.user_id, job.id, job.requested_count, actualCount, job.rate_per_lead, {
+          autoSettled: true,
+          status: actualCount > 0 ? 'COMPLETED' : (job.status === 'COMPLETED' ? 'COMPLETED' : 'FAILED')
+        });
+      } else {
+        await settleJob(job.user_id, job.id, job.requested_count, actualCount, job.rate_per_lead, {
+          autoSettled: true,
+          status: actualCount > 0 ? 'COMPLETED' : (job.status === 'COMPLETED' ? 'COMPLETED' : 'FAILED')
+        });
+      }
+      console.log(`[AutoSettle] Successfully settled held job #${job.id} for user #${job.user_id}`);
+    }
+  } catch (err) {
+    console.error('[AutoSettle Error]:', err.message);
+  }
+}
+
 module.exports = {
   reserveBalance,
   settleJob,
@@ -725,5 +873,8 @@ module.exports = {
   settleJobUSD,
   getWalletBalanceUSD,
   getLedgerHistoryUSD,
-  getBillingSummaryUSD
+  getBillingSummaryUSD,
+  // Automatic Audit & Recovery
+  autoSettleHeldJobs
 };
+

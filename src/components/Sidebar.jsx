@@ -34,6 +34,7 @@ function Sidebar() {
   }, [mobileOpen]);
 
   useEffect(() => {
+    let prevInProgress = -1;
     const checkActiveJobs = async () => {
       try {
         const res = await authFetch(`${API_URL}/api/jobs`);
@@ -41,6 +42,13 @@ function Sidebar() {
           const jobs = await res.json();
           const inProgress = jobs.filter(j => j.status === 'IN_PROGRESS').length;
           setActiveJobsCount(inProgress);
+          if (prevInProgress !== -1 && inProgress < prevInProgress) {
+            // A running job finished or completed! Refresh wallet balance immediately to reflect refunds
+            if (refreshWallet) {
+              refreshWallet();
+            }
+          }
+          prevInProgress = inProgress;
         }
       } catch {
         // quiet fallback
@@ -50,7 +58,7 @@ function Sidebar() {
     checkActiveJobs();
     const interval = setInterval(checkActiveJobs, 4000);
     return () => clearInterval(interval);
-  }, [authFetch]);
+  }, [authFetch, refreshWallet]);
 
   const hasPreference = Boolean(user?.currency_preference);
   const isUSD = user?.currency_preference === 'USD';

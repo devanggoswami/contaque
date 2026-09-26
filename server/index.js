@@ -73,7 +73,7 @@ const walletRouter = require('./routes/wallet');
 const plansRouter = require('./routes/plans');
 const adminRouter = require('./routes/admin');
 const referralRouter = require('./routes/referral');
-const { reserveBalance, settleJob, reserveBalanceUSD, settleJobUSD, creditBalance, creditBalanceUSD } = require('./utils/wallet');
+const { reserveBalance, settleJob, reserveBalanceUSD, settleJobUSD, creditBalance, creditBalanceUSD, autoSettleHeldJobs } = require('./utils/wallet');
 const { getRatePerLead, getRatePerLeadUSD } = require('./utils/pricing');
 
 app.use('/api/campaigns', campaignsRouter);
@@ -1058,9 +1058,9 @@ app.post('/api/generate', requireAuth, async (req, res) => {
 
     // 3. Create a job entry with billing details
     const jobResult = await db.query(
-      `INSERT INTO jobs (source, location, keyword, target_count, requested_count, fetched_count, status, user_id, rate_per_lead, estimated_cost, billing_status) 
-       VALUES ($1, $2, $3, $4, $4, 0, 'IN_PROGRESS', $5, $6, $7, 'HELD') RETURNING id`,
-      [source, location, keyword, requestedCount, user.id, ratePerLead, estimatedCost]
+      `INSERT INTO jobs (source, location, keyword, target_count, requested_count, fetched_count, status, user_id, rate_per_lead, estimated_cost, billing_status, currency) 
+       VALUES ($1, $2, $3, $4, $4, 0, 'IN_PROGRESS', $5, $6, $7, 'HELD', $8) RETURNING id`,
+      [source, location, keyword, requestedCount, jobUserId, ratePerLead, estimatedCost, currency]
     );
     const jobId = jobResult.rows[0].id;
 
@@ -1795,53 +1795,54 @@ app.post('/api/generate', requireAuth, async (req, res) => {
 
         // Final count from DB
         const countResult = await db.query(`SELECT COUNT(*) FROM leads WHERE job_id = $1`, [jobId]);
-        const finalCount = parseInt(countResult.rows[0].count, 10);
+        const finalCount = parseInt(countResult.rows[0]?.count, 10) || 0;
 
-        // Update job status
-        await db.query(`UPDATE jobs SET fetched_count = $1, status = 'COMPLETED' WHERE id = $2`, [finalCount, jobId]);
-        console.log(`Job ${jobId} [${source}] completed: ${finalCount} leads.`);
-
-        // Settle job billing: strictly charge unique leads and automatically refund unfulfilled/duplicate slots
+        // Atomically settle job billing and update status to 'COMPLETED'
+        // Strictly charges actual unique leads; 100% of hold is refunded if finalCount === 0
         if (isUSD) {
-          await settleJobUSD(user.id, jobId, requestedCount, finalCount, ratePerLead, {
+          await settleJobUSD(jobUserId, jobId, requestedCount, finalCount, ratePerLead, {
             source,
             keyword,
             location,
-            currency: 'USD'
+            currency: 'USD',
+            status: 'COMPLETED'
           });
         } else {
-          await settleJob(user.id, jobId, requestedCount, finalCount, ratePerLead, {
+          await settleJob(jobUserId, jobId, requestedCount, finalCount, ratePerLead, {
             source,
             keyword,
             location,
-            currency: 'INR'
+            currency: 'INR',
+            status: 'COMPLETED'
           });
         }
-        console.log(`Job ${jobId} [${source}] billing settled.`);
+        console.log(`Job ${jobId} [${source}] completed: ${finalCount} leads, billing settled.`);
 
       } catch (error) {
         console.error(`Job ${jobId} critical error:`, error.message);
-        await db.query(`UPDATE jobs SET status = 'FAILED' WHERE id = $1`, [jobId]);
 
         // On failure, settle with whatever was inserted (or 0), refunding the rest
         try {
           const countRes = await db.query(`SELECT COUNT(*) FROM leads WHERE job_id = $1`, [jobId]);
           const partialCount = parseInt(countRes.rows[0]?.count, 10) || 0;
           if (isUSD) {
-            await settleJobUSD(user.id, jobId, requestedCount, partialCount, ratePerLead, {
+            await settleJobUSD(jobUserId, jobId, requestedCount, partialCount, ratePerLead, {
               failed: true,
               error: error.message,
-              currency: 'USD'
+              currency: 'USD',
+              status: 'FAILED'
             });
           } else {
-            await settleJob(user.id, jobId, requestedCount, partialCount, ratePerLead, {
+            await settleJob(jobUserId, jobId, requestedCount, partialCount, ratePerLead, {
               failed: true,
               error: error.message,
-              currency: 'INR'
+              currency: 'INR',
+              status: 'FAILED'
             });
           }
         } catch (settleErr) {
           console.error(`Error settling failed job ${jobId}:`, settleErr.message);
+          await db.query(`UPDATE jobs SET status = 'FAILED' WHERE id = $1`, [jobId]).catch(() => {});
         }
       }
     })();
@@ -1985,6 +1986,9 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
 app.get('/api/jobs', requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
+    // Auto-settle any lingering held jobs for this user first
+    await autoSettleHeldJobs(userId).catch(() => {});
+
     const jobs = await db.query(`
       SELECT j.*, 
              COALESCE(j.requested_count, j.fetched_count) as target_count,

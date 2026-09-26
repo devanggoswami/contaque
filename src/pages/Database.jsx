@@ -154,7 +154,7 @@ const drawPdfSocialBadges = (doc, cell, rawLead) => {
 };
 
 function Database() {
-  const { authFetch } = useAuth();
+  const { authFetch, refreshWallet } = useAuth();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -267,10 +267,13 @@ function Database() {
     
     const interval = setInterval(() => {
       fetchJobs(false);
+      if (hasRunning && refreshWallet) {
+        refreshWallet();
+      }
     }, intervalTime);
 
     return () => clearInterval(interval);
-  }, [autoPoll, jobs, fetchJobs]);
+  }, [autoPoll, jobs, fetchJobs, refreshWallet]);
 
   const viewLeads = async (job) => {
     setSelectedJob(job);

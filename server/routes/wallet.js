@@ -16,7 +16,8 @@ const {
   getWalletBalanceUSD,
   creditBalanceUSD,
   getLedgerHistoryUSD,
-  getBillingSummaryUSD
+  getBillingSummaryUSD,
+  autoSettleHeldJobs
 } = require('../utils/wallet');
 const { getEngineRates, getEngineRatesUSD, normalizePlanKey } = require('../utils/pricing');
 const { syncUserToGoogleSheets } = require('../utils/googleSheetsService');
@@ -79,6 +80,9 @@ router.get('/balance', async (req, res) => {
   try {
     const user = await resolveUser(req);
     if (!user) return res.status(401).json({ error: 'User not authenticated' });
+
+    // Auto-settle any lingering held jobs for this user first
+    await autoSettleHeldJobs(user.id).catch(() => {});
 
     let wallet = await getWalletBalance(user.id);
     let currentBalance = wallet ? wallet.balance : 0.00;
