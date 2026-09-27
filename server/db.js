@@ -395,6 +395,12 @@ const initDb = async () => {
       CREATE INDEX IF NOT EXISTS idx_referrals_referrer_id ON referrals(referrer_id);
       CREATE INDEX IF NOT EXISTS idx_referrals_referred_user_id ON referrals(referred_user_id);
       CREATE INDEX IF NOT EXISTS idx_users_referral_code ON users(referral_code);
+
+      ALTER TABLE referrals ADD COLUMN IF NOT EXISTS reward_currency VARCHAR(10) DEFAULT 'INR';
+      ALTER TABLE referrals ADD COLUMN IF NOT EXISTS referrer_reward_amount NUMERIC(10, 2);
+      ALTER TABLE referrals ADD COLUMN IF NOT EXISTS referrer_reward_currency VARCHAR(10);
+      ALTER TABLE referrals ADD COLUMN IF NOT EXISTS referee_reward_amount NUMERIC(10, 2);
+      ALTER TABLE referrals ADD COLUMN IF NOT EXISTS referee_reward_currency VARCHAR(10);
     `);
 
     // Safely backfill sender_account_id for older historical campaigns using their user's first email account if available

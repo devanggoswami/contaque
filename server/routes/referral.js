@@ -64,11 +64,15 @@ router.get('/info', async (req, res) => {
       referralCode = await ensureUserReferralCode(freshUser.id, freshUser.name);
     }
 
+    const isUserUSD = (freshUser.currency_preference || '').toUpperCase() === 'USD' || 
+                      (!freshUser.currency_preference && freshUser.country && freshUser.country !== 'India');
+    const userCurrency = isUserUSD ? 'USD' : 'INR';
+
     // Aggregate statistics
     const statsRes = await db.query(
       `SELECT 
          COUNT(*)::int as total_referrals,
-         COALESCE(SUM(reward_amount), 0)::float as total_earned
+         COALESCE(SUM(COALESCE(referrer_reward_amount, reward_amount)), 0)::float as total_earned
        FROM referrals
        WHERE referrer_id = $1 AND status = 'COMPLETED'`,
       [freshUser.id]
@@ -80,7 +84,8 @@ router.get('/info', async (req, res) => {
     const historyRes = await db.query(
       `SELECT 
          r.id,
-         r.reward_amount,
+         COALESCE(r.referrer_reward_amount, r.reward_amount) as reward_amount,
+         COALESCE(r.referrer_reward_currency, r.reward_currency, 'INR') as reward_currency,
          r.created_at,
          u.email,
          u.name
@@ -104,7 +109,8 @@ router.get('/info', async (req, res) => {
       }
       return {
         id: row.id,
-        reward_amount: parseFloat(row.reward_amount || 100),
+        reward_amount: parseFloat(row.reward_amount || (userCurrency === 'USD' ? 2.00 : 100.00)),
+        reward_currency: row.reward_currency || userCurrency,
         created_at: row.created_at,
         referred_email: maskedEmail
       };
@@ -120,7 +126,7 @@ router.get('/info', async (req, res) => {
       referral_history: history,
       has_claimed: !!freshUser.referral_claimed,
       should_show_popup: shouldShowPopup,
-      currency: freshUser.country === 'India' ? 'INR' : 'INR'
+      currency: userCurrency
     });
   } catch (err) {
     console.error('[GET /api/referral/info error]:', err);
@@ -129,7 +135,11 @@ router.get('/info', async (req, res) => {
 });
 
 // ------------------------------------------------------------------------------
-// 2. POST /api/referral/claim - Validate code, link referrer & award ₹100 atomically
+// 2. POST /api/referral/claim - Validate code, link referrer & award fixed rewards
+// CROSS-CURRENCY RULE:
+// Referrer gets reward in Referrer's own currency (INR ₹100 or USD $2)
+// Referred user gets reward in Referee's own currency (INR ₹100 or USD $2)
+// NO FX conversion rate is ever applied.
 // ------------------------------------------------------------------------------
 router.post('/claim', async (req, res) => {
   try {
@@ -147,7 +157,7 @@ router.post('/claim', async (req, res) => {
 
       // 1. Lock the claiming user row
       const userRes = await client.query(
-        'SELECT id, email, referral_code, referral_claimed, referral_prompt_dismissed, wallet_balance FROM users WHERE id = $1 FOR UPDATE',
+        'SELECT id, email, referral_code, referral_claimed, referral_prompt_dismissed, wallet_balance, wallet_balance_usd, currency_preference, country FROM users WHERE id = $1 FOR UPDATE',
         [user.id]
       );
 
@@ -176,7 +186,7 @@ router.post('/claim', async (req, res) => {
 
       // 3. Find and lock referrer by uppercase referral_code
       const referrerRes = await client.query(
-        'SELECT id, email, referral_code, wallet_balance FROM users WHERE UPPER(referral_code) = $1 FOR UPDATE',
+        'SELECT id, email, referral_code, wallet_balance, wallet_balance_usd, currency_preference, country FROM users WHERE UPPER(referral_code) = $1 FOR UPDATE',
         [rawCode]
       );
 
@@ -193,80 +203,170 @@ router.post('/claim', async (req, res) => {
         return res.status(400).json({ error: 'You cannot use your own referral code.' });
       }
 
-      // 5. Atomic Reward: ₹100 for referrer and ₹100 for newly referred user
-      const rewardAmount = 100.00;
+      // 5. Determine reward currency & reward amount independently for Referrer and Referee
+      // CROSS-CURRENCY RULE:
+      // - Referrer reward currency is determined strictly by referrer's own currency preference
+      // - Referee reward currency is determined strictly by referee's own currency preference
+      // - INR = ₹100, USD = $2 (Fixed rewards, NO FX CONVERSION)
+      const isReferrerUSD = (referrer.currency_preference || '').toUpperCase() === 'USD' || 
+                            (!referrer.currency_preference && referrer.country && referrer.country !== 'India');
+      const referrerCurrency = isReferrerUSD ? 'USD' : 'INR';
+      const referrerRewardAmount = isReferrerUSD ? 2.00 : 100.00;
 
-      // Credit Referrer
-      const referrerOldBal = parseFloat(referrer.wallet_balance || 0);
-      const referrerNewBal = parseFloat((referrerOldBal + rewardAmount).toFixed(2));
+      const isRefereeUSD = (freshUser.currency_preference || '').toUpperCase() === 'USD' || 
+                           (!freshUser.currency_preference && freshUser.country && freshUser.country !== 'India');
+      const refereeCurrency = isRefereeUSD ? 'USD' : 'INR';
+      const refereeRewardAmount = isRefereeUSD ? 2.00 : 100.00;
 
+      // 6. Credit Referrer to their own currency wallet
+      let referrerNewBal = 0;
+      if (isReferrerUSD) {
+        const referrerOldBal = parseFloat(referrer.wallet_balance_usd || 0);
+        referrerNewBal = parseFloat((referrerOldBal + referrerRewardAmount).toFixed(4));
+        await client.query(
+          'UPDATE users SET wallet_balance_usd = $1 WHERE id = $2',
+          [referrerNewBal, referrer.id]
+        );
+        await client.query(
+          `INSERT INTO wallet_ledger_usd (user_id, amount, balance_after, type, reason, reference_id, metadata)
+           VALUES ($1, $2, $3, 'CREDIT', $4, 'REFERRAL_SIGNUP_REWARD', $5)`,
+          [
+            referrer.id,
+            referrerRewardAmount,
+            referrerNewBal,
+            `Referral reward ($2): User ${freshUser.email} joined with your code (${referrer.referral_code})`,
+            JSON.stringify({
+              role: 'referrer',
+              referred_user_id: freshUser.id,
+              referred_email: freshUser.email,
+              code: referrer.referral_code,
+              currency: 'USD',
+              amount: 2.00
+            })
+          ]
+        );
+      } else {
+        const referrerOldBal = parseFloat(referrer.wallet_balance || 0);
+        referrerNewBal = parseFloat((referrerOldBal + referrerRewardAmount).toFixed(2));
+        await client.query(
+          'UPDATE users SET wallet_balance = $1 WHERE id = $2',
+          [referrerNewBal, referrer.id]
+        );
+        await client.query(
+          `INSERT INTO wallet_ledger (user_id, amount, balance_after, type, reason, reference_id, metadata)
+           VALUES ($1, $2, $3, 'CREDIT', $4, 'REFERRAL_SIGNUP_REWARD', $5)`,
+          [
+            referrer.id,
+            referrerRewardAmount,
+            referrerNewBal,
+            `Referral reward (₹100): User ${freshUser.email} joined with your code (${referrer.referral_code})`,
+            JSON.stringify({
+              role: 'referrer',
+              referred_user_id: freshUser.id,
+              referred_email: freshUser.email,
+              code: referrer.referral_code,
+              currency: 'INR',
+              amount: 100.00
+            })
+          ]
+        );
+      }
+
+      // 7. Credit Referee (Current User) to their own currency wallet
+      let userNewBal = 0;
+      if (isRefereeUSD) {
+        const userOldBal = parseFloat(freshUser.wallet_balance_usd || 0);
+        userNewBal = parseFloat((userOldBal + refereeRewardAmount).toFixed(4));
+        await client.query(
+          `UPDATE users 
+           SET wallet_balance_usd = $1, 
+               referred_by = $2, 
+               referral_claimed = TRUE, 
+               referral_prompt_dismissed = TRUE 
+           WHERE id = $3`,
+          [userNewBal, referrer.id, freshUser.id]
+        );
+        await client.query(
+          `INSERT INTO wallet_ledger_usd (user_id, amount, balance_after, type, reason, reference_id, metadata)
+           VALUES ($1, $2, $3, 'CREDIT', $4, 'REFERRAL_SIGNUP_REWARD', $5)`,
+          [
+            freshUser.id,
+            refereeRewardAmount,
+            userNewBal,
+            `Referral signup bonus ($2): Joined via referral code ${referrer.referral_code}`,
+            JSON.stringify({
+              role: 'referee',
+              referrer_id: referrer.id,
+              referrer_code: referrer.referral_code,
+              currency: 'USD',
+              amount: 2.00
+            })
+          ]
+        );
+      } else {
+        const userOldBal = parseFloat(freshUser.wallet_balance || 0);
+        userNewBal = parseFloat((userOldBal + refereeRewardAmount).toFixed(2));
+        await client.query(
+          `UPDATE users 
+           SET wallet_balance = $1, 
+               referred_by = $2, 
+               referral_claimed = TRUE, 
+               referral_prompt_dismissed = TRUE 
+           WHERE id = $3`,
+          [userNewBal, referrer.id, freshUser.id]
+        );
+        await client.query(
+          `INSERT INTO wallet_ledger (user_id, amount, balance_after, type, reason, reference_id, metadata)
+           VALUES ($1, $2, $3, 'CREDIT', $4, 'REFERRAL_SIGNUP_REWARD', $5)`,
+          [
+            freshUser.id,
+            refereeRewardAmount,
+            userNewBal,
+            `Referral signup bonus (₹100): Joined via referral code ${referrer.referral_code}`,
+            JSON.stringify({
+              role: 'referee',
+              referrer_id: referrer.id,
+              referrer_code: referrer.referral_code,
+              currency: 'INR',
+              amount: 100.00
+            })
+          ]
+        );
+      }
+
+      // 8. Record in referrals table with complete cross-currency metadata
       await client.query(
-        'UPDATE users SET wallet_balance = $1 WHERE id = $2',
-        [referrerNewBal, referrer.id]
-      );
-
-      await client.query(
-        `INSERT INTO wallet_ledger (user_id, amount, balance_after, type, reason, reference_id, metadata)
-         VALUES ($1, $2, $3, 'CREDIT', $4, 'REFERRAL_SIGNUP_REWARD', $5)`,
+        `INSERT INTO referrals (
+           referrer_id, referred_user_id, referral_code, reward_amount, status,
+           reward_currency, referrer_reward_amount, referrer_reward_currency, referee_reward_amount, referee_reward_currency
+         )
+         VALUES ($1, $2, $3, $4, 'COMPLETED', $5, $6, $7, $8, $9)`,
         [
           referrer.id,
-          rewardAmount,
-          referrerNewBal,
-          `Referral reward: User ${freshUser.email} joined with your code (${referrer.referral_code})`,
-          JSON.stringify({
-            role: 'referrer',
-            referred_user_id: freshUser.id,
-            referred_email: freshUser.email,
-            code: referrer.referral_code
-          })
-        ]
-      );
-
-      // Credit Referee (Current User)
-      const userOldBal = parseFloat(freshUser.wallet_balance || 0);
-      const userNewBal = parseFloat((userOldBal + rewardAmount).toFixed(2));
-
-      await client.query(
-        `UPDATE users 
-         SET wallet_balance = $1, 
-             referred_by = $2, 
-             referral_claimed = TRUE, 
-             referral_prompt_dismissed = TRUE 
-         WHERE id = $3`,
-        [userNewBal, referrer.id, freshUser.id]
-      );
-
-      await client.query(
-        `INSERT INTO wallet_ledger (user_id, amount, balance_after, type, reason, reference_id, metadata)
-         VALUES ($1, $2, $3, 'CREDIT', $4, 'REFERRAL_SIGNUP_REWARD', $5)`,
-        [
           freshUser.id,
-          rewardAmount,
-          userNewBal,
-          `Referral signup bonus: Joined via referral code ${referrer.referral_code}`,
-          JSON.stringify({
-            role: 'referee',
-            referrer_id: referrer.id,
-            referrer_code: referrer.referral_code
-          })
+          referrer.referral_code,
+          referrerRewardAmount,
+          referrerCurrency,
+          referrerRewardAmount,
+          referrerCurrency,
+          refereeRewardAmount,
+          refereeCurrency
         ]
-      );
-
-      // Record in referrals table
-      await client.query(
-        `INSERT INTO referrals (referrer_id, referred_user_id, referral_code, reward_amount, status)
-         VALUES ($1, $2, $3, $4, 'COMPLETED')`,
-        [referrer.id, freshUser.id, referrer.referral_code, rewardAmount]
       );
 
       await client.query('COMMIT');
 
+      const refereeRewardLabel = isRefereeUSD ? '$2' : '₹100';
+
       return res.json({
         success: true,
-        message: 'Referral code applied! ₹100 has been credited to your wallet.',
-        reward: rewardAmount,
+        message: `Referral code applied! ${refereeRewardLabel} has been credited to your wallet.`,
+        reward: refereeRewardAmount,
+        currency: refereeCurrency,
         newBalance: userNewBal,
-        referrerCode: referrer.referral_code
+        referrerCode: referrer.referral_code,
+        referrerReward: referrerRewardAmount,
+        referrerCurrency: referrerCurrency
       });
     } catch (txErr) {
       await client.query('ROLLBACK');

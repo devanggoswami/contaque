@@ -192,7 +192,7 @@ export default function ReferAndEarn() {
           <div className="stat-content">
             <div className="stat-label">Total Referral Rewards</div>
             <div className="stat-value">
-              {isUSD ? `$${(info.total_earned / 50).toFixed(2)}` : `₹${info.total_earned.toLocaleString('en-IN')}`}
+              {isUSD ? `$${Number(info.total_earned || 0).toFixed(2)}` : `₹${Number(info.total_earned || 0).toLocaleString('en-IN')}`}
             </div>
             <div className="stat-help">Earned and credited to wallet</div>
           </div>
@@ -254,7 +254,7 @@ export default function ReferAndEarn() {
                       </span>
                     </td>
                     <td style={{ textAlign: 'right', fontWeight: 600, color: '#059669' }}>
-                      +{isUSD ? '$2.00' : `₹${item.reward_amount || 100}`}
+                      +{item.reward_currency === 'USD' ? `$${Number(item.reward_amount || 2).toFixed(2)}` : `₹${Number(item.reward_amount || 100).toLocaleString('en-IN')}`}
                     </td>
                   </tr>
                 ))}

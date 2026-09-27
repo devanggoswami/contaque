@@ -17,6 +17,7 @@
     "test:onboarding": "node server/test_onboarding_and_redirect_flow.js",
     "test:billing": "node server/test_lead_billing_settlement.js",
     "test:wallet:consistency": "node server/test_wallet_consistency_regression.js",
+    "test:referral:currency": "node server/test_cross_currency_referral.js",
     "lint": "oxlint",
     "preview": "vite preview"
   },

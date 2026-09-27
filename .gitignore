@@ -66,5 +66,6 @@ server/test_*.js
 !server/test_sender_migration_and_binding.js
 !server/test_lead_billing_settlement.js
 !server/test_wallet_consistency_regression.js
+!server/test_cross_currency_referral.js
 server/alter_db.js
 scratch/
