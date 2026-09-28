@@ -16,8 +16,8 @@ async function crawlWebsiteForWhatsApp(siteUrl, businessName = '', locationOrAdd
   }
   cleanUrl = cleanUrl.replace(/\/$/, '');
 
-  const timeoutMs = options.timeoutMs || 3200;
-  const paths = ['', '/contact', '/contact-us'];
+  const timeoutMs = options.timeoutMs || 2500;
+  const paths = ['', '/contact'];
 
   for (const path of paths) {
     try {

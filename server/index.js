@@ -1219,138 +1219,126 @@ app.post('/api/generate', requireAuth, async (req, res) => {
           // 7. Fast & responsive: No 5-minute search engine blocking.
           console.log(`Job ${jobId} [whatsapp] Starting WhatsApp Radar crawler for "${keyword}" in "${location}" (target: ${requestedCount})...`);
 
-          const locLower = location.toLowerCase().trim();
-          const CITY_MAP = require('./utils/cities');
-          const targetLocations = [
-            location,
-            ...(CITY_MAP[locLower] ? CITY_MAP[locLower].map(c => `${c}, ${location}`) : [])
-          ];
-
           const seenPhoneNumbers = new Set();
           const seenWebsites = new Set();
+          let nextPageToken = null;
+          let pageIteration = 0;
+          const maxPages = requestedCount <= 10 ? 2 : 3;
 
-          for (const targetLoc of targetLocations) {
-            if (totalFetched >= requestedCount) break;
+          while (totalFetched < requestedCount && pageIteration < maxPages) {
+            pageIteration++;
+            let places = [];
 
-            let nextPageToken = null;
-            let pageIteration = 0;
-            const maxPages = 4; // up to 80 candidate places per location
+            try {
+              const requestBody = {
+                textQuery: `${keyword} in ${location}`,
+                pageSize: 20
+              };
+              if (nextPageToken) requestBody.pageToken = nextPageToken;
 
-            while (totalFetched < requestedCount && pageIteration < maxPages) {
-              pageIteration++;
-              let places = [];
+              const response = await axios.post(
+                'https://places.googleapis.com/v1/places:searchText',
+                requestBody,
+                {
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'X-Goog-Api-Key': GOOGLE_API_KEY,
+                    'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri,places.primaryType,places.googleMapsUri,nextPageToken'
+                  },
+                  timeout: 8000
+                }
+              );
 
-              try {
-                const requestBody = {
-                  textQuery: `${keyword} in ${targetLoc}`,
-                  pageSize: 20
-                };
-                if (nextPageToken) requestBody.pageToken = nextPageToken;
+              places = response.data.places || [];
+              nextPageToken = response.data.nextPageToken;
+            } catch (placesErr) {
+              console.error(`Job ${jobId} [whatsapp] Google Places API error:`, placesErr.message);
+              break;
+            }
 
-                const response = await axios.post(
-                  'https://places.googleapis.com/v1/places:searchText',
-                  requestBody,
-                  {
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'X-Goog-Api-Key': GOOGLE_API_KEY,
-                      'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri,places.primaryType,places.googleMapsUri,nextPageToken'
-                    },
-                    timeout: 8000
-                  }
-                );
+            if (places.length === 0) break;
 
-                places = response.data.places || [];
-                nextPageToken = response.data.nextPageToken;
-              } catch (placesErr) {
-                console.error(`Job ${jobId} [whatsapp] Google Places API error:`, placesErr.message);
-                break;
-              }
+            // Filter candidate places with valid websiteUri that haven't been inspected yet
+            const candidates = places.filter(p => {
+              if (!p.websiteUri) return false;
+              const cleanWeb = p.websiteUri.replace(/^https?:\/\/(www\.)?/i, '').split('/')[0].toLowerCase();
+              if (!cleanWeb || seenWebsites.has(cleanWeb)) return false;
+              seenWebsites.add(cleanWeb);
+              return true;
+            });
 
-              if (places.length === 0) break;
+            console.log(`Job ${jobId} [whatsapp] Page ${pageIteration}: Found ${places.length} places, ${candidates.length} new websites to crawl.`);
 
-              // Filter candidate places with valid websiteUri that haven't been inspected yet
-              const candidates = places.filter(p => {
-                if (!p.websiteUri) return false;
-                const cleanWeb = p.websiteUri.replace(/^https?:\/\/(www\.)?/i, '').split('/')[0].toLowerCase();
-                if (!cleanWeb || seenWebsites.has(cleanWeb)) return false;
-                seenWebsites.add(cleanWeb);
-                return true;
-              });
+            // Crawl websites in parallel batches of 10 with strict 2.5s per-site timeout
+            const BATCH_SIZE = 10;
+            for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
+              if (totalFetched >= requestedCount) break;
+              const batch = candidates.slice(i, i + BATCH_SIZE);
 
-              console.log(`Job ${jobId} [whatsapp] Page ${pageIteration}: Found ${places.length} places, ${candidates.length} new websites to crawl.`);
-
-              // Crawl websites in parallel batches of 5 with strict 3.2s per-site timeout
-              const BATCH_SIZE = 5;
-              for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
-                if (totalFetched >= requestedCount) break;
-                const batch = candidates.slice(i, i + BATCH_SIZE);
-
-                const crawlResults = await Promise.all(
-                  batch.map(async (place) => {
-                    const name = place.displayName?.text || 'Business';
-                    const address = place.formattedAddress || targetLoc;
-                    const website = place.websiteUri;
-                    const locHint = `${targetLoc} ${address}`;
-
-                    try {
-                      const waData = await crawlWebsiteForWhatsApp(website, name, locHint, { timeoutMs: 3200 });
-                      return { place, name, address, website, locHint, waData };
-                    } catch {
-                      return { place, name, address, website, locHint, waData: null };
-                    }
-                  })
-                );
-
-                for (const item of crawlResults) {
-                  if (totalFetched >= requestedCount) break;
-                  if (!item.waData) continue; // No verified WhatsApp evidence -> strictly rejected
-
-                  const mobile = item.waData.number;
-                  const digits = item.waData.cleanDigits;
-                  const whatsapp = item.waData.url;
-
-                  // In-memory deduplication of WhatsApp phone number
-                  if (seenPhoneNumbers.has(digits)) continue;
-                  seenPhoneNumbers.add(digits);
-
-                  const place = item.place;
-                  const name = item.name;
-                  const address = item.address;
-                  const website = item.website;
-                  const category = place.primaryType || keyword;
-                  const sourceLink = place.googleMapsUri || '';
-                  const placeId = place.id || `wa_${Buffer.from(name + mobile).toString('base64').substring(0, 80)}`;
+              const crawlResults = await Promise.all(
+                batch.map(async (place) => {
+                  const name = place.displayName?.text || 'Business';
+                  const address = place.formattedAddress || location;
+                  const website = place.websiteUri;
+                  const locHint = `${location} ${address}`;
 
                   try {
-                    const insertResult = await db.query(
-                      `INSERT INTO leads (job_id, user_id, place_id, name, address, phone, website, category, source_link, mobile, whatsapp)
-                       SELECT $1::INTEGER, $11::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::VARCHAR, $10::TEXT
-                       WHERE NOT EXISTS (
-                         SELECT 1 FROM leads 
-                         WHERE user_id = $11 AND (
-                           place_id = $2::VARCHAR OR 
-                           (source_link = $8::TEXT AND source_link != '') OR
-                           (job_id = $1::INTEGER AND (mobile = $9::VARCHAR OR phone = $5::VARCHAR))
-                         )
-                       )
-                       ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
-                      [jobId, placeId, name, address, mobile, website, category, sourceLink, mobile, whatsapp, jobUserId]
-                    );
-
-                    if (insertResult.rowCount > 0) {
-                      totalFetched++;
-                      enrichEmail(website, insertResult.rows[0].id, name, address).catch(() => {});
-                    }
-                  } catch (dbErr) {
-                    console.error(`Job ${jobId} [whatsapp] DB insert error:`, dbErr.message);
+                    const waData = await crawlWebsiteForWhatsApp(website, name, locHint, { timeoutMs: 2500 });
+                    return { place, name, address, website, locHint, waData };
+                  } catch {
+                    return { place, name, address, website, locHint, waData: null };
                   }
+                })
+              );
+
+              for (const item of crawlResults) {
+                if (totalFetched >= requestedCount) break;
+                if (!item.waData) continue; // No verified WhatsApp evidence -> strictly rejected
+
+                const mobile = item.waData.number;
+                const digits = item.waData.cleanDigits;
+                const whatsapp = item.waData.url;
+
+                // In-memory deduplication of WhatsApp phone number
+                if (seenPhoneNumbers.has(digits)) continue;
+                seenPhoneNumbers.add(digits);
+
+                const place = item.place;
+                const name = item.name;
+                const address = item.address;
+                const website = item.website;
+                const category = place.primaryType || keyword;
+                const sourceLink = place.googleMapsUri || '';
+                const placeId = place.id || `wa_${Buffer.from(name + mobile).toString('base64').substring(0, 80)}`;
+
+                try {
+                  const insertResult = await db.query(
+                    `INSERT INTO leads (job_id, user_id, place_id, name, address, phone, website, category, source_link, mobile, whatsapp)
+                     SELECT $1::INTEGER, $11::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::VARCHAR, $10::TEXT
+                     WHERE NOT EXISTS (
+                       SELECT 1 FROM leads 
+                       WHERE user_id = $11 AND (
+                         place_id = $2::VARCHAR OR 
+                         (source_link = $8::TEXT AND source_link != '') OR
+                         (job_id = $1::INTEGER AND (mobile = $9::VARCHAR OR phone = $5::VARCHAR))
+                       )
+                     )
+                     ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
+                    [jobId, placeId, name, address, mobile, website, category, sourceLink, mobile, whatsapp, jobUserId]
+                  );
+
+                  if (insertResult.rowCount > 0) {
+                    totalFetched++;
+                    enrichEmail(website, insertResult.rows[0].id, name, address).catch(() => {});
+                  }
+                } catch (dbErr) {
+                  console.error(`Job ${jobId} [whatsapp] DB insert error:`, dbErr.message);
                 }
               }
-
-              if (!nextPageToken || totalFetched >= requestedCount) break;
-              await new Promise(r => setTimeout(r, 500));
             }
+
+            if (!nextPageToken || totalFetched >= requestedCount) break;
+            await new Promise(r => setTimeout(r, 500));
           }
           console.log(`Job ${jobId} [whatsapp] Finished crawl: ${totalFetched} verified WhatsApp leads inserted.`);
         } else {
