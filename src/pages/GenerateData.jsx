@@ -309,7 +309,7 @@ function GenerateData() {
                     <MessageCircle size={20} />
                   </div>
                   <div className="source-details">
-                    <h4>WhatsApp Radar</h4>
+                    <h4>WhatsApp Radar <span className="source-badge-beta">BETA</span></h4>
                     <span className="source-tag-wa">100% Numbers</span>
                   </div>
                 </div>

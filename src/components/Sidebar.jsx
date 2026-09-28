@@ -170,9 +170,7 @@ function Sidebar() {
           >
             <svg className="nav-icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
             <span>Campaigns</span>
-            {userPlan === 'plus' || userPlan === 'pack' ? (
-              <span className="nav-badge-neutral">BETA</span>
-            ) : (
+            {userPlan === 'plus' || userPlan === 'pack' ? null : (
               <span className="nav-badge-lock" title="Paid Plan Feature"><Lock size={9} /> PRO</span>
             )}
           </NavLink>
