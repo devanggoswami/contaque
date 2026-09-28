@@ -209,7 +209,7 @@ const normalizePhoneNumber = (rawPhone, locationHint = '', requireMobile = false
     return null;
   }
 
-  // France (+33): Mobile starts with 06 or 07 (10 digits) or 6/7 (9 digits)
+  // France (+33): Mobile starts with 06 or 07 (10 digits), 6/7 (9 digits), or 336/337 (11 digits)
   if (countryCode === '33') {
     if ((digits.startsWith('06') || digits.startsWith('07')) && digits.length === 10) {
       const full = '33' + digits.substring(1);
@@ -218,6 +218,9 @@ const normalizePhoneNumber = (rawPhone, locationHint = '', requireMobile = false
     if ((digits.startsWith('6') || digits.startsWith('7')) && digits.length === 9) {
       const full = '33' + digits;
       return { formatted: '+' + full, cleanDigits: full };
+    }
+    if (digits.startsWith('33') && digits.length === 11 && (digits.substring(2, 3) === '6' || digits.substring(2, 3) === '7')) {
+      return { formatted: '+' + digits, cleanDigits: digits };
     }
     return null;
   }
@@ -231,6 +234,9 @@ const normalizePhoneNumber = (rawPhone, locationHint = '', requireMobile = false
     if (digits.startsWith('1') && digits.length >= 10 && digits.length <= 11) {
       const full = '49' + digits;
       return { formatted: '+' + full, cleanDigits: full };
+    }
+    if (digits.startsWith('491') && digits.length >= 11 && digits.length <= 13) {
+      return { formatted: '+' + digits, cleanDigits: digits };
     }
     return null;
   }
@@ -263,6 +269,9 @@ const normalizePhoneNumber = (rawPhone, locationHint = '', requireMobile = false
       const full = '971' + digits;
       return { formatted: '+' + full, cleanDigits: full };
     }
+    if (digits.startsWith('9715') && digits.length === 12) {
+      return { formatted: '+' + digits, cleanDigits: digits };
+    }
     return null;
   }
 
@@ -272,12 +281,22 @@ const normalizePhoneNumber = (rawPhone, locationHint = '', requireMobile = false
       const full = '91' + digits;
       return { formatted: '+' + full, cleanDigits: full };
     }
+    if (digits.startsWith('91') && digits.length === 12 && ['6', '7', '8', '9'].includes(digits.substring(2, 3))) {
+      return { formatted: '+' + digits, cleanDigits: digits };
+    }
     return null;
   }
 
   if (countryCode === '44') {
     if (digits.startsWith('07') && digits.length === 11) {
       const full = '44' + digits.substring(1);
+      return { formatted: '+' + full, cleanDigits: full };
+    }
+    if (digits.startsWith('447') && digits.length === 12) {
+      return { formatted: '+' + digits, cleanDigits: digits };
+    }
+    if (digits.startsWith('7') && digits.length === 10) {
+      const full = '44' + digits;
       return { formatted: '+' + full, cleanDigits: full };
     }
     return null;
@@ -287,6 +306,13 @@ const normalizePhoneNumber = (rawPhone, locationHint = '', requireMobile = false
     if (digits.startsWith('05') && digits.length === 10) {
       const full = '966' + digits.substring(1);
       return { formatted: '+' + full, cleanDigits: full };
+    }
+    if (digits.startsWith('5') && digits.length === 9) {
+      const full = '966' + digits;
+      return { formatted: '+' + full, cleanDigits: full };
+    }
+    if (digits.startsWith('966') && digits.length === 12 && digits.substring(3, 4) === '5') {
+      return { formatted: '+' + digits, cleanDigits: digits };
     }
     return null;
   }
@@ -321,16 +347,22 @@ const extractWhatsApp = (snippet, title = '', link = '', locationHint = '') => {
     href = link || '';
   }
 
-  const countryData = getCountryData(loc);
-  const cc = countryData ? countryData.code : null;
+  // 1. STRONG EVIDENCE: Direct check for wa.me / api.whatsapp.com / web.whatsapp.com link with phone digits
+  const parseWaUrl = (rawUrl) => {
+    if (!rawUrl || typeof rawUrl !== 'string') return null;
+    let decoded = rawUrl;
+    try { decoded = decodeURIComponent(rawUrl); } catch (e) {}
+    const match = decoded.match(/(?:wa\.me\/(?:\+)?|whatsapp\.com\/send\/?\?(?:[^&]*&)*phone=(?:\+)?|whatsapp:\/\/send\?(?:[^&]*&)*phone=(?:\+)?)([0-9]{8,16})/i);
+    if (match && match[1]) {
+      return match[1];
+    }
+    return null;
+  };
 
-  // 1. Direct check for wa.me / api.whatsapp.com with phone digits ONLY
-  const waDomainRegex = /(?:https?:\/\/)?(?:api\.whatsapp\.com\/send\?phone=|wa\.me\/)([0-9+]{8,18})/i;
-  
-  // Check href FIRST, but ONLY if href is actually a whatsapp domain
-  const hrefWaMatch = href.match(waDomainRegex);
-  if (hrefWaMatch && hrefWaMatch[1]) {
-    const normalized = normalizePhoneNumber(hrefWaMatch[1], loc, false);
+  const urlCandidate = parseWaUrl(href) || parseWaUrl(text);
+  if (urlCandidate) {
+    // Strictly require mobile validation so landlines on WhatsApp are not classified blindly
+    const normalized = normalizePhoneNumber(urlCandidate, loc, true);
     if (normalized) {
       return {
         number: normalized.formatted,
@@ -340,26 +372,13 @@ const extractWhatsApp = (snippet, title = '', link = '', locationHint = '') => {
     }
   }
 
-  // Also check if text has direct wa.me link
-  const textWaMatch = text.match(waDomainRegex);
-  if (textWaMatch && textWaMatch[1]) {
-    const normalized = normalizePhoneNumber(textWaMatch[1], loc, false);
-    if (normalized) {
-      return {
-        number: normalized.formatted,
-        cleanDigits: normalized.cleanDigits,
-        url: `https://wa.me/${normalized.cleanDigits}`
-      };
-    }
-  }
-
-  // 2. CRITICAL FIX: SANITIZE TEXT before searching for phone numbers or labels!
+  // 2. CRITICAL FIX: SANITIZE TEXT before searching for labels!
   // Strip out all URLs, domain paths, and search engine breadcrumbs so Facebook/IG IDs, post IDs, photo IDs,
   // and reel IDs (e.g. fbid=2000..., /reel/1329..., /posts/.../6401...) are NEVER scanned as phone numbers!
   const cleanText = sanitizeSnippetText(text);
 
-  // 3. Explicit WhatsApp label in sanitized text (AFTER label, e.g. WhatsApp: +34 689 33 25 20)
-  const waLabelAfter = cleanText.match(/(?:whatsapp|wa\.me|chat on wa|contact on whatsapp|wa:?)[^\d+]{0,25}([+0-9][\d\s().-]{7,18})/i);
+  // 3. MEDIUM EVIDENCE: Explicit WhatsApp label in sanitized text (AFTER label, e.g. WhatsApp: +34 689 33 25 20, Chat on WhatsApp: 07476 835182)
+  const waLabelAfter = cleanText.match(/(?:whatsapp|chat on whatsapp|chat on wa|contact on whatsapp|wa:?)[^\d+]{0,25}([+0-9][\d\s().-]{7,18})/i);
   if (waLabelAfter && waLabelAfter[1]) {
     const normalized = normalizePhoneNumber(waLabelAfter[1], loc, true);
     if (normalized) {
@@ -371,8 +390,8 @@ const extractWhatsApp = (snippet, title = '', link = '', locationHint = '') => {
     }
   }
 
-  // Explicit WhatsApp label in sanitized text (BEFORE label, e.g. 689 33 25 20 (WhatsApp), 689 33 25 20 - WhatsApp)
-  const waLabelBefore = cleanText.match(/([+0-9][\d\s().-]{7,18})[^\d+]{0,25}(?:whatsapp|wa\.me|chat on wa|contact on whatsapp)/i);
+  // Explicit WhatsApp label in sanitized text (BEFORE label, e.g. 07476 835182 (WhatsApp), 07476 835182 - WhatsApp)
+  const waLabelBefore = cleanText.match(/([+0-9][\d\s().-]{7,18})[^\d+]{0,25}(?:whatsapp|chat on whatsapp|chat on wa|contact on whatsapp)/i);
   if (waLabelBefore && waLabelBefore[1]) {
     const normalized = normalizePhoneNumber(waLabelBefore[1], loc, true);
     if (normalized) {
@@ -384,90 +403,10 @@ const extractWhatsApp = (snippet, title = '', link = '', locationHint = '') => {
     }
   }
 
-  // 4. Country-specific mobile formats ONLY IF snippet explicitly mentions WhatsApp
-  const hasWaMention = /(?:whatsapp|wa\.me|chat on wa|contact on whatsapp|wa:)/i.test(cleanText);
-  if (hasWaMention) {
-    if (cc === '34') {
-      // Spain (+34): Mobile starts with 6 or 7, 9 digits
-      const spMatch = cleanText.match(/(?:(?:\+|00)34[\s.-]?)?([67]\d{2}[\s.-]?\d{3}[\s.-]?\d{3})\b/);
-      if (spMatch && spMatch[1]) {
-        const cleanDigits = spMatch[1].replace(/\D/g, '');
-        if (cleanDigits.length === 9) {
-          return { number: `+34${cleanDigits}`, cleanDigits: `34${cleanDigits}`, url: `https://wa.me/34${cleanDigits}` };
-        }
-      }
-    } else if (cc === '377') {
-      // Monaco (+377): Mobile 4x xx xx xx, 6x xx xx xx (8 digits)
-      const monacoMatch = cleanText.match(/(?:(?:\+|00)377[\s.-]?)?(?:0)?([46]\d{1}[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2})\b/);
-      if (monacoMatch && monacoMatch[1]) {
-        const cleanDigits = monacoMatch[1].replace(/\D/g, '');
-        if (cleanDigits.length === 8) {
-          return { number: `+377${cleanDigits}`, cleanDigits: `377${cleanDigits}`, url: `https://wa.me/377${cleanDigits}` };
-        }
-      }
-      // French mobile in Monaco (+33 6 / 7)
-      const frMatch = cleanText.match(/(?:(?:\+|00)33[\s.-]?)?(?:0)?([67]\d{1}[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2})\b/);
-      if (frMatch && frMatch[1]) {
-        const cleanDigits = frMatch[1].replace(/\D/g, '');
-        if (cleanDigits.length === 9) {
-          return { number: `+33${cleanDigits}`, cleanDigits: `33${cleanDigits}`, url: `https://wa.me/33${cleanDigits}` };
-        }
-      }
-    } else if (cc === '33') {
-      // France (+33)
-      const frMatch = cleanText.match(/(?:(?:\+|00)33[\s.-]?)?(?:0)?([67]\d{1}[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2})\b/);
-      if (frMatch && frMatch[1]) {
-        const cleanDigits = frMatch[1].replace(/\D/g, '');
-        if (cleanDigits.length === 9) {
-          return { number: `+33${cleanDigits}`, cleanDigits: `33${cleanDigits}`, url: `https://wa.me/33${cleanDigits}` };
-        }
-      }
-    } else if (cc === '39') {
-      // Italy (+39)
-      const itMatch = cleanText.match(/(?:(?:\+|00)39[\s.-]?)?(3\d{2}[\s.-]?\d{3}[\s.-]?\d{4})\b/);
-      if (itMatch && itMatch[1]) {
-        const cleanDigits = itMatch[1].replace(/\D/g, '');
-        if (cleanDigits.length === 10) {
-          return { number: `+39${cleanDigits}`, cleanDigits: `39${cleanDigits}`, url: `https://wa.me/39${cleanDigits}` };
-        }
-      }
-    } else if (cc === '971') {
-      const uaeMatch = cleanText.match(/(?:(?:\+|00)971[\s.-]?)?(?:0)?(5[024568][\d\s.-]{7,12})\b/);
-      if (uaeMatch && uaeMatch[1]) {
-        const cleanDigits = uaeMatch[1].replace(/\D/g, '');
-        if (cleanDigits.length === 9) {
-          return { number: `+971${cleanDigits}`, cleanDigits: `971${cleanDigits}`, url: `https://wa.me/971${cleanDigits}` };
-        }
-      }
-    } else if (cc === '91') {
-      const indMatch = cleanText.match(/(?:(?:\+|00)91[\s.-]?)?(?:0)?([6-9]\d{2}[\s.-]?\d{3}[\s.-]?\d{4})\b/);
-      if (indMatch && indMatch[1]) {
-        const cleanDigits = indMatch[1].replace(/\D/g, '');
-        if (cleanDigits.length === 10) {
-          return { number: `+91${cleanDigits}`, cleanDigits: `91${cleanDigits}`, url: `https://wa.me/91${cleanDigits}` };
-        }
-      }
-    } else if (cc === '44') {
-      const ukMatch = cleanText.match(/(?:(?:\+|00)44[\s.-]?)?(?:0)?(7\d{3}[\s.-]?\d{6})\b/);
-      if (ukMatch && ukMatch[1]) {
-        const cleanDigits = ukMatch[1].replace(/\D/g, '');
-        if (cleanDigits.length === 10) {
-          return { number: `+44${cleanDigits}`, cleanDigits: `44${cleanDigits}`, url: `https://wa.me/44${cleanDigits}` };
-        }
-      }
-    } else if (cc === '966') {
-      const ksaMatch = cleanText.match(/(?:(?:\+|00)966[\s.-]?)?(?:0)?(5\d{2}[\s.-]?\d{3}[\s.-]?\d{3})\b/);
-      if (ksaMatch && ksaMatch[1]) {
-        const cleanDigits = ksaMatch[1].replace(/\D/g, '');
-        if (cleanDigits.length === 9) {
-          return { number: `+966${cleanDigits}`, cleanDigits: `966${cleanDigits}`, url: `https://wa.me/966${cleanDigits}` };
-        }
-      }
-    }
-  }
-
-  // NOTE: Generic telephone numbers, office desk landlines ("Tel:", "Phone:", "Call:")
-  // without any WhatsApp mention are NEVER returned as WhatsApp leads.
+  // STRICT AUDIT REQUIREMENT:
+  // Rule 4 (guessing WhatsApp availability from generic country-specific mobile numbers just because the word "whatsapp"
+  // appears somewhere in the page or query) has been REMOVED!
+  // Normal phone numbers, office desk landlines, and unverified mobiles are NEVER returned as WhatsApp leads.
   return null;
 };
 

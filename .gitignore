@@ -67,5 +67,6 @@ server/test_*.js
 !server/test_lead_billing_settlement.js
 !server/test_wallet_consistency_regression.js
 !server/test_cross_currency_referral.js
+!server/test_whatsapp_radar_accuracy.js
 server/alter_db.js
 scratch/

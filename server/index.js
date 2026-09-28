@@ -1516,7 +1516,11 @@ app.post('/api/generate', requireAuth, async (req, res) => {
                          $10::TEXT, $11::TEXT, $12::TEXT, $13::TEXT, $14::TEXT, $15::TEXT, $16::TEXT, $17::TEXT, $18::TEXT, $19::TEXT
                        WHERE NOT EXISTS (
                          SELECT 1 FROM leads 
-                         WHERE user_id = $20 AND (place_id = $2 OR (source_link = $8 AND source_link != ''))
+                         WHERE user_id = $20 AND (
+                           place_id = $2 OR 
+                           (source_link = $8 AND source_link != '') OR
+                           (job_id = $1 AND $18::TEXT IS NOT NULL AND $18::TEXT != '' AND (mobile = $18 OR phone = $18))
+                         )
                        )
                        ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
                       [
@@ -1723,11 +1727,9 @@ app.post('/api/generate', requireAuth, async (req, res) => {
                   const sourceLink = place.googleMapsUri || '';
 
                   if (source === 'whatsapp') {
+                    // Strictly require authentic WhatsApp evidence; NEVER synthesize fake "WhatsApp:" labels
                     const locHint = `${targetLoc} ${address}`;
-                    let waData = extractWhatsApp(rawPhone, name, website, locHint);
-                    if (!waData && rawPhone) {
-                      waData = extractWhatsApp(`WhatsApp: ${rawPhone}`, name, website, locHint);
-                    }
+                    const waData = extractWhatsApp(rawPhone, name, website, locHint);
                     if (!waData) continue;
 
                     const mobile = waData.number;
@@ -1737,7 +1739,14 @@ app.post('/api/generate', requireAuth, async (req, res) => {
                     const insertResult = await db.query(
                       `INSERT INTO leads (job_id, user_id, place_id, name, address, phone, website, category, source_link, mobile, whatsapp)
                        SELECT $1::INTEGER, $11::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::VARCHAR, $10::TEXT
-                       WHERE NOT EXISTS (SELECT 1 FROM leads WHERE user_id = $11 AND (place_id = $2::VARCHAR OR (source_link = $8::TEXT AND source_link != '')))
+                       WHERE NOT EXISTS (
+                         SELECT 1 FROM leads 
+                         WHERE user_id = $11 AND (
+                           place_id = $2::VARCHAR OR 
+                           (source_link = $8::TEXT AND source_link != '') OR
+                           (job_id = $1::INTEGER AND (mobile = $9::VARCHAR OR phone = $5::VARCHAR))
+                         )
+                       )
                        ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
                       [jobId, placeId, name, address, mobile, website, category, sourceLink, mobile, whatsapp, jobUserId]
                     );
