@@ -19,6 +19,7 @@
     "test:wallet:consistency": "node server/test_wallet_consistency_regression.js",
     "test:referral:currency": "node server/test_cross_currency_referral.js",
     "test:radar:accuracy": "node server/test_whatsapp_radar_accuracy.js",
+    "test:radar:pipeline": "node server/test_whatsapp_radar_live_pipeline.js",
     "lint": "oxlint",
     "preview": "vite preview"
   },

@@ -8,6 +8,7 @@ const Razorpay = require('razorpay');
 const cheerio = require('cheerio');
 const db = require('./db');
 const { extractEmailFromText, extractSocialLinks, extractMobile, extractWhatsApp, normalizePhoneNumber, detectCountryCode, isRelevantToKeyword } = require('./utils/email_extractor');
+const { crawlWebsiteForWhatsApp } = require('./utils/whatsapp_crawler');
 const { enrichEmail } = require('./utils/email_enricher');
 const campaignsRouter = require('./routes/campaigns');
 const inboxRouter = require('./routes/inbox');
@@ -997,7 +998,7 @@ app.post('/api/generate', requireAuth, async (req, res) => {
     return res.status(400).json({ error: "Unsupported source." });
   }
 
-  if (source === 'maps' && (!GOOGLE_API_KEY || GOOGLE_API_KEY === 'your_google_places_api_key_here')) {
+  if ((source === 'maps' || source === 'whatsapp') && (!GOOGLE_API_KEY || GOOGLE_API_KEY === 'your_google_places_api_key_here')) {
     return res.status(500).json({ error: "Google Places API key is missing on the server." });
   }
 
@@ -1207,6 +1208,151 @@ app.post('/api/generate', requireAuth, async (req, res) => {
               }
             }
           }
+        } else if (source === 'whatsapp') {
+          // === DEDICATED WHATSAPP RADAR ENGINE (GOOGLE PLACES + PARALLEL WEBSITE CRAWLER) ===
+          // 1. Google Places search returns real local businesses with verified websites
+          // 2. Candidate websites are crawled in parallel batches with strict per-site timeout (3200ms)
+          // 3. Inspects anchor tags (wa.me, api.whatsapp.com), widgets, and explicit WhatsApp labels
+          // 4. Mobile format strictly validated for the target country (landlines rejected)
+          // 5. In-memory and SQL deduplication ensures 1 lead per WhatsApp number
+          // 6. Zero fake leads: If 10 found and 2 have WhatsApp -> exactly 2 leads. If 0 -> 0 leads.
+          // 7. Fast & responsive: No 5-minute search engine blocking.
+          console.log(`Job ${jobId} [whatsapp] Starting WhatsApp Radar crawler for "${keyword}" in "${location}" (target: ${requestedCount})...`);
+
+          const locLower = location.toLowerCase().trim();
+          const CITY_MAP = require('./utils/cities');
+          const targetLocations = [
+            location,
+            ...(CITY_MAP[locLower] ? CITY_MAP[locLower].map(c => `${c}, ${location}`) : [])
+          ];
+
+          const seenPhoneNumbers = new Set();
+          const seenWebsites = new Set();
+
+          for (const targetLoc of targetLocations) {
+            if (totalFetched >= requestedCount) break;
+
+            let nextPageToken = null;
+            let pageIteration = 0;
+            const maxPages = 4; // up to 80 candidate places per location
+
+            while (totalFetched < requestedCount && pageIteration < maxPages) {
+              pageIteration++;
+              let places = [];
+
+              try {
+                const requestBody = {
+                  textQuery: `${keyword} in ${targetLoc}`,
+                  pageSize: 20
+                };
+                if (nextPageToken) requestBody.pageToken = nextPageToken;
+
+                const response = await axios.post(
+                  'https://places.googleapis.com/v1/places:searchText',
+                  requestBody,
+                  {
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'X-Goog-Api-Key': GOOGLE_API_KEY,
+                      'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri,places.primaryType,places.googleMapsUri,nextPageToken'
+                    },
+                    timeout: 8000
+                  }
+                );
+
+                places = response.data.places || [];
+                nextPageToken = response.data.nextPageToken;
+              } catch (placesErr) {
+                console.error(`Job ${jobId} [whatsapp] Google Places API error:`, placesErr.message);
+                break;
+              }
+
+              if (places.length === 0) break;
+
+              // Filter candidate places with valid websiteUri that haven't been inspected yet
+              const candidates = places.filter(p => {
+                if (!p.websiteUri) return false;
+                const cleanWeb = p.websiteUri.replace(/^https?:\/\/(www\.)?/i, '').split('/')[0].toLowerCase();
+                if (!cleanWeb || seenWebsites.has(cleanWeb)) return false;
+                seenWebsites.add(cleanWeb);
+                return true;
+              });
+
+              console.log(`Job ${jobId} [whatsapp] Page ${pageIteration}: Found ${places.length} places, ${candidates.length} new websites to crawl.`);
+
+              // Crawl websites in parallel batches of 5 with strict 3.2s per-site timeout
+              const BATCH_SIZE = 5;
+              for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
+                if (totalFetched >= requestedCount) break;
+                const batch = candidates.slice(i, i + BATCH_SIZE);
+
+                const crawlResults = await Promise.all(
+                  batch.map(async (place) => {
+                    const name = place.displayName?.text || 'Business';
+                    const address = place.formattedAddress || targetLoc;
+                    const website = place.websiteUri;
+                    const locHint = `${targetLoc} ${address}`;
+
+                    try {
+                      const waData = await crawlWebsiteForWhatsApp(website, name, locHint, { timeoutMs: 3200 });
+                      return { place, name, address, website, locHint, waData };
+                    } catch {
+                      return { place, name, address, website, locHint, waData: null };
+                    }
+                  })
+                );
+
+                for (const item of crawlResults) {
+                  if (totalFetched >= requestedCount) break;
+                  if (!item.waData) continue; // No verified WhatsApp evidence -> strictly rejected
+
+                  const mobile = item.waData.number;
+                  const digits = item.waData.cleanDigits;
+                  const whatsapp = item.waData.url;
+
+                  // In-memory deduplication of WhatsApp phone number
+                  if (seenPhoneNumbers.has(digits)) continue;
+                  seenPhoneNumbers.add(digits);
+
+                  const place = item.place;
+                  const name = item.name;
+                  const address = item.address;
+                  const website = item.website;
+                  const category = place.primaryType || keyword;
+                  const sourceLink = place.googleMapsUri || '';
+                  const placeId = place.id || `wa_${Buffer.from(name + mobile).toString('base64').substring(0, 80)}`;
+
+                  try {
+                    const insertResult = await db.query(
+                      `INSERT INTO leads (job_id, user_id, place_id, name, address, phone, website, category, source_link, mobile, whatsapp)
+                       SELECT $1::INTEGER, $11::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::VARCHAR, $10::TEXT
+                       WHERE NOT EXISTS (
+                         SELECT 1 FROM leads 
+                         WHERE user_id = $11 AND (
+                           place_id = $2::VARCHAR OR 
+                           (source_link = $8::TEXT AND source_link != '') OR
+                           (job_id = $1::INTEGER AND (mobile = $9::VARCHAR OR phone = $5::VARCHAR))
+                         )
+                       )
+                       ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
+                      [jobId, placeId, name, address, mobile, website, category, sourceLink, mobile, whatsapp, jobUserId]
+                    );
+
+                    if (insertResult.rowCount > 0) {
+                      totalFetched++;
+                      enrichEmail(website, insertResult.rows[0].id, name, address).catch(() => {});
+                    }
+                  } catch (dbErr) {
+                    console.error(`Job ${jobId} [whatsapp] DB insert error:`, dbErr.message);
+                  }
+                }
+              }
+
+              if (!nextPageToken || totalFetched >= requestedCount) break;
+              await new Promise(r => setTimeout(r, 500));
+            }
+          }
+          console.log(`Job ${jobId} [whatsapp] Finished crawl: ${totalFetched} verified WhatsApp leads inserted.`);
         } else {
           // === YAHOO SEARCH SCRAPER FOR DORKING / YELLOWPAGES / YANDEX ===
           // Yahoo respects site: operator (Bing/DDG do not), returns real results.
@@ -1307,21 +1453,6 @@ app.post('/api/generate', requireAuth, async (req, res) => {
                 `${kwTerm} "${locVariant}" контакты`,
                 `"${keyword}" "${locVariant}" phone`
               );
-            } else if (source === 'whatsapp') {
-              const locSearch = `"${locVariant || location}"`;
-              const ccQuery = locCountryCode ? `${kwTerm} ${locSearch} "+${locCountryCode}" "whatsapp"` : null;
-
-              queriesForLoc.push(
-                `site:facebook.com ${kwTerm} ${locSearch} "wa.me"`,
-                `site:facebook.com ${kwTerm} ${locSearch} "whatsapp"`,
-                `site:instagram.com ${kwTerm} ${locSearch} "wa.me"`,
-                `site:instagram.com ${kwTerm} ${locSearch} "whatsapp"`,
-                `${kwTerm} ${locSearch} "wa.me"`,
-                `${kwTerm} ${locSearch} "whatsapp"`,
-                ...(ccQuery ? [ccQuery] : []),
-                `site:linkedin.com ${kwTerm} ${locSearch} "wa.me"`,
-                `site:twitter.com ${kwTerm} ${locSearch} "wa.me"`
-              );
             }
 
             let consecutiveEmptyQueries = 0;
@@ -1330,7 +1461,7 @@ app.post('/api/generate', requireAuth, async (req, res) => {
               if (totalFetched >= requestedCount) break;
 
               const cleanQuery = currentQuery.replace(/\s+/g, ' ').trim();
-              const maxPagesPerQuery = source === 'whatsapp' ? 2 : 25;
+              const maxPagesPerQuery = 25;
               let queryPage = 0;
               let queryNewLeads = 0;
 
@@ -1565,116 +1696,6 @@ app.post('/api/generate', requireAuth, async (req, res) => {
               emptyLocStreak = 0;
             }
           } // end for locationVariants
-
-          // Fallback Broad Pass: If user requested count is still not reached for WhatsApp
-          if (totalFetched < requestedCount && source === 'whatsapp') {
-            console.log(`Job ${jobId} [whatsapp] Running broader expansion pass to reach target (${totalFetched}/${requestedCount})...`);
-            const locCountryCode = detectCountryCode(location);
-            const kwTerm = getLocalizedKeywordQuery(keyword, locCountryCode);
-            const broadQueries = [
-              `${kwTerm} "${location}" "wa.me"`,
-              `${kwTerm} "${location}" "whatsapp"`,
-              ...(locCountryCode ? [`${kwTerm} "${location}" "+${locCountryCode}" "whatsapp"`] : []),
-              `site:facebook.com ${kwTerm} "${location}" "wa.me"`,
-              `site:facebook.com ${kwTerm} "${location}" "whatsapp"`,
-              `site:instagram.com ${kwTerm} "${location}" "wa.me"`,
-              `site:instagram.com ${kwTerm} "${location}" "whatsapp"`,
-              `${kwTerm} "${location}" "chat on whatsapp"`
-            ];
-
-            for (const bQuery of broadQueries) {
-              if (totalFetched >= requestedCount) break;
-              const rawBroadItems = [];
-              // 1. Try Bing
-              try {
-                const bingUrl = `https://www.bing.com/search?q=${encodeURIComponent(bQuery)}`;
-                const bRes = await axios.get(bingUrl, {
-                  headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                    'Accept-Language': 'en-US,en;q=0.9'
-                  },
-                  timeout: 6000
-                });
-                const $b = cheerio.load(bRes.data);
-                $b('.b_algo').each((_, el) => {
-                  const a = $b(el).find('h2 a');
-                  if (a.length > 0) {
-                    const t = a.text().trim();
-                    const l = decodeBingUrl(a.attr('href') || '');
-                    const s = $b(el).find('.b_caption p').text().trim() || $b(el).find('.b_snippet').text().trim() || '';
-                    if (t && l && l.startsWith('http')) {
-                      rawBroadItems.push({ title: t, link: l, snippet: s });
-                    }
-                  }
-                });
-              } catch (bErr) {}
-
-              // 2. Fallback to Yahoo
-              if (rawBroadItems.length === 0) {
-                try {
-                  const yahooUrl = `https://search.yahoo.com/search?p=${encodeURIComponent(bQuery)}`;
-                  const res = await fetch(yahooUrl, {
-                    headers: {
-                      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                      'Accept-Language': 'en-US,en;q=0.9'
-                    },
-                    signal: AbortSignal.timeout(4000)
-                  });
-                  if (res.ok) {
-                    const htmlData = await res.text();
-                    const $ = cheerio.load(htmlData);
-                    $('.algo').each((_, el) => {
-                      const a = $(el).find('.compTitle a');
-                      if (a.length > 0) {
-                        const t = a.text().trim();
-                        let l = a.attr('href') || '';
-                        if (l.includes('/RU=')) {
-                          const part = l.split('/RU=')[1];
-                          if (part) {
-                            const encoded = part.split('/RK=')[0];
-                            if (encoded) l = decodeURIComponent(encoded);
-                          }
-                        }
-                        const s = $(el).find('.compText').text().trim() || '';
-                        if (t && l && l.startsWith('http')) {
-                          rawBroadItems.push({ title: t, link: l, snippet: s });
-                        }
-                      }
-                    });
-                  }
-                } catch (yErr) {}
-              }
-
-              for (const item of rawBroadItems) {
-                if (totalFetched >= requestedCount) break;
-                const title = item.title;
-                const link = item.link;
-                if (!title || !link || link.length < 10) continue;
-                let snippet = item.snippet || '';
-                  if (!isRelevantToKeyword(title, snippet, keyword)) continue;
-                  const waData = extractWhatsApp(snippet, title, link, location);
-                  if (!waData) continue;
-
-                  const mobile = waData.number;
-                  const whatsapp = waData.url;
-                  const placeId = `yahoo_${Buffer.from(link).toString('base64').substring(0, 80)}`;
-                  const insertResult = await db.query(
-                    `INSERT INTO leads (job_id, user_id, place_id, name, address, phone, website, category, source_link, mobile, whatsapp)
-                     SELECT $1, $11, $2, $3, $4, $5, $6, $7, $8, $9, $10
-                     WHERE NOT EXISTS (SELECT 1 FROM leads WHERE user_id = $11 AND (place_id = $2 OR (source_link = $8 AND source_link != '')))
-                     ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
-                    [jobId, placeId, title.substring(0, 80), location, mobile, link, keyword, link, mobile, whatsapp, jobUserId]
-                  );
-                  if (insertResult.rowCount > 0) {
-                    totalFetched++;
-                    enrichEmail(link, insertResult.rows[0].id, title, location).catch(() => {});
-                  }
-                await new Promise(r => setTimeout(r, 350));
-              }
-            }
-          }
         }
 
         // Intelligent Multi-Engine Fallback to Google Places if web search yielded fewer leads than requested
@@ -1726,40 +1747,8 @@ app.post('/api/generate', requireAuth, async (req, res) => {
                   const category = place.primaryType || keyword;
                   const sourceLink = place.googleMapsUri || '';
 
-                  if (source === 'whatsapp') {
-                    // Strictly require authentic WhatsApp evidence; NEVER synthesize fake "WhatsApp:" labels
-                    const locHint = `${targetLoc} ${address}`;
-                    const waData = extractWhatsApp(rawPhone, name, website, locHint);
-                    if (!waData) continue;
-
-                    const mobile = waData.number;
-                    const whatsapp = waData.url;
-                    const placeId = place.id || `wa_${Buffer.from(name + mobile).toString('base64').substring(0, 80)}`;
-
-                    const insertResult = await db.query(
-                      `INSERT INTO leads (job_id, user_id, place_id, name, address, phone, website, category, source_link, mobile, whatsapp)
-                       SELECT $1::INTEGER, $11::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::VARCHAR, $10::TEXT
-                       WHERE NOT EXISTS (
-                         SELECT 1 FROM leads 
-                         WHERE user_id = $11 AND (
-                           place_id = $2::VARCHAR OR 
-                           (source_link = $8::TEXT AND source_link != '') OR
-                           (job_id = $1::INTEGER AND (mobile = $9::VARCHAR OR phone = $5::VARCHAR))
-                         )
-                       )
-                       ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
-                      [jobId, placeId, name, address, mobile, website, category, sourceLink, mobile, whatsapp, jobUserId]
-                    );
-
-                    if (insertResult.rowCount > 0) {
-                      totalFetched++;
-                      if (website) {
-                        enrichEmail(website, insertResult.rows[0].id, name, address).catch(() => {});
-                      }
-                    }
-                  } else {
-                    // Regular business lead (Yandex, Yellowpages, Dorking, etc.)
-                    const placeId = place.id || `lead_${Buffer.from(name + address).toString('base64').substring(0, 80)}`;
+                  // Regular business lead (Yandex, Yellowpages, Dorking, etc.)
+                  const placeId = place.id || `lead_${Buffer.from(name + address).toString('base64').substring(0, 80)}`;
                     const mobile = extractMobile(rawPhone) || null;
                     const whatsapp = mobile ? `https://wa.me/${mobile.replace(/\D/g, '')}` : null;
 
@@ -1790,7 +1779,6 @@ app.post('/api/generate', requireAuth, async (req, res) => {
                         enrichEmail(website, insertResult.rows[0].id, name, address).catch(() => {});
                       }
                     }
-                  }
                 }
 
                 if (!nextPageToken || totalFetched >= requestedCount) break;
