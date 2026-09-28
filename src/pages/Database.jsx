@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   Database as DbIcon, CheckCircle2, Clock, XCircle, Eye, 
@@ -189,6 +189,40 @@ function Database() {
   const [extractedLeads, setExtractedLeads] = useState([]);
   const [loadingExtracted, setLoadingExtracted] = useState(false);
 
+  // Download count tracker for sequential naming (e.g. conta_leads_10, conta_leads_multiple, conta_leads_multi(1))
+  const exportDownloadCounters = useRef({});
+
+  const generateExportFilename = (jobInfo, ext) => {
+    let base = 'conta_leads_multiple';
+    
+    // Check if it's a single specific job or multiple
+    const isMultiple = !jobInfo || 
+      jobInfo.id === 'BULK' || 
+      jobInfo.isMultiple || 
+      (selectedJobIds && selectedJobIds.length > 1) ||
+      (dbTab === 'EXPORTER' && exportJobIds && exportJobIds.length > 1);
+    
+    if (!isMultiple && jobInfo && jobInfo.id && jobInfo.id !== 'BULK') {
+      base = `conta_leads_${jobInfo.id}`;
+    } else {
+      base = 'conta_leads_multiple';
+    }
+
+    const currentCount = exportDownloadCounters.current[base] || 0;
+    exportDownloadCounters.current[base] = currentCount + 1;
+
+    let finalName = base;
+    if (currentCount > 0) {
+      if (base === 'conta_leads_multiple') {
+        finalName = `conta_leads_multi(${currentCount})`;
+      } else {
+        finalName = `${base}(${currentCount})`;
+      }
+    }
+
+    return `${finalName}.${ext}`;
+  };
+
   // Lock background scroll when modal is open and handle ESC key
   useEffect(() => {
     if (selectedJob) {
@@ -369,12 +403,18 @@ function Database() {
     let str = String(text);
     // Remove control characters & non-printable bytes
     str = str.replace(/[\u0000-\u0008\u000B-\u001F\u007F-\u009F\uFFFD\uFEFF]/g, '');
+    // Remove any word/token containing mojibake markers (þ, ð, ÿ, etc.)
+    str = str.replace(/[^\s]*[þðÿ\u00FE\u00DE\u00F0\u00FF][^\s]*/gi, '');
     // Remove corrupted high-byte garbage sequences (e.g. þÿþÛ þÈţ þ› etc.)
     str = str.replace(/[\u00FE\u00FF\u00FD\u00DE\u00DF\u00C0-\u00C6\u00D0-\u00D6\u00D8-\u00DF\u00E0-\u00E6\u00F0-\u00F6\u00F8-\u00FD]{2,}/g, ' ');
+    // Remove isolated symbols/bullets/macrons leftover from mojibake
+    str = str.replace(/[\u2022\u00AF\u00B8\u017E\u017D\u20AC\^|~]+/g, ' ');
     // Remove specific Yahoo artifact sequences
     str = str.replace(/Ø<[A-Za-z0-9\s&þ®ð›·]+/gi, ' ');
     str = str.replace(/[þÿ·ð®]+/gi, ' ');
     str = str.replace(/Â|â€¢|â€“|â€”|â€™|â€œ|â€/g, ' ');
+    // Remove non-latin complex scripts (Arabic, etc.) that cannot be rendered by jsPDF standard helvetica
+    str = str.replace(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g, '');
     // Normalize spaces
     str = str.replace(/\s+/g, ' ').trim();
     return str;
@@ -416,6 +456,13 @@ function Database() {
     // Remove social media post metadata prefixes like "Jun 4, 2026 · ...", "Posts ..."
     str = str.replace(/^(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},?\s+\d{4}\s*[·•-]?\s*/i, '');
     str = str.replace(/^Posts\s+/i, '');
+    // Remove isolated numbers between hyphens left over from stripped Arabic address chunks (e.g. ' - 407 - 1 - ')
+    str = str.replace(/\s*[-–—]\s*\d+(?:\s*[-–—]\s*\d+)*\s*[-–—]\s*/g, ' - ');
+    // Clean redundant separators
+    str = str.replace(/\s*[-–—]\s*[-–—\s]*/g, ' - ');
+    str = str.replace(/\s*,\s*,\s*/g, ', ');
+    str = str.replace(/\s+/g, ' ').trim();
+    str = str.replace(/^[\s,.\-–—]+|[\s,.\-–—]+$/g, '');
     if (str.length < 3) return defaultLoc || 'Location';
     return str.substring(0, 160);
   };
@@ -550,7 +597,7 @@ function Database() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `leads_job_${jobInfo.id}_${jobInfo.keyword.replace(/\s+/g, '_')}_Klyrova.xlsx`);
+      link.setAttribute('download', generateExportFilename(jobInfo, 'xlsx'));
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -577,8 +624,8 @@ function Database() {
 
   const formatSourceLabel = (url) => {
     if (!url || url === '-') return '-';
-    if (url.includes('maps.google.com') || url.includes('google.com/maps')) {
-      return 'Google Maps Profile';
+    if (url.includes('maps.google.com') || url.includes('google.com/maps') || url.includes('google.')) {
+      return 'Listed Profile';
     }
     if (url.includes('facebook.com')) {
       return 'Facebook Profile';
@@ -759,7 +806,7 @@ function Database() {
         }
       });
 
-      doc.save(`leads_job_${jobInfo?.id || 'export'}_${(jobInfo?.keyword || 'leads').replace(/\s+/g, '_')}_Klyrova.pdf`);
+      doc.save(generateExportFilename(jobInfo, 'pdf'));
       showToast("PDF generated with Klyrova Infotech layout!");
     } catch (e) {
       console.error(e);
@@ -978,7 +1025,8 @@ function Database() {
 
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, `${typeLabel} Data`);
-        XLSX.writeFile(workbook, `${filename}.xlsx`);
+        const targetJobInfo = exportJobIds.length === 1 ? { id: exportJobIds[0] } : { id: 'BULK', isMultiple: true };
+        XLSX.writeFile(workbook, generateExportFilename(targetJobInfo, 'xlsx'));
         showToast(`Downloaded ${extractedLeads.length} leads as Excel (.xlsx)!`);
       } else {
         const ws = XLSX.utils.json_to_sheet(exportRows);
@@ -986,7 +1034,8 @@ function Database() {
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.setAttribute('download', `${filename}.csv`);
+        const targetJobInfo = exportJobIds.length === 1 ? { id: exportJobIds[0] } : { id: 'BULK', isMultiple: true };
+        link.setAttribute('download', generateExportFilename(targetJobInfo, 'csv'));
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -1287,7 +1336,8 @@ function Database() {
           }
         });
 
-        doc.save(`${filename}.pdf`);
+        const targetJobInfo = exportJobIds.length === 1 ? { id: exportJobIds[0] } : { id: 'BULK', isMultiple: true };
+        doc.save(generateExportFilename(targetJobInfo, 'pdf'));
         showToast(`Downloaded ${extractedLeads.length} leads as Klyrova Executive PDF!`);
       } catch (err) {
         console.error("PDF Export error:", err);

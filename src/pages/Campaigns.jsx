@@ -118,12 +118,18 @@ function Campaigns() {
     let str = String(text);
     // Remove control characters & non-printable bytes
     str = str.replace(/[\u0000-\u0008\u000B-\u001F\u007F-\u009F\uFFFD\uFEFF]/g, '');
+    // Remove any word/token containing mojibake markers (þ, ð, ÿ, etc.)
+    str = str.replace(/[^\s]*[þðÿ\u00FE\u00DE\u00F0\u00FF][^\s]*/gi, '');
     // Remove corrupted high-byte garbage sequences (e.g. þÿþÛ þÈţ þ› etc.)
     str = str.replace(/[\u00FE\u00FF\u00FD\u00DE\u00DF\u00C0-\u00C6\u00D0-\u00D6\u00D8-\u00DF\u00E0-\u00E6\u00F0-\u00F6\u00F8-\u00FD]{2,}/g, ' ');
+    // Remove isolated symbols/bullets/macrons leftover from mojibake
+    str = str.replace(/[\u2022\u00AF\u00B8\u017E\u017D\u20AC\^|~]+/g, ' ');
     // Remove specific Yahoo artifact sequences
     str = str.replace(/Ø<[A-Za-z0-9\s&þ®ð›·]+/gi, ' ');
     str = str.replace(/[þÿ·ð®]+/gi, ' ');
     str = str.replace(/Â|â€¢|â€“|â€”|â€™|â€œ|â€/g, ' ');
+    // Remove non-latin complex scripts (Arabic, etc.) that cannot be rendered by jsPDF standard helvetica
+    str = str.replace(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g, '');
     // Normalize spaces
     str = str.replace(/\s+/g, ' ').trim();
     return str;
@@ -149,7 +155,13 @@ function Campaigns() {
     let str = sanitizeText(addr);
     str = str.replace(/^(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},?\s+\d{4}\s*[·•-]?\s*/i, '');
     str = str.replace(/^Posts\s+/i, '');
-    if (str.length < 5) return defaultLoc || 'Location';
+    // Remove isolated numbers between hyphens left over from stripped Arabic address chunks (e.g. ' - 407 - 1 - ')
+    str = str.replace(/\s*[-–—]\s*\d+(?:\s*[-–—]\s*\d+)*\s*[-–—]\s*/g, ' - ');
+    str = str.replace(/\s*[-–—]\s*[-–—\s]*/g, ' - ');
+    str = str.replace(/\s*,\s*,\s*/g, ', ');
+    str = str.replace(/\s+/g, ' ').trim();
+    str = str.replace(/^[\s,.\-–—]+|[\s,.\-–—]+$/g, '');
+    if (str.length < 3) return defaultLoc || 'Location';
     return str.substring(0, 240);
   };
 
@@ -169,8 +181,8 @@ function Campaigns() {
 
   const formatSourceLabel = (url) => {
     if (!url || url === '-') return '-';
-    if (url.includes('maps.google.com') || url.includes('google.com/maps')) {
-      return 'Google Maps Profile';
+    if (url.includes('maps.google.com') || url.includes('google.com/maps') || url.includes('google.')) {
+      return 'Listed Profile';
     }
     if (url.includes('facebook.com')) {
       return 'Facebook Profile';
