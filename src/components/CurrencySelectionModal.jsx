@@ -65,16 +65,6 @@ export default function CurrencySelectionModal({ isOpen }) {
                 <span className="currency-symbol">₹</span>
                 <span className="currency-name">INR (Indian Rupee)</span>
               </div>
-              <div className="currency-plan-pricing">
-                <div className="currency-plan-line">
-                  <span className="plan-name">Value Plus:</span>
-                  <strong className="plan-price">₹299/mo</strong>
-                </div>
-                <div className="currency-plan-line">
-                  <span className="plan-name">Value Pack:</span>
-                  <strong className="plan-price">₹499/mo</strong>
-                </div>
-              </div>
               <div className="currency-trial-badge">
                 <Sparkles size={11} />
                 <span>Includes ₹50 Free Credits</span>
@@ -100,16 +90,6 @@ export default function CurrencySelectionModal({ isOpen }) {
               <div className="currency-code-badge">
                 <span className="currency-symbol">$</span>
                 <span className="currency-name">USD (US Dollar)</span>
-              </div>
-              <div className="currency-plan-pricing">
-                <div className="currency-plan-line">
-                  <span className="plan-name">Value Plus:</span>
-                  <strong className="plan-price">$3/mo</strong>
-                </div>
-                <div className="currency-plan-line">
-                  <span className="plan-name">Value Pack:</span>
-                  <strong className="plan-price">$5/mo</strong>
-                </div>
               </div>
               <div className="currency-trial-badge">
                 <Sparkles size={11} />

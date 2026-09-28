@@ -126,6 +126,12 @@
   color: #ffffff;
 }
 
+.currency-option-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .currency-code-badge {
   display: flex;
   align-items: baseline;
