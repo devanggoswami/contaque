@@ -39,12 +39,14 @@ function ProtectedLayout() {
   }
 
   return (
-    <div className="app-layout">
-      <Sidebar />
-      <main className="main-content">
-        <TopNewsTicker />
-        <Outlet />
-      </main>
+    <div className="app-shell">
+      <TopNewsTicker />
+      <div className="app-layout">
+        <Sidebar />
+        <main className="main-content">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }
