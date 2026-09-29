@@ -2,7 +2,7 @@ import React from 'react';
 import './TopNewsTicker.css';
 
 export default function TopNewsTicker() {
-  const tickerText = "WhatsApp Radar (Beta): WhatsApp lead availability varies by country, region, and industry adoption. Our engine strictly extracts authentic WhatsApp widgets and verified mobile numbers — non-WhatsApp desk landlines are strictly excluded to protect data quality. Unfulfilled lead credits are 100% instantly refunded to your wallet.";
+  const tickerText = "WhatsApp Radar (Beta): Lead availability varies depending on the country, region, and local business adoption.";
 
   return (
     <div className="top-news-ticker-bar" role="region" aria-label="Important Announcement">
@@ -12,6 +12,10 @@ export default function TopNewsTicker() {
       </div>
       <div className="ticker-track-container">
         <div className="ticker-track">
+          <span className="ticker-item">{tickerText}</span>
+          <span className="ticker-item-separator">•</span>
+          <span className="ticker-item">{tickerText}</span>
+          <span className="ticker-item-separator">•</span>
           <span className="ticker-item">{tickerText}</span>
           <span className="ticker-item-separator">•</span>
           <span className="ticker-item">{tickerText}</span>
