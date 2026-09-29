@@ -1223,7 +1223,7 @@ app.post('/api/generate', requireAuth, async (req, res) => {
           const seenWebsites = new Set();
           let nextPageToken = null;
           let pageIteration = 0;
-          const maxPages = requestedCount <= 10 ? 3 : 4;
+          const maxPages = requestedCount <= 10 ? 4 : 6;
 
           while (totalFetched < requestedCount && pageIteration < maxPages) {
             pageIteration++;
@@ -1269,10 +1269,11 @@ app.post('/api/generate', requireAuth, async (req, res) => {
 
             console.log(`Job ${jobId} [whatsapp] Page ${pageIteration}: Found ${places.length} places, ${candidates.length} new websites to crawl.`);
 
-            // Crawl websites in parallel batches of 10 with strict 2.5s per-site timeout
+            // Crawl candidate websites in parallel batches of 10 with strict 2.5s per-site timeout
             const BATCH_SIZE = 10;
+            const crawlMap = new Map();
+
             for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
-              if (totalFetched >= requestedCount) break;
               const batch = candidates.slice(i, i + BATCH_SIZE);
 
               const crawlResults = await Promise.all(
@@ -1284,61 +1285,90 @@ app.post('/api/generate', requireAuth, async (req, res) => {
 
                   try {
                     const waData = await crawlWebsiteForWhatsApp(website, name, locHint, { timeoutMs: 2500 });
-                    return { place, name, address, website, locHint, waData };
+                    return { place, waData };
                   } catch {
-                    return { place, name, address, website, locHint, waData: null };
+                    return { place, waData: null };
                   }
                 })
               );
 
-              for (const item of crawlResults) {
-                if (totalFetched >= requestedCount) break;
-                if (!item.waData) continue; // No verified WhatsApp evidence -> strictly rejected
+              for (const r of crawlResults) {
+                if (r.waData) crawlMap.set(r.place, r.waData);
+              }
+            }
 
-                const mobile = item.waData.number;
-                const digits = item.waData.cleanDigits;
-                const whatsapp = item.waData.url;
+            // Inspect places:
+            // Priority 1: Official website has verified WhatsApp widget / wa.me click-to-chat link
+            // Priority 2: Business contact is a VERIFIED MOBILE NUMBER for the country (strictly rejecting landlines)
+            for (const place of places) {
+              if (totalFetched >= requestedCount) break;
 
-                // In-memory deduplication of WhatsApp phone number
-                if (seenPhoneNumbers.has(digits)) continue;
-                seenPhoneNumbers.add(digits);
+              const name = place.displayName?.text || 'Business';
+              const address = place.formattedAddress || location;
+              const rawPhone = place.nationalPhoneNumber || '';
+              const website = place.websiteUri || '';
+              const category = place.primaryType || keyword;
+              const sourceLink = place.googleMapsUri || '';
 
-                const place = item.place;
-                const name = item.name;
-                const address = item.address;
-                const website = item.website;
-                const category = place.primaryType || keyword;
-                const sourceLink = place.googleMapsUri || '';
-                const placeId = place.id || `wa_${Buffer.from(name + mobile).toString('base64').substring(0, 80)}`;
+              let verifiedMobile = null;
+              let verifiedWhatsAppUrl = null;
+              let cleanDigits = null;
 
-                try {
-                  const insertResult = await db.query(
-                    `INSERT INTO leads (job_id, user_id, place_id, name, address, phone, website, category, source_link, mobile, whatsapp)
-                     SELECT $1::INTEGER, $11::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::VARCHAR, $10::TEXT
-                     WHERE NOT EXISTS (
-                       SELECT 1 FROM leads 
-                       WHERE user_id = $11 AND (
-                         place_id = $2::VARCHAR OR 
-                         (source_link = $8::TEXT AND source_link != '') OR
-                         (job_id = $1::INTEGER AND (mobile = $9::VARCHAR OR phone = $5::VARCHAR))
-                       )
+              // Priority 1: Verified WhatsApp from website crawler
+              const websiteWa = crawlMap.get(place);
+              if (websiteWa) {
+                verifiedMobile = websiteWa.number;
+                verifiedWhatsAppUrl = websiteWa.url;
+                cleanDigits = websiteWa.cleanDigits;
+              } else {
+                // Priority 2: Business direct phone is a verified MOBILE number for this country
+                // Strictly rejects desk landlines (020..., 04..., 011...)
+                const locHint = `${location} ${address}`;
+                const mobileNorm = normalizePhoneNumber(rawPhone, locHint, true);
+                if (mobileNorm) {
+                  verifiedMobile = mobileNorm.formatted;
+                  verifiedWhatsAppUrl = `https://wa.me/${mobileNorm.cleanDigits}`;
+                  cleanDigits = mobileNorm.cleanDigits;
+                }
+              }
+
+              if (!verifiedMobile || !cleanDigits) continue; // Not a verified mobile or WhatsApp number -> reject
+
+              // In-memory deduplication of WhatsApp phone number
+              if (seenPhoneNumbers.has(cleanDigits)) continue;
+              seenPhoneNumbers.add(cleanDigits);
+
+              const placeId = place.id || `wa_${Buffer.from(name + verifiedMobile).toString('base64').substring(0, 80)}`;
+
+              try {
+                const insertResult = await db.query(
+                  `INSERT INTO leads (job_id, user_id, place_id, name, address, phone, website, category, source_link, mobile, whatsapp)
+                   SELECT $1::INTEGER, $11::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::VARCHAR, $10::TEXT
+                   WHERE NOT EXISTS (
+                     SELECT 1 FROM leads 
+                     WHERE user_id = $11 AND (
+                       place_id = $2::VARCHAR OR 
+                       (source_link = $8::TEXT AND source_link != '') OR
+                       (job_id = $1::INTEGER AND (mobile = $9::VARCHAR OR phone = $5::VARCHAR))
                      )
-                     ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
-                    [jobId, placeId, name, address, mobile, website, category, sourceLink, mobile, whatsapp, jobUserId]
-                  );
+                   )
+                   ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
+                  [jobId, placeId, name, address, verifiedMobile, website, category, sourceLink, verifiedMobile, verifiedWhatsAppUrl, jobUserId]
+                );
 
-                  if (insertResult.rowCount > 0) {
-                    totalFetched++;
+                if (insertResult.rowCount > 0) {
+                  totalFetched++;
+                  if (website) {
                     enrichEmail(website, insertResult.rows[0].id, name, address).catch(() => {});
                   }
-                } catch (dbErr) {
-                  console.error(`Job ${jobId} [whatsapp] DB insert error:`, dbErr.message);
                 }
+              } catch (dbErr) {
+                console.error(`Job ${jobId} [whatsapp] DB insert error:`, dbErr.message);
               }
             }
 
             if (!nextPageToken || totalFetched >= requestedCount) break;
-            await new Promise(r => setTimeout(r, 500));
+            await new Promise(r => setTimeout(r, 400));
           }
           console.log(`Job ${jobId} [whatsapp] Finished crawl: ${totalFetched} verified WhatsApp leads inserted.`);
         } else {
