@@ -36,67 +36,39 @@
   border-bottom: 1px solid var(--border-color, #D9E1EA);
 }
 
-/* Desktop Collapse Arrow Button inside header */
-.sidebar-collapse-toggle-btn {
+/* Sleek, ultra-thin edge toggle handle placed right next to Campaigns */
+.sidebar-edge-toggle-handle {
+  position: fixed;
+  top: 242px; /* Aligned vertically right next to Campaigns menu item */
+  left: 249px; /* Pinned on the right border of sidebar */
+  z-index: 120;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  background: var(--bg-card-subtle, #F0F6FB);
+  width: 18px;
+  height: 38px;
+  padding: 0;
+  background: #FFFFFF;
   border: 1px solid var(--border-color, #D9E1EA);
-  border-radius: var(--radius-xs, 6px);
+  border-radius: 4px;
   color: var(--text-muted, #64748B);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   cursor: pointer;
-  transition: all 0.2s ease;
-  margin-left: auto;
-  flex-shrink: 0;
+  transition: left 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.sidebar-collapse-toggle-btn:hover {
+.sidebar-edge-toggle-handle:hover {
   background: var(--brand-navy, #10367D);
   color: #FFFFFF;
   border-color: var(--brand-navy, #10367D);
-  transform: scale(1.05);
+  box-shadow: 0 2px 6px rgba(16, 54, 125, 0.25);
 }
 
-/* Floating Expand Arrow Button on screen edge when sidebar is collapsed */
-.sidebar-expand-floating-btn {
-  position: fixed;
-  top: 44px; /* Sits just below top news ticker */
-  left: 0;
-  z-index: 999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 38px;
-  background: #FFFFFF;
-  border: 1px solid #D9E1EA;
+.sidebar-edge-toggle-handle.collapsed {
+  left: 0px;
   border-left: none;
-  border-radius: 0 8px 8px 0;
-  color: #10367D;
-  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.12);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  animation: slide-in-tab 0.2s ease-out;
-}
-
-.sidebar-expand-floating-btn:hover {
-  background: #10367D;
-  color: #FFFFFF;
-  width: 32px;
-}
-
-@keyframes slide-in-tab {
-  from {
-    transform: translateX(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
+  border-radius: 0 5px 5px 0;
+  box-shadow: 2px 1px 6px rgba(0, 0, 0, 0.12);
 }
 
 .sidebar-close-btn {
@@ -744,8 +716,7 @@
     display: flex;
   }
 
-  .sidebar-collapse-toggle-btn,
-  .sidebar-expand-floating-btn {
+  .sidebar-edge-toggle-handle {
     display: none !important;
   }
 }

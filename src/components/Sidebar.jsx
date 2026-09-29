@@ -126,18 +126,16 @@ function Sidebar() {
         />
       )}
 
-      {/* Floating Expand Arrow Button (Left to Right Arrow: Brings sidebar back out) */}
-      {isCollapsed && (
-        <button 
-          type="button"
-          className="sidebar-expand-floating-btn"
-          onClick={toggleCollapse}
-          title="Open Sidebar"
-          aria-label="Open Sidebar"
-        >
-          <ChevronRight size={18} />
-        </button>
-      )}
+      {/* Sleek, ultra-thin edge toggle handle placed next to Campaigns */}
+      <button 
+        type="button"
+        className={`sidebar-edge-toggle-handle ${isCollapsed ? 'collapsed' : ''}`}
+        onClick={toggleCollapse}
+        title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+        aria-label={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+      >
+        {isCollapsed ? <ChevronRight size={12} strokeWidth={2.5} /> : <ChevronLeft size={12} strokeWidth={2.5} />}
+      </button>
 
       {/* Sidebar / Off-canvas Drawer */}
       <aside className={`sidebar ${mobileOpen ? 'mobile-open' : ''} ${isCollapsed ? 'collapsed' : ''}`}>
@@ -150,17 +148,6 @@ function Sidebar() {
               <h2>Contaque</h2>
             </div>
           </div>
-
-          {/* Desktop Collapse Arrow (Right to Left: pushes sidebar inside) */}
-          <button 
-            type="button"
-            className="sidebar-collapse-toggle-btn"
-            onClick={toggleCollapse}
-            title="Collapse Sidebar"
-            aria-label="Collapse Sidebar"
-          >
-            <ChevronLeft size={18} />
-          </button>
 
           {/* Mobile Close Button */}
           <button 
