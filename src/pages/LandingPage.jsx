@@ -10,6 +10,7 @@ import {
   TrendingUp, DollarSign, Award, Sliders, Search, BarChart3
 } from 'lucide-react';
 import './LandingPage.css';
+import './LandingPage.mobile.css';
 
 // Smooth Rolling Animated Number
 function AnimatedCounter({ end, duration = 1200, prefix = '', suffix = '' }) {

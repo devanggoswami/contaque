@@ -1,0 +1,699 @@
+/* ==========================================================================
+   CONTAQUE MOBILE-ONLY THEME: Forest Green, Electric Lime & Organic Cream
+   Applied strictly to mobile screens (max-width: 768px)
+   Matches high-converting modern SaaS mobile aesthetic
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  /* Page Root & Ambient */
+  .landing-container {
+    background-color: #F8F9F5 !important;
+    color: #0B2319 !important;
+  }
+
+  .ambient-canvas {
+    display: none !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     1. Sticky Glass Navbar (Mobile)
+     -------------------------------------------------------------------------- */
+  .landing-navbar {
+    background: rgba(248, 249, 245, 0.96) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border-bottom: 1px solid rgba(11, 35, 25, 0.08) !important;
+  }
+
+  .brand-name {
+    color: #0B2319 !important;
+    font-weight: 800 !important;
+  }
+
+  .brand-tagline {
+    color: #4A5E54 !important;
+  }
+
+  .nav-btn-login,
+  .nav-login-btn {
+    background: transparent !important;
+    border: 1.5px solid rgba(11, 35, 25, 0.22) !important;
+    color: #0B2319 !important;
+    border-radius: 9999px !important;
+    font-weight: 700 !important;
+    font-size: 12px !important;
+    height: 32px !important;
+    padding: 0 14px !important;
+  }
+
+  .nav-btn-launch,
+  .nav-cta,
+  .btn-primary-gradient {
+    background: #0B2319 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 9999px !important;
+    font-weight: 700 !important;
+    font-size: 12px !important;
+    height: 32px !important;
+    padding: 0 16px !important;
+    box-shadow: 0 2px 8px rgba(11, 35, 25, 0.2) !important;
+  }
+
+  .nav-btn-launch svg {
+    color: #CBF343 !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     2. Hero Section
+     -------------------------------------------------------------------------- */
+  .hero-section {
+    background: #F8F9F5 !important;
+    padding: 24px 16px 36px 16px !important;
+  }
+
+  /* Eyebrow Pill */
+  .hero-pill-badge {
+    background: rgba(203, 243, 67, 0.28) !important;
+    border: 1px solid #BFE834 !important;
+    border-radius: 9999px !important;
+    padding: 6px 14px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .hero-pill-badge .badge-text {
+    color: #123C2B !important;
+    font-size: 8px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.5px !important;
+  }
+
+  .hero-pill-badge .pulsing-beacon {
+    background: #123C2B !important;
+    box-shadow: 0 0 6px #CBF343 !important;
+  }
+
+  /* Headline */
+  .hero-headline {
+    color: #0B2319 !important;
+    font-size: 26px !important;
+    line-height: 1.22 !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.4px !important;
+    margin-bottom: 12px !important;
+    text-align: center !important;
+  }
+
+  .hero-headline .gradient-text {
+    background: none !important;
+    -webkit-background-clip: unset !important;
+    -webkit-text-fill-color: #0B2319 !important;
+    color: #0B2319 !important;
+  }
+
+  /* Subheadline */
+  .hero-subheadline {
+    color: #4A5E54 !important;
+    font-size: 13px !important;
+    line-height: 1.55 !important;
+    max-width: 320px !important;
+    margin: 0 auto 20px auto !important;
+  }
+
+  /* Hero CTA Button */
+  .hero-cta-btn {
+    background: #0B2319 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 9999px !important;
+    padding: 14px 30px !important;
+    font-size: 14px !important;
+    font-weight: 800 !important;
+    box-shadow: 0 6px 20px rgba(11, 35, 25, 0.28) !important;
+    width: auto !important;
+    min-width: 220px !important;
+    margin: 0 auto !important;
+  }
+
+  .hero-cta-btn svg {
+    color: #CBF343 !important;
+  }
+
+  /* Social Proof Bar (Clean 2x2 Grid) */
+  .hero-social-proof-bar {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    max-width: 340px !important;
+    margin: 22px auto 26px auto !important;
+  }
+
+  .hero-social-proof-bar .proof-item {
+    background: #FFFFFF !important;
+    border: 1px solid #DFE3D8 !important;
+    border-radius: 12px !important;
+    padding: 12px 10px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 2px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+  }
+
+  .hero-social-proof-bar .proof-item strong {
+    font-size: 16px !important;
+    font-weight: 800 !important;
+    color: #0B2319 !important;
+  }
+
+  .hero-social-proof-bar .proof-item span {
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    color: #5A6D63 !important;
+    text-align: center !important;
+  }
+
+  .hero-social-proof-bar .proof-divider {
+    display: none !important;
+  }
+
+  /* Scraper Preview Mockup Card */
+  .mockup-rotating-beam-frame {
+    background: #DFE3D8 !important;
+    border-radius: 16px !important;
+    box-shadow: 0 8px 24px rgba(11, 35, 25, 0.08) !important;
+    padding: 1px !important;
+  }
+
+  .mockup-window-frame {
+    background: #FFFFFF !important;
+    border-radius: 15px !important;
+  }
+
+  .mockup-header-bar {
+    background: #D4F65B !important;
+    color: #0B2319 !important;
+    border-bottom: 1px solid #C0E836 !important;
+    padding: 10px 14px !important;
+    font-weight: 800 !important;
+    border-top-left-radius: 15px !important;
+    border-top-right-radius: 15px !important;
+  }
+
+  .mockup-search-preview {
+    background: rgba(255, 255, 255, 0.6) !important;
+    color: #0B2319 !important;
+    border: 1px solid rgba(11, 35, 25, 0.12) !important;
+    border-radius: 6px !important;
+    font-size: 11px !important;
+  }
+
+  .mockup-live-status {
+    color: #0B2319 !important;
+    font-weight: 700 !important;
+  }
+
+  .mockup-chips-row {
+    background: #F8FAF6 !important;
+    border-bottom: 1px solid #DFE3D8 !important;
+    padding: 10px 12px !important;
+  }
+
+  .mockup-chip-btn {
+    background: #FFFFFF !important;
+    color: #5A6D63 !important;
+    border: 1px solid #DFE3D8 !important;
+    border-radius: 6px !important;
+    font-size: 11px !important;
+  }
+
+  .mockup-chip-btn.active {
+    background: #0B2319 !important;
+    color: #FFFFFF !important;
+    border-color: #0B2319 !important;
+  }
+
+  .mockup-chip-btn.active .chip-dot {
+    background: #CBF343 !important;
+  }
+
+  .mockup-top-stats {
+    background: #FFFFFF !important;
+    border-bottom: 1px solid #DFE3D8 !important;
+  }
+
+  .m-stat .m-label {
+    color: #5A6D63 !important;
+  }
+
+  .m-stat .m-value {
+    color: #0B2319 !important;
+  }
+
+  .m-stat .m-value.emerald {
+    color: #123C2B !important;
+  }
+
+  .mockup-table {
+    background: #FFFFFF !important;
+  }
+
+  .mockup-table th {
+    background: #F4F6F0 !important;
+    color: #5A6D63 !important;
+    border-bottom: 1px solid #DFE3D8 !important;
+  }
+
+  .mockup-table td {
+    border-bottom: 1px solid #EEF1E8 !important;
+    color: #0B2319 !important;
+  }
+
+  .lead-badge {
+    background: #D4F65B !important;
+    color: #0B2319 !important;
+    font-weight: 700 !important;
+    border-radius: 4px !important;
+  }
+
+  .lead-tag {
+    background: #EEF5E0 !important;
+    color: #123C2B !important;
+    font-weight: 600 !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     3. 3 Specialized Growth Engines
+     -------------------------------------------------------------------------- */
+  .section-container {
+    background: #F8F9F5 !important;
+    padding: 36px 16px !important;
+  }
+
+  .section-badge-pill {
+    background: rgba(203, 243, 67, 0.28) !important;
+    border: 1px solid #BFE834 !important;
+    color: #123C2B !important;
+    border-radius: 9999px !important;
+    font-weight: 800 !important;
+  }
+
+  .section-main-heading {
+    color: #0B2319 !important;
+    font-weight: 800 !important;
+    text-align: center !important;
+  }
+
+  .section-subtitle-text {
+    color: #4A5E54 !important;
+    text-align: center !important;
+  }
+
+  .engines-tab-nav {
+    background: #EEF1E8 !important;
+    border: 1px solid #DFE3D8 !important;
+    border-radius: 12px !important;
+  }
+
+  .engine-tab-btn {
+    color: #5A6D63 !important;
+  }
+
+  .engine-tab-btn.active {
+    background: #0B2319 !important;
+    color: #FFFFFF !important;
+  }
+
+  .engine-showcase-card {
+    background: #FFFFFF !important;
+    border: 1px solid #DFE3D8 !important;
+    box-shadow: 0 4px 16px rgba(11, 35, 25, 0.05) !important;
+    border-radius: 16px !important;
+  }
+
+  .engine-showcase-title {
+    color: #0B2319 !important;
+  }
+
+  .engine-tagline {
+    color: #4A5E54 !important;
+  }
+
+  .engine-features-list li {
+    color: #0B2319 !important;
+  }
+
+  .engine-features-list li svg {
+    color: #123C2B !important;
+  }
+
+  .live-preview-box {
+    background: #F8FAF6 !important;
+    border: 1px solid #DFE3D8 !important;
+  }
+
+  .sample-card {
+    background: #FFFFFF !important;
+    border: 1px solid #EEF1E8 !important;
+  }
+
+  .sample-info strong {
+    color: #0B2319 !important;
+  }
+
+  .sample-details span {
+    color: #5A6D63 !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     4. How Contaque Puts Your Outreach on Autopilot (SOLID FOREST GREEN)
+     -------------------------------------------------------------------------- */
+  .workflow-section {
+    background: #0D3123 !important;
+    padding: 42px 16px !important;
+    margin: 24px 0 !important;
+  }
+
+  .workflow-section .section-badge-pill {
+    background: rgba(203, 243, 67, 0.15) !important;
+    border: 1px solid #CBF343 !important;
+    color: #CBF343 !important;
+  }
+
+  .workflow-section .section-main-heading {
+    color: #FFFFFF !important;
+  }
+
+  .workflow-section .section-subtitle-text {
+    color: #98BAA8 !important;
+  }
+
+  .workflow-step-card {
+    background: #123B2B !important;
+    border: 1px solid rgba(203, 243, 67, 0.22) !important;
+    border-radius: 16px !important;
+    padding: 22px 18px !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15) !important;
+  }
+
+  .step-number {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 50% !important;
+    background: #CBF343 !important;
+    color: #0A261B !important;
+    font-size: 18px !important;
+    font-weight: 900 !important;
+    margin-bottom: 12px !important;
+  }
+
+  .workflow-step-card h4 {
+    color: #FFFFFF !important;
+    font-size: 16px !important;
+  }
+
+  .workflow-step-card p {
+    color: #B5D0C2 !important;
+    font-size: 13px !important;
+  }
+
+  .workflow-meta-tag {
+    background: rgba(203, 243, 67, 0.12) !important;
+    color: #CBF343 !important;
+    border: 1px solid rgba(203, 243, 67, 0.3) !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     5. Comparison Table (Contaque Highlighted in Soft Lime)
+     -------------------------------------------------------------------------- */
+  .comparison-section {
+    background: #F8F9F5 !important;
+    padding: 36px 16px !important;
+  }
+
+  .comparison-table-wrapper {
+    background: #FFFFFF !important;
+    border: 1px solid #DFE3D8 !important;
+    border-radius: 14px !important;
+    box-shadow: 0 4px 16px rgba(11, 35, 25, 0.05) !important;
+  }
+
+  .comparison-table th {
+    background: #F4F6F0 !important;
+    color: #0B2319 !important;
+    border-bottom: 1px solid #DFE3D8 !important;
+  }
+
+  .comparison-table th.highlight-col {
+    background: #EAF8B5 !important;
+    color: #0B2319 !important;
+    font-weight: 900 !important;
+  }
+
+  .comparison-table td {
+    background: #FFFFFF !important;
+    color: #0B2319 !important;
+    border-bottom: 1px solid #EEF1E8 !important;
+  }
+
+  .comparison-table td.highlight-col {
+    background: #F5FDE3 !important;
+    color: #0B2319 !important;
+    font-weight: 700 !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     6. Simple, Pay-For-Your-Growth Pricing
+     -------------------------------------------------------------------------- */
+  #pricing.section-container {
+    background: #F8F9F5 !important;
+  }
+
+  .pricing-main-heading {
+    color: #0B2319 !important;
+    font-weight: 800 !important;
+  }
+
+  .pricing-subtitle {
+    color: #4A5E54 !important;
+  }
+
+  .pricing-currency-toggle-wrapper {
+    background: #EEF1E8 !important;
+    border: 1px solid #DFE3D8 !important;
+    border-radius: 9999px !important;
+  }
+
+  .currency-pill-btn {
+    border-radius: 9999px !important;
+    color: #5A6D63 !important;
+  }
+
+  .currency-pill-btn.active {
+    background: #0B2319 !important;
+    color: #FFFFFF !important;
+  }
+
+  .pricing-card {
+    background: #FFFFFF !important;
+    border: 1px solid #DFE3D8 !important;
+    border-radius: 16px !important;
+    box-shadow: 0 4px 14px rgba(11, 35, 25, 0.05) !important;
+    color: #0B2319 !important;
+  }
+
+  .pricing-plan-name {
+    color: #0B2319 !important;
+  }
+
+  .price-number {
+    color: #0B2319 !important;
+  }
+
+  .pricing-action-btn {
+    background: #0B2319 !important;
+    color: #FFFFFF !important;
+    border-radius: 9999px !important;
+    font-weight: 800 !important;
+  }
+
+  /* Value Plus: Solid Deep Forest Green Card & Lime CTA */
+  .pricing-card.popular,
+  .pricing-card.plus {
+    background: #0D3123 !important;
+    border: 2px solid #CBF343 !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 8px 26px rgba(11, 35, 25, 0.25) !important;
+  }
+
+  .pricing-card.popular .pricing-plan-name,
+  .pricing-card.plus .pricing-plan-name,
+  .pricing-card.popular .price-number,
+  .pricing-card.plus .price-number {
+    color: #FFFFFF !important;
+  }
+
+  .pricing-card.popular .price-period,
+  .pricing-card.plus .price-period {
+    color: #98BAA8 !important;
+  }
+
+  .pricing-card.popular .pricing-plan-tagline-inline,
+  .pricing-card.plus .pricing-plan-tagline-inline {
+    color: #B5D0C2 !important;
+  }
+
+  .pricing-card.popular .pricing-badge-popular,
+  .pricing-card.plus .pricing-badge-popular {
+    background: #CBF343 !important;
+    color: #0A261B !important;
+    font-weight: 900 !important;
+    border-radius: 9999px !important;
+  }
+
+  .pricing-card.popular .pricing-features-list li,
+  .pricing-card.plus .pricing-features-list li {
+    color: #E2F0E8 !important;
+  }
+
+  .pricing-card.popular .pricing-features-list li svg,
+  .pricing-card.plus .pricing-features-list li svg {
+    color: #CBF343 !important;
+  }
+
+  .pricing-card.popular .pricing-action-btn,
+  .pricing-card.plus .pricing-action-btn {
+    background: #CBF343 !important;
+    color: #0A261B !important;
+    font-weight: 900 !important;
+    box-shadow: 0 4px 14px rgba(203, 243, 67, 0.35) !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     7. FAQ Accordion
+     -------------------------------------------------------------------------- */
+  .faq-section {
+    background: #F8F9F5 !important;
+  }
+
+  .faq-accordion-item {
+    background: #FFFFFF !important;
+    border: 1px solid #DFE3D8 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 2px 6px rgba(11, 35, 25, 0.03) !important;
+  }
+
+  .faq-question-row h4 {
+    color: #0B2319 !important;
+  }
+
+  .faq-question-row svg {
+    color: #123C2B !important;
+  }
+
+  .faq-answer-content p {
+    color: #4A5E54 !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     8. Final CTA Banner (SOLID ELECTRIC LIME GREEN)
+     -------------------------------------------------------------------------- */
+  .final-cta-section {
+    margin: 24px 0 44px 0 !important;
+  }
+
+  .final-cta-card {
+    background: #CBF343 !important;
+    border: 1px solid #BFE834 !important;
+    box-shadow: 0 10px 30px rgba(203, 243, 67, 0.3) !important;
+    border-radius: 20px !important;
+    padding: 38px 20px !important;
+    text-align: center !important;
+  }
+
+  .final-cta-card h2 {
+    color: #0A261B !important;
+    font-weight: 900 !important;
+    font-size: 24px !important;
+    line-height: 1.25 !important;
+  }
+
+  .final-cta-card p {
+    color: #1B4532 !important;
+    font-size: 13.5px !important;
+  }
+
+  .final-cta-actions .btn-primary-gradient.big {
+    background: #0A261B !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 9999px !important;
+    font-weight: 800 !important;
+    box-shadow: 0 4px 14px rgba(10, 38, 27, 0.35) !important;
+  }
+
+  .final-cta-actions .btn-glass-subtle {
+    display: none !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     9. Footer
+     -------------------------------------------------------------------------- */
+  .landing-footer {
+    background: #F0F3EC !important;
+    border-top: 1px solid #DFE3D8 !important;
+    color: #4A5E54 !important;
+  }
+
+  .footer-brand-col h3,
+  .footer-col-title {
+    color: #0B2319 !important;
+  }
+
+  .footer-links-list li a {
+    color: #4A5E54 !important;
+  }
+
+  .footer-newsletter-box {
+    background: #FFFFFF !important;
+    border: 1px solid #DFE3D8 !important;
+    border-radius: 14px !important;
+  }
+
+  .newsletter-title {
+    color: #0B2319 !important;
+  }
+
+  .newsletter-subtitle {
+    color: #5A6D63 !important;
+  }
+
+  .newsletter-input {
+    background: #F8FAF6 !important;
+    border: 1px solid #DFE3D8 !important;
+    color: #0B2319 !important;
+    border-radius: 9999px !important;
+  }
+
+  .newsletter-btn {
+    background: #0B2319 !important;
+    color: #FFFFFF !important;
+    border-radius: 9999px !important;
+    border: none !important;
+  }
+
+  .footer-bottom-bar {
+    border-top: 1px solid #DFE3D8 !important;
+    color: #5A6D63 !important;
+  }
+}
