@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Database, Zap, Sparkles, ShieldCheck, Menu, X, LogOut, User, Globe, Wallet, Lock, Gift, HelpCircle } from 'lucide-react';
+import { LayoutDashboard, Database, Zap, Sparkles, ShieldCheck, Menu, X, LogOut, User, Globe, Wallet, Lock, Gift, HelpCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
 import WalletRechargeModal from './WalletRechargeModal';
@@ -12,6 +12,24 @@ function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isRechargeOpen, setIsRechargeOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleCollapse = () => {
+    setIsCollapsed(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('sidebar_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  };
+
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, walletBalance, refreshWallet, userPlan, authFetch } = useAuth();
@@ -108,8 +126,21 @@ function Sidebar() {
         />
       )}
 
+      {/* Floating Expand Arrow Button (Left to Right Arrow: Brings sidebar back out) */}
+      {isCollapsed && (
+        <button 
+          type="button"
+          className="sidebar-expand-floating-btn"
+          onClick={toggleCollapse}
+          title="Open Sidebar"
+          aria-label="Open Sidebar"
+        >
+          <ChevronRight size={18} />
+        </button>
+      )}
+
       {/* Sidebar / Off-canvas Drawer */}
-      <aside className={`sidebar ${mobileOpen ? 'mobile-open' : ''}`}>
+      <aside className={`sidebar ${mobileOpen ? 'mobile-open' : ''} ${isCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
           <div className="brand-logo" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>
             <div className="brand-icon" style={{ overflow: 'hidden', padding: 0 }}>
@@ -119,6 +150,19 @@ function Sidebar() {
               <h2>Contaque</h2>
             </div>
           </div>
+
+          {/* Desktop Collapse Arrow (Right to Left: pushes sidebar inside) */}
+          <button 
+            type="button"
+            className="sidebar-collapse-toggle-btn"
+            onClick={toggleCollapse}
+            title="Collapse Sidebar"
+            aria-label="Collapse Sidebar"
+          >
+            <ChevronLeft size={18} />
+          </button>
+
+          {/* Mobile Close Button */}
           <button 
             className="sidebar-close-btn" 
             onClick={() => setMobileOpen(false)}

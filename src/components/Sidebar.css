@@ -10,9 +10,20 @@
   top: 0;
   z-index: 100;
   user-select: none;
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, opacity 0.2s ease;
   flex-shrink: 0;
   box-shadow: var(--shadow-xs);
+}
+
+.sidebar.collapsed {
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  border-right: none !important;
+  overflow: hidden !important;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
 }
 
 .sidebar-header {
@@ -21,7 +32,71 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   border-bottom: 1px solid var(--border-color, #D9E1EA);
+}
+
+/* Desktop Collapse Arrow Button inside header */
+.sidebar-collapse-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--bg-card-subtle, #F0F6FB);
+  border: 1px solid var(--border-color, #D9E1EA);
+  border-radius: var(--radius-xs, 6px);
+  color: var(--text-muted, #64748B);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.sidebar-collapse-toggle-btn:hover {
+  background: var(--brand-navy, #10367D);
+  color: #FFFFFF;
+  border-color: var(--brand-navy, #10367D);
+  transform: scale(1.05);
+}
+
+/* Floating Expand Arrow Button on screen edge when sidebar is collapsed */
+.sidebar-expand-floating-btn {
+  position: fixed;
+  top: 44px; /* Sits just below top news ticker */
+  left: 0;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 38px;
+  background: #FFFFFF;
+  border: 1px solid #D9E1EA;
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  color: #10367D;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  animation: slide-in-tab 0.2s ease-out;
+}
+
+.sidebar-expand-floating-btn:hover {
+  background: #10367D;
+  color: #FFFFFF;
+  width: 32px;
+}
+
+@keyframes slide-in-tab {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 .sidebar-close-btn {
@@ -667,5 +742,10 @@
 
   .sidebar-close-btn {
     display: flex;
+  }
+
+  .sidebar-collapse-toggle-btn,
+  .sidebar-expand-floating-btn {
+    display: none !important;
   }
 }
