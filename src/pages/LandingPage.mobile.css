@@ -1,11 +1,13 @@
 /* ==========================================================================
    CONTAQUE MOBILE-ONLY THEME: Forest Green, Electric Lime & Organic Cream
    Applied strictly to mobile screens (max-width: 768px)
-   Matches high-converting modern SaaS mobile aesthetic
+   100% High-Contrast, Crystal-Clear Text & Deep Visual Hierarchy
    ========================================================================== */
 
 @media (max-width: 768px) {
-  /* Page Root & Ambient */
+  /* --------------------------------------------------------------------------
+     1. Page Root & General Contrast Resets
+     -------------------------------------------------------------------------- */
   .landing-container {
     background-color: #F8F9F5 !important;
     color: #0B2319 !important;
@@ -15,14 +17,27 @@
     display: none !important;
   }
 
+  /* Reset any stray light text inside light sections */
+  .landing-container h1,
+  .landing-container h2,
+  .landing-container h3,
+  .landing-container h4,
+  .landing-container h5 {
+    color: #0B2319 !important;
+  }
+
+  .landing-container p {
+    color: #374151 !important;
+  }
+
   /* --------------------------------------------------------------------------
-     1. Sticky Glass Navbar (Mobile)
+     2. Sticky Glass Navbar (Mobile)
      -------------------------------------------------------------------------- */
   .landing-navbar {
     background: rgba(248, 249, 245, 0.96) !important;
     backdrop-filter: blur(12px) !important;
     -webkit-backdrop-filter: blur(12px) !important;
-    border-bottom: 1px solid rgba(11, 35, 25, 0.08) !important;
+    border-bottom: 1px solid rgba(11, 35, 25, 0.1) !important;
   }
 
   .brand-name {
@@ -37,10 +52,10 @@
   .nav-btn-login,
   .nav-login-btn {
     background: transparent !important;
-    border: 1.5px solid rgba(11, 35, 25, 0.22) !important;
+    border: 1.5px solid rgba(11, 35, 25, 0.3) !important;
     color: #0B2319 !important;
     border-radius: 9999px !important;
-    font-weight: 700 !important;
+    font-weight: 800 !important;
     font-size: 12px !important;
     height: 32px !important;
     padding: 0 14px !important;
@@ -53,11 +68,11 @@
     color: #FFFFFF !important;
     border: none !important;
     border-radius: 9999px !important;
-    font-weight: 700 !important;
+    font-weight: 800 !important;
     font-size: 12px !important;
     height: 32px !important;
     padding: 0 16px !important;
-    box-shadow: 0 2px 8px rgba(11, 35, 25, 0.2) !important;
+    box-shadow: 0 2px 8px rgba(11, 35, 25, 0.25) !important;
   }
 
   .nav-btn-launch svg {
@@ -65,41 +80,39 @@
   }
 
   /* --------------------------------------------------------------------------
-     2. Hero Section
+     3. Hero Section
      -------------------------------------------------------------------------- */
   .hero-section {
     background: #F8F9F5 !important;
     padding: 24px 16px 36px 16px !important;
   }
 
-  /* Eyebrow Pill */
   .hero-pill-badge {
-    background: rgba(203, 243, 67, 0.28) !important;
-    border: 1px solid #BFE834 !important;
+    background: rgba(203, 243, 67, 0.32) !important;
+    border: 1.5px solid #BFE834 !important;
     border-radius: 9999px !important;
     padding: 6px 14px !important;
     margin-bottom: 16px !important;
   }
 
   .hero-pill-badge .badge-text {
-    color: #123C2B !important;
-    font-size: 8px !important;
-    font-weight: 800 !important;
-    letter-spacing: 0.5px !important;
+    color: #0B2319 !important;
+    font-size: 8.5px !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.6px !important;
   }
 
   .hero-pill-badge .pulsing-beacon {
-    background: #123C2B !important;
+    background: #0B2319 !important;
     box-shadow: 0 0 6px #CBF343 !important;
   }
 
-  /* Headline */
   .hero-headline {
     color: #0B2319 !important;
     font-size: 26px !important;
     line-height: 1.22 !important;
-    font-weight: 800 !important;
-    letter-spacing: -0.4px !important;
+    font-weight: 900 !important;
+    letter-spacing: -0.5px !important;
     margin-bottom: 12px !important;
     text-align: center !important;
   }
@@ -111,16 +124,15 @@
     color: #0B2319 !important;
   }
 
-  /* Subheadline */
   .hero-subheadline {
-    color: #4A5E54 !important;
-    font-size: 13px !important;
+    color: #374151 !important;
+    font-size: 13.5px !important;
     line-height: 1.55 !important;
     max-width: 320px !important;
     margin: 0 auto 20px auto !important;
+    font-weight: 500 !important;
   }
 
-  /* Hero CTA Button */
   .hero-cta-btn {
     background: #0B2319 !important;
     color: #FFFFFF !important;
@@ -129,7 +141,7 @@
     padding: 14px 30px !important;
     font-size: 14px !important;
     font-weight: 800 !important;
-    box-shadow: 0 6px 20px rgba(11, 35, 25, 0.28) !important;
+    box-shadow: 0 6px 20px rgba(11, 35, 25, 0.3) !important;
     width: auto !important;
     min-width: 220px !important;
     margin: 0 auto !important;
@@ -155,7 +167,7 @@
 
   .hero-social-proof-bar .proof-item {
     background: #FFFFFF !important;
-    border: 1px solid #DFE3D8 !important;
+    border: 1.5px solid #DFE3D8 !important;
     border-radius: 12px !important;
     padding: 12px 10px !important;
     display: flex !important;
@@ -163,19 +175,19 @@
     align-items: center !important;
     justify-content: center !important;
     gap: 2px !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
   }
 
   .hero-social-proof-bar .proof-item strong {
-    font-size: 16px !important;
-    font-weight: 800 !important;
+    font-size: 17px !important;
+    font-weight: 900 !important;
     color: #0B2319 !important;
   }
 
   .hero-social-proof-bar .proof-item span {
-    font-size: 10px !important;
-    font-weight: 600 !important;
-    color: #5A6D63 !important;
+    font-size: 10.5px !important;
+    font-weight: 700 !important;
+    color: #4A5E54 !important;
     text-align: center !important;
   }
 
@@ -188,7 +200,7 @@
     background: #DFE3D8 !important;
     border-radius: 16px !important;
     box-shadow: 0 8px 24px rgba(11, 35, 25, 0.08) !important;
-    padding: 1px !important;
+    padding: 1.5px !important;
   }
 
   .mockup-window-frame {
@@ -207,16 +219,17 @@
   }
 
   .mockup-search-preview {
-    background: rgba(255, 255, 255, 0.6) !important;
+    background: rgba(255, 255, 255, 0.8) !important;
     color: #0B2319 !important;
-    border: 1px solid rgba(11, 35, 25, 0.12) !important;
+    border: 1px solid rgba(11, 35, 25, 0.15) !important;
     border-radius: 6px !important;
     font-size: 11px !important;
+    font-weight: 600 !important;
   }
 
   .mockup-live-status {
     color: #0B2319 !important;
-    font-weight: 700 !important;
+    font-weight: 800 !important;
   }
 
   .mockup-chips-row {
@@ -227,16 +240,18 @@
 
   .mockup-chip-btn {
     background: #FFFFFF !important;
-    color: #5A6D63 !important;
+    color: #374151 !important;
     border: 1px solid #DFE3D8 !important;
     border-radius: 6px !important;
     font-size: 11px !important;
+    font-weight: 600 !important;
   }
 
   .mockup-chip-btn.active {
     background: #0B2319 !important;
     color: #FFFFFF !important;
     border-color: #0B2319 !important;
+    font-weight: 700 !important;
   }
 
   .mockup-chip-btn.active .chip-dot {
@@ -250,14 +265,17 @@
 
   .m-stat .m-label {
     color: #5A6D63 !important;
+    font-weight: 600 !important;
   }
 
   .m-stat .m-value {
     color: #0B2319 !important;
+    font-weight: 800 !important;
   }
 
   .m-stat .m-value.emerald {
-    color: #123C2B !important;
+    color: #0B2319 !important;
+    font-weight: 800 !important;
   }
 
   .mockup-table {
@@ -266,141 +284,235 @@
 
   .mockup-table th {
     background: #F4F6F0 !important;
-    color: #5A6D63 !important;
+    color: #4B5563 !important;
     border-bottom: 1px solid #DFE3D8 !important;
+    font-weight: 700 !important;
   }
 
   .mockup-table td {
     border-bottom: 1px solid #EEF1E8 !important;
     color: #0B2319 !important;
+    font-weight: 600 !important;
   }
 
   .lead-badge {
     background: #D4F65B !important;
     color: #0B2319 !important;
-    font-weight: 700 !important;
+    font-weight: 800 !important;
     border-radius: 4px !important;
   }
 
   .lead-tag {
     background: #EEF5E0 !important;
-    color: #123C2B !important;
-    font-weight: 600 !important;
+    color: #0B2319 !important;
+    font-weight: 700 !important;
   }
 
   /* --------------------------------------------------------------------------
-     3. 3 Specialized Growth Engines
+     4. Common Section Headers (High Contrast Fix)
      -------------------------------------------------------------------------- */
   .section-container {
     background: #F8F9F5 !important;
     padding: 36px 16px !important;
   }
 
-  .section-badge-pill {
-    background: rgba(203, 243, 67, 0.28) !important;
-    border: 1px solid #BFE834 !important;
-    color: #123C2B !important;
-    border-radius: 9999px !important;
-    font-weight: 800 !important;
+  .section-header-center {
+    margin-bottom: 24px !important;
+    text-align: center !important;
   }
 
+  .section-header-center .section-pill,
+  .section-badge-pill {
+    background: rgba(203, 243, 67, 0.32) !important;
+    border: 1.5px solid #BFE834 !important;
+    color: #0B2319 !important;
+    border-radius: 9999px !important;
+    font-weight: 900 !important;
+    font-size: 9px !important;
+    letter-spacing: 0.6px !important;
+    padding: 5px 12px !important;
+  }
+
+  .section-header-center h2,
   .section-main-heading {
     color: #0B2319 !important;
-    font-weight: 800 !important;
+    font-weight: 900 !important;
+    font-size: 22px !important;
+    line-height: 1.3 !important;
+    margin: 8px 0 10px 0 !important;
     text-align: center !important;
   }
 
+  .section-header-center p,
   .section-subtitle-text {
-    color: #4A5E54 !important;
+    color: #374151 !important;
+    font-size: 13.5px !important;
+    line-height: 1.55 !important;
+    font-weight: 500 !important;
     text-align: center !important;
   }
 
-  .engines-tab-nav {
+  /* --------------------------------------------------------------------------
+     5. 6 Specialized Growth Engines Section
+     -------------------------------------------------------------------------- */
+  .engines-tabs-bar {
     background: #EEF1E8 !important;
     border: 1px solid #DFE3D8 !important;
     border-radius: 12px !important;
+    padding: 4px !important;
   }
 
   .engine-tab-btn {
-    color: #5A6D63 !important;
+    color: #374151 !important;
+    font-weight: 700 !important;
+    font-size: 11.5px !important;
   }
 
   .engine-tab-btn.active {
     background: #0B2319 !important;
     color: #FFFFFF !important;
+    box-shadow: 0 2px 6px rgba(11, 35, 25, 0.25) !important;
   }
 
   .engine-showcase-card {
     background: #FFFFFF !important;
-    border: 1px solid #DFE3D8 !important;
+    border: 1.5px solid #DFE3D8 !important;
     box-shadow: 0 4px 16px rgba(11, 35, 25, 0.05) !important;
     border-radius: 16px !important;
+    padding: 20px 16px !important;
   }
 
-  .engine-showcase-title {
+  .engine-badge-row .engine-badge {
+    background: #EEF1E8 !important;
     color: #0B2319 !important;
+    border: 1px solid #DFE3D8 !important;
+    font-weight: 800 !important;
+  }
+
+  .engine-metrics-tag {
+    background: rgba(203, 243, 67, 0.3) !important;
+    color: #0B2319 !important;
+    border: 1px solid #BFE834 !important;
+    font-weight: 800 !important;
+  }
+
+  .showcase-left h3 {
+    color: #0B2319 !important;
+    font-size: 19px !important;
+    font-weight: 900 !important;
+    margin: 10px 0 8px 0 !important;
   }
 
   .engine-tagline {
-    color: #4A5E54 !important;
+    color: #374151 !important;
+    font-size: 13.5px !important;
+    line-height: 1.5 !important;
+    font-weight: 500 !important;
   }
 
   .engine-features-list li {
-    color: #0B2319 !important;
+    color: #1F2937 !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
   }
 
-  .engine-features-list li svg {
-    color: #123C2B !important;
+  .engine-features-list li svg,
+  .feat-check {
+    color: #16A34A !important;
+    flex-shrink: 0;
+  }
+
+  .showcase-action-btns button {
+    border-radius: 9999px !important;
+    font-weight: 800 !important;
+  }
+
+  .showcase-action-btns .btn-emerald-gradient,
+  .showcase-action-btns .btn-primary-gradient {
+    background: #0B2319 !important;
+    color: #FFFFFF !important;
+  }
+
+  .showcase-action-btns .btn-glass-subtle {
+    background: #EEF1E8 !important;
+    color: #0B2319 !important;
+    border: 1.5px solid #DFE3D8 !important;
   }
 
   .live-preview-box {
     background: #F8FAF6 !important;
     border: 1px solid #DFE3D8 !important;
+    border-radius: 12px !important;
+  }
+
+  .preview-top {
+    border-bottom: 1px solid #DFE3D8 !important;
+  }
+
+  .preview-title {
+    color: #0B2319 !important;
+    font-weight: 800 !important;
   }
 
   .sample-card {
     background: #FFFFFF !important;
     border: 1px solid #EEF1E8 !important;
+    border-radius: 10px !important;
   }
 
-  .sample-info strong {
+  .sample-name {
     color: #0B2319 !important;
+    font-weight: 800 !important;
   }
 
-  .sample-details span {
-    color: #5A6D63 !important;
+  .sample-sub {
+    color: #4B5563 !important;
+    font-weight: 500 !important;
+  }
+
+  .sample-phone {
+    color: #0B2319 !important;
+    font-weight: 700 !important;
+  }
+
+  .sample-status-badge {
+    background: #EAF8B5 !important;
+    color: #0B2319 !important;
+    font-weight: 800 !important;
   }
 
   /* --------------------------------------------------------------------------
-     4. How Contaque Puts Your Outreach on Autopilot (SOLID FOREST GREEN)
+     6. How Contaque Puts Your Outreach on Autopilot (SOLID FOREST GREEN)
      -------------------------------------------------------------------------- */
-  .workflow-section {
+  .workflow-section,
+  #how-it-works {
     background: #0D3123 !important;
     padding: 42px 16px !important;
     margin: 24px 0 !important;
   }
 
-  .workflow-section .section-badge-pill {
-    background: rgba(203, 243, 67, 0.15) !important;
-    border: 1px solid #CBF343 !important;
+  #how-it-works .section-pill {
+    background: rgba(203, 243, 67, 0.18) !important;
+    border: 1.5px solid #CBF343 !important;
     color: #CBF343 !important;
+    font-weight: 900 !important;
   }
 
-  .workflow-section .section-main-heading {
+  #how-it-works h2 {
     color: #FFFFFF !important;
+    font-weight: 900 !important;
   }
 
-  .workflow-section .section-subtitle-text {
-    color: #98BAA8 !important;
+  #how-it-works p {
+    color: #B5D0C2 !important;
   }
 
   .workflow-step-card {
     background: #123B2B !important;
-    border: 1px solid rgba(203, 243, 67, 0.22) !important;
+    border: 1.5px solid rgba(203, 243, 67, 0.25) !important;
     border-radius: 16px !important;
     padding: 22px 18px !important;
-    color: #FFFFFF !important;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15) !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2) !important;
   }
 
   .step-number {
@@ -420,30 +532,51 @@
   .workflow-step-card h4 {
     color: #FFFFFF !important;
     font-size: 16px !important;
+    font-weight: 800 !important;
+    margin-bottom: 8px !important;
   }
 
   .workflow-step-card p {
-    color: #B5D0C2 !important;
-    font-size: 13px !important;
+    color: #E2F0E8 !important;
+    font-size: 13.5px !important;
+    line-height: 1.55 !important;
+    font-weight: 400 !important;
+    margin-bottom: 14px !important;
   }
 
+  .step-tag,
   .workflow-meta-tag {
-    background: rgba(203, 243, 67, 0.12) !important;
+    background: rgba(203, 243, 67, 0.15) !important;
     color: #CBF343 !important;
-    border: 1px solid rgba(203, 243, 67, 0.3) !important;
+    border: 1px solid rgba(203, 243, 67, 0.35) !important;
+    border-radius: 9999px !important;
+    font-weight: 800 !important;
+    font-size: 11px !important;
+    padding: 4px 12px !important;
   }
 
   /* --------------------------------------------------------------------------
-     5. Comparison Table (Contaque Highlighted in Soft Lime)
+     7. Comparison Table (Contaque Highlighted in Soft Lime)
      -------------------------------------------------------------------------- */
-  .comparison-section {
+  .comparison-section,
+  #comparison {
     background: #F8F9F5 !important;
     padding: 36px 16px !important;
   }
 
+  .comparison-mobile-scroll-tip {
+    background: #EEF1E8 !important;
+    border: 1px solid #DFE3D8 !important;
+    color: #374151 !important;
+    font-weight: 700 !important;
+    border-radius: 9999px !important;
+    padding: 6px 14px !important;
+    margin-bottom: 14px !important;
+  }
+
   .comparison-table-wrapper {
     background: #FFFFFF !important;
-    border: 1px solid #DFE3D8 !important;
+    border: 1.5px solid #DFE3D8 !important;
     border-radius: 14px !important;
     box-shadow: 0 4px 16px rgba(11, 35, 25, 0.05) !important;
   }
@@ -452,6 +585,7 @@
     background: #F4F6F0 !important;
     color: #0B2319 !important;
     border-bottom: 1px solid #DFE3D8 !important;
+    font-weight: 800 !important;
   }
 
   .comparison-table th.highlight-col {
@@ -462,8 +596,9 @@
 
   .comparison-table td {
     background: #FFFFFF !important;
-    color: #0B2319 !important;
+    color: #1F2937 !important;
     border-bottom: 1px solid #EEF1E8 !important;
+    font-weight: 600 !important;
   }
 
   .comparison-table td.highlight-col {
@@ -472,153 +607,390 @@
     font-weight: 700 !important;
   }
 
+  .comparison-table td strong {
+    color: #0B2319 !important;
+    font-weight: 800 !important;
+  }
+
   /* --------------------------------------------------------------------------
-     6. Simple, Pay-For-Your-Growth Pricing
+     8. Simple, Pay-As-You-Grow Pricing (100% High-Contrast Crystal-Clear Fix)
      -------------------------------------------------------------------------- */
   #pricing.section-container {
     background: #F8F9F5 !important;
   }
 
+  .pricing-header-center {
+    text-align: center !important;
+    margin-bottom: 24px !important;
+  }
+
   .pricing-main-heading {
     color: #0B2319 !important;
-    font-weight: 800 !important;
+    font-weight: 900 !important;
+    font-size: 24px !important;
+    margin: 8px 0 10px 0 !important;
   }
 
   .pricing-subtitle {
-    color: #4A5E54 !important;
+    color: #374151 !important;
+    font-size: 13.5px !important;
+    font-weight: 500 !important;
   }
 
   .pricing-currency-toggle-wrapper {
     background: #EEF1E8 !important;
-    border: 1px solid #DFE3D8 !important;
+    border: 1.5px solid #DFE3D8 !important;
     border-radius: 9999px !important;
+    padding: 4px 10px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin-top: 14px !important;
   }
 
-  .currency-pill-btn {
+  .currency-option-label {
+    color: #4B5563 !important;
+    font-weight: 700 !important;
+    font-size: 12px !important;
+  }
+
+  .currency-option-label.active {
+    color: #0B2319 !important;
+    font-weight: 900 !important;
+  }
+
+  .currency-pill-switch {
+    background: #0B2319 !important;
     border-radius: 9999px !important;
+    padding: 2px !important;
+    width: 44px !important;
+    height: 24px !important;
+    border: none !important;
+  }
+
+  .currency-switch-slider {
+    background: #CBF343 !important;
+    color: #0B2319 !important;
+    font-weight: 900 !important;
+    border-radius: 50% !important;
+  }
+
+  .pricing-cards-grid {
+    grid-template-columns: 1fr !important;
+    width: 100% !important;
+    gap: 18px !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Standard White Pricing Card (Free Plan & Value Pack) */
+  .pricing-card {
+    background: #FFFFFF !important;
+    border: 1.5px solid #DFE3D8 !important;
+    border-radius: 16px !important;
+    box-shadow: 0 4px 16px rgba(11, 35, 25, 0.06) !important;
+    padding: 22px 18px !important;
+    box-sizing: border-box !important;
+  }
+
+  .pricing-card .pricing-plan-name {
+    color: #0B2319 !important;
+    font-size: 19px !important;
+    font-weight: 900 !important;
+  }
+
+  .pricing-card .pricing-plan-icon {
+    font-size: 18px !important;
+  }
+
+  .pricing-card .pricing-card-badge-inline {
+    background: #EEF1E8 !important;
+    color: #0B2319 !important;
+    border: 1px solid #DFE3D8 !important;
+    font-weight: 800 !important;
+    font-size: 10px !important;
+    border-radius: 9999px !important;
+    padding: 3px 10px !important;
+  }
+
+  .pricing-card .price-number {
+    color: #0B2319 !important;
+    font-size: 30px !important;
+    font-weight: 900 !important;
+  }
+
+  .pricing-card .price-period {
+    color: #4B5563 !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+  }
+
+  .pricing-card .pricing-plan-tagline-inline {
+    color: #374151 !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+  }
+
+  /* Rates Breakdown Box */
+  .pricing-card .pricing-rates-box {
+    background: #F4F6F0 !important;
+    border: 1px solid #DFE3D8 !important;
+    border-radius: 10px !important;
+    padding: 10px 12px !important;
+    margin: 14px 0 !important;
+  }
+
+  .pricing-card .rates-box-title {
+    color: #5A6D63 !important;
+    font-weight: 800 !important;
+    font-size: 10px !important;
+    letter-spacing: 0.5px !important;
+    border-bottom: 1px solid #DFE3D8 !important;
+    padding-bottom: 6px !important;
+    margin-bottom: 6px !important;
+  }
+
+  .pricing-card .rates-box-title span {
     color: #5A6D63 !important;
   }
 
-  .currency-pill-btn.active {
+  .pricing-card .rates-row-item {
+    border-bottom: 1px solid #EEF1E8 !important;
+    padding: 5px 0 !important;
+  }
+
+  .pricing-card .rates-engine-name {
+    color: #1F2937 !important;
+    font-weight: 600 !important;
+    font-size: 11.5px !important;
+  }
+
+  .pricing-card .rates-engine-price {
+    color: #0B2319 !important;
+    font-weight: 800 !important;
+    font-size: 12px !important;
+  }
+
+  /* Features List */
+  .pricing-card .features-wrap-title {
+    color: #0B2319 !important;
+    font-weight: 800 !important;
+    font-size: 12.5px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .pricing-card .pricing-features-checklist li {
+    color: #1F2937 !important;
+    font-weight: 600 !important;
+    font-size: 12.5px !important;
+  }
+
+  .pricing-card .pricing-features-checklist li span {
+    color: #1F2937 !important;
+  }
+
+  .pricing-card .pricing-action-btn {
     background: #0B2319 !important;
     color: #FFFFFF !important;
-  }
-
-  .pricing-card {
-    background: #FFFFFF !important;
-    border: 1px solid #DFE3D8 !important;
-    border-radius: 16px !important;
-    box-shadow: 0 4px 14px rgba(11, 35, 25, 0.05) !important;
-    color: #0B2319 !important;
-  }
-
-  .pricing-plan-name {
-    color: #0B2319 !important;
-  }
-
-  .price-number {
-    color: #0B2319 !important;
-  }
-
-  .pricing-action-btn {
-    background: #0B2319 !important;
-    color: #FFFFFF !important;
+    border: none !important;
     border-radius: 9999px !important;
+    font-weight: 800 !important;
+    font-size: 13.5px !important;
+    padding: 13px !important;
+    width: 100% !important;
+    box-shadow: 0 4px 14px rgba(11, 35, 25, 0.2) !important;
+    cursor: pointer !important;
+  }
+
+  .pricing-card .pricing-action-btn span {
+    color: #FFFFFF !important;
     font-weight: 800 !important;
   }
 
-  /* Value Plus: Solid Deep Forest Green Card & Lime CTA */
-  .pricing-card.popular,
-  .pricing-card.plus {
-    background: #0D3123 !important;
-    border: 2px solid #CBF343 !important;
-    color: #FFFFFF !important;
-    box-shadow: 0 8px 26px rgba(11, 35, 25, 0.25) !important;
-  }
-
-  .pricing-card.popular .pricing-plan-name,
-  .pricing-card.plus .pricing-plan-name,
-  .pricing-card.popular .price-number,
-  .pricing-card.plus .price-number {
-    color: #FFFFFF !important;
-  }
-
-  .pricing-card.popular .price-period,
-  .pricing-card.plus .price-period {
-    color: #98BAA8 !important;
-  }
-
-  .pricing-card.popular .pricing-plan-tagline-inline,
-  .pricing-card.plus .pricing-plan-tagline-inline {
-    color: #B5D0C2 !important;
-  }
-
-  .pricing-card.popular .pricing-badge-popular,
-  .pricing-card.plus .pricing-badge-popular {
-    background: #CBF343 !important;
-    color: #0A261B !important;
-    font-weight: 900 !important;
-    border-radius: 9999px !important;
-  }
-
-  .pricing-card.popular .pricing-features-list li,
-  .pricing-card.plus .pricing-features-list li {
-    color: #E2F0E8 !important;
-  }
-
-  .pricing-card.popular .pricing-features-list li svg,
-  .pricing-card.plus .pricing-features-list li svg {
+  .pricing-card .pricing-action-btn svg {
     color: #CBF343 !important;
   }
 
-  .pricing-card.popular .pricing-action-btn,
-  .pricing-card.plus .pricing-action-btn {
+  /* --------------------------------------------------------------------------
+     VALUE PLUS CARD: Solid Deep Forest Green with Electric Lime Contrast
+     -------------------------------------------------------------------------- */
+  .pricing-card.plus-card {
+    background: #0D3123 !important;
+    border: 2px solid #CBF343 !important;
+    box-shadow: 0 10px 28px rgba(13, 49, 35, 0.3) !important;
+  }
+
+  .pricing-card.plus-card .pricing-plan-name {
+    color: #FFFFFF !important;
+    font-size: 20px !important;
+    font-weight: 900 !important;
+  }
+
+  .pricing-card.plus-card .pricing-card-badge-inline {
     background: #CBF343 !important;
     color: #0A261B !important;
+    border: none !important;
     font-weight: 900 !important;
-    box-shadow: 0 4px 14px rgba(203, 243, 67, 0.35) !important;
+  }
+
+  .pricing-card.plus-card .price-number {
+    color: #FFFFFF !important;
+    font-weight: 900 !important;
+  }
+
+  .pricing-card.plus-card .price-period {
+    color: #98BAA8 !important;
+    font-weight: 700 !important;
+  }
+
+  .pricing-card.plus-card .pricing-plan-tagline-inline {
+    color: #B5D0C2 !important;
+  }
+
+  .pricing-card.plus-card .pricing-rates-box {
+    background: #123C2B !important;
+    border: 1px solid rgba(203, 243, 67, 0.25) !important;
+  }
+
+  .pricing-card.plus-card .rates-box-title {
+    color: #98BAA8 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  }
+
+  .pricing-card.plus-card .rates-box-title span {
+    color: #98BAA8 !important;
+  }
+
+  .pricing-card.plus-card .rates-row-item {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  }
+
+  .pricing-card.plus-card .rates-engine-name {
+    color: #E2F0E8 !important;
+    font-weight: 600 !important;
+  }
+
+  .pricing-card.plus-card .rates-engine-price {
+    color: #CBF343 !important;
+    font-weight: 900 !important;
+  }
+
+  .pricing-card.plus-card .features-wrap-title {
+    color: #CBF343 !important;
+    font-weight: 900 !important;
+  }
+
+  .pricing-card.plus-card .pricing-features-checklist li {
+    color: #FFFFFF !important;
+    font-weight: 600 !important;
+  }
+
+  .pricing-card.plus-card .pricing-features-checklist li span {
+    color: #FFFFFF !important;
+  }
+
+  .pricing-card.plus-card .check-icon {
+    color: #CBF343 !important;
+  }
+
+  .pricing-card.plus-card .pricing-action-btn {
+    background: #CBF343 !important;
+    color: #0A261B !important;
+    border: none !important;
+    box-shadow: 0 4px 16px rgba(203, 243, 67, 0.4) !important;
+  }
+
+  .pricing-card.plus-card .pricing-action-btn span {
+    color: #0A261B !important;
+    font-weight: 900 !important;
+  }
+
+  .pricing-card.plus-card .pricing-action-btn svg {
+    color: #0A261B !important;
   }
 
   /* --------------------------------------------------------------------------
-     7. FAQ Accordion
+     VALUE PACK CARD: Solid White with Best Value Badge
      -------------------------------------------------------------------------- */
-  .faq-section {
+  .pricing-card.popular-card .pricing-card-badge-inline {
+    background: #0B2319 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    font-weight: 900 !important;
+  }
+
+  .pricing-card.popular-card .pricing-action-btn {
+    background: #0B2319 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     9. FAQ Accordion
+     -------------------------------------------------------------------------- */
+  .faq-section,
+  #faq {
     background: #F8F9F5 !important;
+  }
+
+  .faq-accordion-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
   }
 
   .faq-accordion-item {
     background: #FFFFFF !important;
-    border: 1px solid #DFE3D8 !important;
+    border: 1.5px solid #DFE3D8 !important;
     border-radius: 12px !important;
-    box-shadow: 0 2px 6px rgba(11, 35, 25, 0.03) !important;
+    box-shadow: 0 2px 6px rgba(11, 35, 25, 0.04) !important;
+    padding: 16px !important;
   }
 
   .faq-question-row h4 {
     color: #0B2319 !important;
+    font-weight: 800 !important;
+    font-size: 14.5px !important;
+    line-height: 1.35 !important;
   }
 
-  .faq-question-row svg {
-    color: #123C2B !important;
+  .faq-toggle-icon {
+    color: #0B2319 !important;
   }
 
   .faq-answer-content p {
-    color: #4A5E54 !important;
+    color: #374151 !important;
+    font-size: 13.5px !important;
+    line-height: 1.6 !important;
+    font-weight: 450 !important;
   }
 
   /* --------------------------------------------------------------------------
-     8. Final CTA Banner (SOLID ELECTRIC LIME GREEN)
+     10. Final Call To Action Banner (SOLID ELECTRIC LIME GREEN)
      -------------------------------------------------------------------------- */
   .final-cta-section {
     margin: 24px 0 44px 0 !important;
+    padding: 0 16px !important;
   }
 
   .final-cta-card {
     background: #CBF343 !important;
-    border: 1px solid #BFE834 !important;
-    box-shadow: 0 10px 30px rgba(203, 243, 67, 0.3) !important;
+    border: 1.5px solid #BFE834 !important;
+    box-shadow: 0 10px 30px rgba(203, 243, 67, 0.35) !important;
     border-radius: 20px !important;
     padding: 38px 20px !important;
     text-align: center !important;
+  }
+
+  .cta-spark-badge {
+    background: rgba(10, 38, 27, 0.12) !important;
+    color: #0A261B !important;
+    border: 1px solid rgba(10, 38, 27, 0.25) !important;
+    border-radius: 9999px !important;
+    padding: 4px 12px !important;
+    font-weight: 900 !important;
+    font-size: 9px !important;
+    letter-spacing: 0.6px !important;
   }
 
   .final-cta-card h2 {
@@ -626,11 +998,15 @@
     font-weight: 900 !important;
     font-size: 24px !important;
     line-height: 1.25 !important;
+    margin: 12px 0 10px 0 !important;
   }
 
   .final-cta-card p {
-    color: #1B4532 !important;
+    color: #163828 !important;
     font-size: 13.5px !important;
+    line-height: 1.55 !important;
+    font-weight: 600 !important;
+    margin-bottom: 22px !important;
   }
 
   .final-cta-actions .btn-primary-gradient.big {
@@ -638,44 +1014,82 @@
     color: #FFFFFF !important;
     border: none !important;
     border-radius: 9999px !important;
-    font-weight: 800 !important;
-    box-shadow: 0 4px 14px rgba(10, 38, 27, 0.35) !important;
+    font-weight: 900 !important;
+    font-size: 14px !important;
+    padding: 14px 28px !important;
+    box-shadow: 0 4px 14px rgba(10, 38, 27, 0.4) !important;
   }
 
-  .final-cta-actions .btn-glass-subtle {
-    display: none !important;
+  .final-cta-actions .btn-primary-gradient.big span {
+    color: #FFFFFF !important;
+  }
+
+  .final-cta-actions .btn-primary-gradient.big svg {
+    color: #CBF343 !important;
   }
 
   /* --------------------------------------------------------------------------
-     9. Footer
+     11. Footer
      -------------------------------------------------------------------------- */
   .landing-footer {
-    background: #F0F3EC !important;
-    border-top: 1px solid #DFE3D8 !important;
-    color: #4A5E54 !important;
+    background: #EEF1E8 !important;
+    border-top: 1.5px solid #DFE3D8 !important;
+    color: #374151 !important;
   }
 
-  .footer-brand-col h3,
-  .footer-col-title {
+  .footer-tagline-lead {
+    color: #0B2319 !important;
+    font-weight: 900 !important;
+  }
+
+  .footer-brand-desc {
+    color: #4A5E54 !important;
+    font-weight: 500 !important;
+  }
+
+  .feature-badge-item {
+    background: #FFFFFF !important;
+    border: 1px solid #DFE3D8 !important;
+    border-radius: 10px !important;
+  }
+
+  .feature-badge-icon {
     color: #0B2319 !important;
   }
 
+  .feature-badge-label {
+    color: #0B2319 !important;
+    font-weight: 700 !important;
+  }
+
+  .footer-col-title,
+  .footer-col-brand h3 {
+    color: #0B2319 !important;
+    font-weight: 900 !important;
+  }
+
   .footer-links-list li a {
-    color: #4A5E54 !important;
+    color: #374151 !important;
+    font-weight: 600 !important;
+  }
+
+  .footer-links-list li a:hover {
+    color: #0B2319 !important;
   }
 
   .footer-newsletter-box {
     background: #FFFFFF !important;
-    border: 1px solid #DFE3D8 !important;
+    border: 1.5px solid #DFE3D8 !important;
     border-radius: 14px !important;
   }
 
   .newsletter-title {
     color: #0B2319 !important;
+    font-weight: 800 !important;
   }
 
   .newsletter-subtitle {
-    color: #5A6D63 !important;
+    color: #4B5563 !important;
   }
 
   .newsletter-input {
@@ -689,11 +1103,12 @@
     background: #0B2319 !important;
     color: #FFFFFF !important;
     border-radius: 9999px !important;
-    border: none !important;
+    font-weight: 800 !important;
   }
 
   .footer-bottom-bar {
     border-top: 1px solid #DFE3D8 !important;
     color: #5A6D63 !important;
+    font-weight: 600 !important;
   }
 }
