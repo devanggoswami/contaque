@@ -1223,7 +1223,7 @@ app.post('/api/generate', requireAuth, async (req, res) => {
           const seenWebsites = new Set();
           let nextPageToken = null;
           let pageIteration = 0;
-          const maxPages = requestedCount <= 10 ? 2 : 3;
+          const maxPages = requestedCount <= 10 ? 3 : 4;
 
           while (totalFetched < requestedCount && pageIteration < maxPages) {
             pageIteration++;
@@ -1684,59 +1684,60 @@ app.post('/api/generate', requireAuth, async (req, res) => {
               emptyLocStreak = 0;
             }
           } // end for locationVariants
-        }
 
-        // Intelligent Multi-Engine Fallback to Google Places if web search yielded fewer leads than requested
-        if (totalFetched < requestedCount && GOOGLE_API_KEY) {
-          console.log(`Job ${jobId} [${source}] Backfilling via verified directory places (${totalFetched}/${requestedCount})...`);
-          try {
-            const locLower = location.toLowerCase().trim();
-            const CITY_MAP = require('./utils/cities');
-            const backfillLocs = [
-              location, 
-              ...(CITY_MAP[locLower] ? CITY_MAP[locLower].map(c => `${c}, ${location}`) : [])
-            ];
+          // Intelligent Multi-Engine Fallback to Google Places if web search yielded fewer leads than requested
+          // STRICT GUARD: WhatsApp Radar and Maps NEVER use this backfill.
+          // WhatsApp Radar strictly returns ONLY genuine website-verified leads.
+          if (totalFetched < requestedCount && GOOGLE_API_KEY && source !== 'whatsapp' && source !== 'maps') {
+            console.log(`Job ${jobId} [${source}] Backfilling via verified directory places (${totalFetched}/${requestedCount})...`);
+            try {
+              const locLower = location.toLowerCase().trim();
+              const CITY_MAP = require('./utils/cities');
+              const backfillLocs = [
+                location, 
+                ...(CITY_MAP[locLower] ? CITY_MAP[locLower].map(c => `${c}, ${location}`) : [])
+              ];
 
-            for (const targetLoc of backfillLocs) {
-              if (totalFetched >= requestedCount) break;
+              for (const targetLoc of backfillLocs) {
+                if (totalFetched >= requestedCount) break;
 
-              let nextPageToken = null;
-              while (totalFetched < requestedCount) {
-                const requestBody = {
-                  textQuery: `${keyword} in ${targetLoc}`,
-                  pageSize: 20
-                };
-                if (nextPageToken) requestBody.pageToken = nextPageToken;
+                let nextPageToken = null;
+                while (totalFetched < requestedCount) {
+                  const requestBody = {
+                    textQuery: `${keyword} in ${targetLoc}`,
+                    pageSize: 20
+                  };
+                  if (nextPageToken) requestBody.pageToken = nextPageToken;
 
-                const response = await axios.post(
-                  'https://places.googleapis.com/v1/places:searchText',
-                  requestBody,
-                  {
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'X-Goog-Api-Key': GOOGLE_API_KEY,
-                      'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri,places.primaryType,places.googleMapsUri,nextPageToken'
-                    },
-                    timeout: 8000
-                  }
-                );
+                  const response = await axios.post(
+                    'https://places.googleapis.com/v1/places:searchText',
+                    requestBody,
+                    {
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'X-Goog-Api-Key': GOOGLE_API_KEY,
+                        'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri,places.primaryType,places.googleMapsUri,nextPageToken'
+                      },
+                      timeout: 8000
+                    }
+                  );
 
-                const places = response.data.places || [];
-                nextPageToken = response.data.nextPageToken;
-                if (places.length === 0) break;
+                  const places = response.data.places || [];
+                  nextPageToken = response.data.nextPageToken;
+                  if (places.length === 0) break;
 
-                for (const place of places) {
-                  if (totalFetched >= requestedCount) break;
+                  for (const place of places) {
+                    if (totalFetched >= requestedCount) break;
 
-                  const name = place.displayName?.text || 'Unknown';
-                  const address = place.formattedAddress || targetLoc;
-                  const rawPhone = place.nationalPhoneNumber || '';
-                  const website = place.websiteUri || '';
-                  const category = place.primaryType || keyword;
-                  const sourceLink = place.googleMapsUri || '';
+                    const name = place.displayName?.text || 'Unknown';
+                    const address = place.formattedAddress || targetLoc;
+                    const rawPhone = place.nationalPhoneNumber || '';
+                    const website = place.websiteUri || '';
+                    const category = place.primaryType || keyword;
+                    const sourceLink = place.googleMapsUri || '';
 
-                  // Regular business lead (Yandex, Yellowpages, Dorking, etc.)
-                  const placeId = place.id || `lead_${Buffer.from(name + address).toString('base64').substring(0, 80)}`;
+                    // Regular business lead (Yandex, Yellowpages, Dorking, etc.)
+                    const placeId = place.id || `lead_${Buffer.from(name + address).toString('base64').substring(0, 80)}`;
                     const mobile = extractMobile(rawPhone) || null;
                     const whatsapp = mobile ? `https://wa.me/${mobile.replace(/\D/g, '')}` : null;
 
@@ -1767,16 +1768,17 @@ app.post('/api/generate', requireAuth, async (req, res) => {
                         enrichEmail(website, insertResult.rows[0].id, name, address).catch(() => {});
                       }
                     }
-                }
+                  }
 
-                if (!nextPageToken || totalFetched >= requestedCount) break;
-                await new Promise(r => setTimeout(r, 400));
-              } // end while
-            } // end for backfillLocs
-          } catch (gErr) {
-            console.error(`Job ${jobId} [${source}] Places backfill error:`, gErr.message);
+                  if (!nextPageToken || totalFetched >= requestedCount) break;
+                  await new Promise(r => setTimeout(r, 400));
+                } // end while
+              } // end for backfillLocs
+            } catch (gErr) {
+              console.error(`Job ${jobId} [${source}] Places backfill error:`, gErr.message);
+            }
           }
-        }
+        } // end else (web search)
 
         // Final count from DB
         const countResult = await db.query(`SELECT COUNT(*) FROM leads WHERE job_id = $1`, [jobId]);
