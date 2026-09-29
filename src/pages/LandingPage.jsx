@@ -944,7 +944,7 @@ function LandingPage() {
               </div>
 
               <button 
-                className={`pricing-action-btn ${plan.isPopular ? 'popular-btn' : plan.id === 'plus' ? 'plus-btn' : 'outline-btn'}`}
+                className={`pricing-action-btn ${plan.id === 'plus' ? 'plus-btn' : plan.id === 'pack' ? 'popular-btn' : 'outline-btn'}`}
                 onClick={() => handlePricingAction(plan)}
               >
                 <span>{plan.cta}</span>
@@ -999,10 +999,7 @@ function LandingPage() {
           <div className="final-cta-actions">
             <button 
               className="btn-primary-gradient big border-shimmer" 
-              onClick={() => {
-                const el = document.getElementById('pricing');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
-              }}
+              onClick={() => navigate('/signup')}
             >
               <Zap size={18} />
               <span>Start Growing</span>

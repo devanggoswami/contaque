@@ -893,36 +893,56 @@
     color: #CBF343 !important;
   }
 
-  .pricing-card.plus-card .pricing-action-btn {
+  /* VALUE PLUS BUTTON (299 / $3): Vibrant Electric Lime Background with Deep Dark Green Text */
+  .pricing-card.plus-card .pricing-action-btn,
+  .pricing-action-btn.plus-btn {
     background: #CBF343 !important;
     color: #0A261B !important;
     border: none !important;
-    box-shadow: 0 4px 16px rgba(203, 243, 67, 0.4) !important;
+    border-radius: 9999px !important;
+    box-shadow: 0 4px 16px rgba(203, 243, 67, 0.45) !important;
+    font-weight: 900 !important;
+    cursor: pointer !important;
   }
 
-  .pricing-card.plus-card .pricing-action-btn span {
+  .pricing-card.plus-card .pricing-action-btn span,
+  .pricing-action-btn.plus-btn span {
     color: #0A261B !important;
     font-weight: 900 !important;
   }
 
-  .pricing-card.plus-card .pricing-action-btn svg {
+  .pricing-card.plus-card .pricing-action-btn svg,
+  .pricing-action-btn.plus-btn svg {
     color: #0A261B !important;
   }
 
   /* --------------------------------------------------------------------------
      VALUE PACK CARD: Solid White with Best Value Badge
      -------------------------------------------------------------------------- */
-  .pricing-card.popular-card .pricing-card-badge-inline {
+  .pricing-card.popular-card:not(.plus-card) .pricing-card-badge-inline {
     background: #0B2319 !important;
     color: #FFFFFF !important;
     border: none !important;
     font-weight: 900 !important;
   }
 
-  .pricing-card.popular-card .pricing-action-btn {
+  .pricing-card.popular-card:not(.plus-card) .pricing-action-btn,
+  .pricing-action-btn.popular-btn:not(.plus-btn) {
     background: #0B2319 !important;
     color: #FFFFFF !important;
     border: none !important;
+    border-radius: 9999px !important;
+  }
+
+  .pricing-card.popular-card:not(.plus-card) .pricing-action-btn span,
+  .pricing-action-btn.popular-btn:not(.plus-btn) span {
+    color: #FFFFFF !important;
+    font-weight: 800 !important;
+  }
+
+  .pricing-card.popular-card:not(.plus-card) .pricing-action-btn svg,
+  .pricing-action-btn.popular-btn:not(.plus-btn) svg {
+    color: #CBF343 !important;
   }
 
   /* --------------------------------------------------------------------------
