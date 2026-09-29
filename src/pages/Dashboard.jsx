@@ -306,7 +306,6 @@ function Dashboard() {
               >
                 <Crown size={14} className="crown-icon" />
                 <span className="plan-name-text">Value Pack Active</span>
-                <span className="plan-badge-tag">4 ACCOUNTS · 1,600/DAY</span>
               </div>
             ) : userPlan === 'plus' ? (
               <div className="plan-pill-group">
