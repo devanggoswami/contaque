@@ -18,6 +18,7 @@ import PaymentRefundPolicy from './pages/PaymentRefundPolicy';
 import ReferAndEarn from './pages/ReferAndEarn';
 import HelpSupport from './pages/HelpSupport';
 import UserManual from './pages/UserManual';
+import TopNewsTicker from './components/TopNewsTicker';
 import './App.css';
 
 // Protected App Layout: Strict route guard requiring valid session & JWT
@@ -41,6 +42,7 @@ function ProtectedLayout() {
     <div className="app-layout">
       <Sidebar />
       <main className="main-content">
+        <TopNewsTicker />
         <Outlet />
       </main>
     </div>
