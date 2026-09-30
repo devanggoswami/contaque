@@ -671,10 +671,10 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(16, 54, 125, 0.35);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
-  z-index: 199;
+  background: rgba(16, 54, 125, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 9998;
   animation: fadeInBackdrop 0.2s ease-out;
 }
 
@@ -702,14 +702,15 @@
     max-height: 100vh;
     width: min(290px, 82vw);
     max-width: 320px;
-    z-index: 200;
+    z-index: 9999;
     transform: translateX(-100%);
     box-shadow: none;
   }
 
   .sidebar.mobile-open {
     transform: translateX(0);
-    box-shadow: 0 0 30px rgba(16, 54, 125, 0.2);
+    z-index: 9999;
+    box-shadow: 0 0 35px rgba(0, 0, 0, 0.35);
   }
 
   .sidebar-close-btn {
