@@ -445,11 +445,11 @@ function LandingPage() {
           </div>
 
           <nav className="nav-links-desktop">
-            <a href="#engines">Features</a>
-            <a href="#engines">Data Engines</a>
-            <a href="#comparison">Comparison</a>
+            <a href="#engines">How It Works</a>
             <a href="#pricing">Pricing</a>
+            <a href="#comparison">Why Contaques</a>
             <a href="#faq">FAQ</a>
+            <a href="/contact" onClick={(e) => { e.preventDefault(); navigate('/contact'); }}>Contact Us</a>
           </nav>
 
           <div className="nav-cta-actions">
@@ -457,17 +457,18 @@ function LandingPage() {
               type="button"
               className="nav-btn-login" 
               onClick={() => navigate('/login')}
-              title="Log In to Contaque"
+              title="Log In to Contaques"
             >
-              <span>Login</span>
+              <span>Log In</span>
             </button>
             <button 
               type="button"
               className="nav-btn-launch" 
-              onClick={() => navigate('/signup')} 
-              title="Get Started Free"
+              onClick={() => navigate(isAuthenticated ? '/dashboard' : '/login')} 
+              title="Launch Contaques Dashboard"
             >
-              <span>Get Started</span>
+              <Zap size={14} />
+              <span>Launch</span>
             </button>
           </div>
         </div>
@@ -477,8 +478,8 @@ function LandingPage() {
       <section className="hero-section">
         <div className="hero-content">
           <div className="hero-pill-badge floating-element">
-            <span className="badge-dot-amber"></span>
-            <span className="badge-text">100% VERIFIED ACCURACY MULTI-ENGINE SCRAPERS</span>
+            <span className="pulsing-beacon"></span>
+            <span className="badge-text">6 SPECIALIZED GROWTH ENGINES • ZERO PROXY CONFIGURATION</span>
           </div>
 
           <h1 className="hero-headline">
@@ -487,38 +488,61 @@ function LandingPage() {
           </h1>
 
           <p className="hero-subheadline">
-            Extract verified B2B leads from Google Maps, WhatsApp Radar, localized trade directories, and custom search engines with zero duplicates. Enrich with active emails and launch multi-channel cold campaigns seamlessly.
+            Extract verified emails, phone numbers, and WhatsApp-ready contacts across 6 powerful data engines—from Google business indexes , Socials to Yandex. Build your list and launch targeted outreach directly from one dashboard
           </p>
 
-          {/* Conversion CTA Buttons */}
+          {/* Conversion CTA Button */}
           <div className="hero-cta-group">
             <button 
               type="button" 
-              className="hero-cta-primary"
+              className="hero-cta-btn hero-cta-large"
               onClick={() => navigate('/signup')}
             >
-              <span>Start Extracting Free</span>
-              <ArrowRight size={16} />
-            </button>
-            <button 
-              type="button" 
-              className="hero-cta-secondary"
-              onClick={() => {
-                const el = document.getElementById('how-it-works');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
-              }}
-            >
-              <span>See How It Works</span>
+              <span>Get Started Free</span>
+              <ArrowRight size={18} />
             </button>
           </div>
 
-          <div className="hero-micro-trust">
-            <span>No credit card required • Instant CSV/Excel export</span>
+          {/* Animated Social Proof Ticker */}
+          <div className="hero-social-proof-bar">
+            <div className="proof-item">
+              <strong>
+                <AnimatedCounter end={10480210} prefix="" suffix="+" />
+              </strong>
+              <span>Verified Leads Mined</span>
+            </div>
+            <div className="proof-divider"></div>
+            <div className="proof-item">
+              <strong>98.4%</strong>
+              <span>Valid Contact Rate</span>
+            </div>
+            <div className="proof-divider"></div>
+            <div className="proof-item">
+              <strong>6 Engines</strong>
+              <span>Unified in 1 System</span>
+            </div>
+            <div className="proof-divider"></div>
+            <div className="proof-item">
+              <strong>
+                <AnimatedCounter end={1420} prefix="" suffix="+" />
+              </strong>
+              <span>Growth Agencies & Teams</span>
+            </div>
           </div>
         </div>
 
         {/* Live Multi-Pipeline Interactive Scraper Mockup */}
         <div className="hero-mockup-wrapper">
+          {/* Dynamic Floating Badges */}
+          <div className="hero-floating-badge badge-top-right">
+            <Zap size={15} style={{ color: '#f59e0b' }} />
+            <span>4 Parallel Scraper Workers Active</span>
+          </div>
+          <div className="hero-floating-badge badge-bottom-left">
+            <ShieldCheck size={15} style={{ color: '#10b981' }} />
+            <span>WhatsApp Radar & Russian MAX (+7) Verified</span>
+          </div>
+
           <div className="mockup-rotating-beam-frame">
             <div className="mockup-window-frame">
               <div className="mockup-header-bar">
@@ -529,11 +553,11 @@ function LandingPage() {
                 </div>
                 <div className="mockup-search-preview">
                   <Globe size={13} />
-                  <span>Search: Cafes in Dubai, UAE</span>
+                  <span>contaques.pro/engine/live-pipeline</span>
                 </div>
                 <div className="mockup-live-status">
                   <span className="green-pulse"></span>
-                  <span>Extracting...</span>
+                  <span>Active Scrape: 4 Parallel Workers</span>
                 </div>
               </div>
 
@@ -619,55 +643,26 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* 4 Stats Metrics Bar */}
-      <section className="stats-strip-section">
-        <div className="stats-strip-container">
-          <div className="stat-strip-item">
-            <strong className="stat-number">
-              <AnimatedCounter end={10150210} suffix="+" />
-            </strong>
-            <span className="stat-label">Verified B2B Leads Indexed</span>
-          </div>
-          <div className="stat-strip-divider"></div>
-          <div className="stat-strip-item">
-            <strong className="stat-number">99.4%</strong>
-            <span className="stat-label">Verified Deliverability Rate</span>
-          </div>
-          <div className="stat-strip-divider"></div>
-          <div className="stat-strip-item">
-            <strong className="stat-number">6 Engines</strong>
-            <span className="stat-label">Unified in Single Dashboard</span>
-          </div>
-          <div className="stat-strip-divider"></div>
-          <div className="stat-strip-item">
-            <strong className="stat-number">
-              <AnimatedCounter end={1620} suffix="+" />
-            </strong>
-            <span className="stat-label">Growth Agencies & Teams</span>
-          </div>
-        </div>
-      </section>
-
       {/* The 6 Specialized Growth Engines Bento Showcase */}
       <section className="section-container" id="engines">
         <div className="section-header-center">
-          <span className="section-pill">UNIFIED EXTRACTION SUITE</span>
+          <span className="section-pill">ALL-IN-ONE ARCHITECTURE</span>
           <h2>6 Specialized Growth Engines. One Unified Pipeline.</h2>
           <p>Switch seamlessly between Google Maps, WhatsApp Radar, custom social networks, localized trade directories, Russian MAX Messenger, and built-in bulk mailer.</p>
         </div>
 
-        <div className="engines-bento-layout">
-          <div className="engines-tabs-sidebar">
-            {ENGINES_DATA.map(engine => (
-              <button
-                key={engine.id}
-                className={`engine-tab-btn ${activeEngine === engine.id ? 'active' : ''} ${engine.id === 'whatsapp' ? 'wa-tab' : ''}`}
-                onClick={() => setActiveEngine(engine.id)}
-              >
-                <span>{engine.tabLabel || engine.name}</span>
-              </button>
-            ))}
-          </div>
+        <div className="engines-tabs-bar">
+          {ENGINES_DATA.map(engine => (
+            <button
+              key={engine.id}
+              className={`engine-tab-btn ${activeEngine === engine.id ? 'active' : ''} ${engine.id === 'whatsapp' ? 'wa-tab' : ''}`}
+              onClick={() => setActiveEngine(engine.id)}
+            >
+              {engine.id === 'whatsapp' && <span className="tab-wa-dot">🟢</span>}
+              <span>{engine.tabLabel || engine.name}</span>
+            </button>
+          ))}
+        </div>
 
         <div className="engine-showcase-card animate-fade-in" key={activeEngine}>
           <div className="showcase-left">
@@ -749,14 +744,13 @@ function LandingPage() {
             </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
       {/* Step-by-Step Workflow */}
-      <section className="section-container workflow-section-dark" id="how-it-works">
-        <div className="section-header-center light-text">
-          <span className="section-pill amber-pill">INSTANT EXECUTION</span>
-          <h2>How Contaque Puts Your Outbound on Autopilot</h2>
+      <section className="section-container" id="how-it-works">
+        <div className="section-header-center">
+          <span className="section-pill">INSTANT EXECUTION</span>
+          <h2>How Contaques Puts Your Outbound on Autopilot</h2>
           <p>From zero contacts to an active automated outreach campaign in under 3 minutes.</p>
         </div>
 
@@ -784,11 +778,11 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* Comparison: Why Contaque Beats Generic Tools */}
+      {/* Comparison: Why Contaques Beats Generic Tools */}
       <section className="section-container" id="comparison">
         <div className="section-header-center">
           <span className="section-pill">COMPETITIVE ADVANTAGE</span>
-          <h2>Why Top Growth Agencies Choose Contaque</h2>
+          <h2>Why Top Growth Agencies Choose Contaques</h2>
           <p>Compare our automated multi-engine pipeline against traditional manual prospecting and expensive single-source scrapers.</p>
         </div>
 
@@ -802,7 +796,7 @@ function LandingPage() {
             <thead>
               <tr>
                 <th>Capabilities</th>
-                <th className="highlight-col">Contaque Intelligence</th>
+                <th className="highlight-col">Contaques Intelligence</th>
                 <th>Generic Scrapers</th>
                 <th>Manual Prospecting</th>
               </tr>

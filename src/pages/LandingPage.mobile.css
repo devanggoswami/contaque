@@ -1,207 +1,1134 @@
 /* ==========================================================================
-   Contaque Mobile Stylesheet (Unified Theme: Warm Cream, Executive Navy & Amber)
-   Applied for max-width: 768px
+   CONTAQUE MOBILE-ONLY THEME: Forest Green, Electric Lime & Organic Cream
+   Applied strictly to mobile screens (max-width: 768px)
+   100% High-Contrast, Crystal-Clear Text & Deep Visual Hierarchy
    ========================================================================== */
 
 @media (max-width: 768px) {
+  /* --------------------------------------------------------------------------
+     1. Page Root & General Contrast Resets
+     -------------------------------------------------------------------------- */
   .landing-container {
-    background-color: var(--lp-bg) !important;
-    color: var(--lp-text-primary) !important;
+    background-color: #F8F9F5 !important;
+    color: #0B2319 !important;
   }
 
   .ambient-canvas {
     display: none !important;
   }
 
-  /* Navbar Mobile */
+  /* Reset any stray light text inside light sections */
+  .landing-container h1,
+  .landing-container h2,
+  .landing-container h3,
+  .landing-container h4,
+  .landing-container h5 {
+    color: #0B2319 !important;
+  }
+
+  .landing-container p {
+    color: #374151 !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     2. Sticky Glass Navbar (Mobile)
+     -------------------------------------------------------------------------- */
   .landing-navbar {
-    height: 60px !important;
+    background: rgba(248, 249, 245, 0.96) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border-bottom: 1px solid rgba(11, 35, 25, 0.1) !important;
   }
 
-  .navbar-inner {
+  .brand-name {
+    color: #0B2319 !important;
+    font-weight: 800 !important;
+  }
+
+  .brand-tagline {
+    color: #4A5E54 !important;
+  }
+
+  .nav-btn-login,
+  .nav-login-btn {
+    background: transparent !important;
+    border: 1.5px solid rgba(11, 35, 25, 0.3) !important;
+    color: #0B2319 !important;
+    border-radius: 9999px !important;
+    font-weight: 800 !important;
+    font-size: 12px !important;
+    height: 32px !important;
+    padding: 0 14px !important;
+  }
+
+  .nav-btn-launch,
+  .nav-cta,
+  .btn-primary-gradient {
+    background: #0B2319 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 9999px !important;
+    font-weight: 800 !important;
+    font-size: 12px !important;
+    height: 32px !important;
     padding: 0 16px !important;
+    box-shadow: 0 2px 8px rgba(11, 35, 25, 0.25) !important;
   }
 
-  .brand-logo-img {
-    height: 28px !important;
+  .nav-btn-launch svg {
+    color: #CBF343 !important;
   }
 
-  .nav-btn-launch {
-    padding: 7px 16px !important;
-    font-size: 13px !important;
-  }
-
-  /* Hero Mobile */
+  /* --------------------------------------------------------------------------
+     3. Hero Section
+     -------------------------------------------------------------------------- */
   .hero-section {
-    padding: 32px 16px 24px !important;
-    gap: 28px !important;
+    background: #F8F9F5 !important;
+    padding: 24px 16px 36px 16px !important;
+  }
+
+  .hero-pill-badge {
+    background: rgba(203, 243, 67, 0.32) !important;
+    border: 1.5px solid #BFE834 !important;
+    border-radius: 9999px !important;
+    padding: 6px 14px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .hero-pill-badge .badge-text {
+    color: #0B2319 !important;
+    font-size: 8.5px !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.6px !important;
+  }
+
+  .hero-pill-badge .pulsing-beacon {
+    background: #0B2319 !important;
+    box-shadow: 0 0 6px #CBF343 !important;
   }
 
   .hero-headline {
-    font-size: 30px !important;
-    line-height: 1.2 !important;
-    margin-bottom: 14px !important;
-  }
-
-  .hero-subheadline {
-    font-size: 14.5px !important;
-    margin-bottom: 20px !important;
-  }
-
-  .hero-cta-group {
-    flex-direction: column !important;
-    width: 100% !important;
-  }
-
-  .hero-cta-primary,
-  .hero-cta-secondary {
-    width: 100% !important;
-    justify-content: center !important;
+    color: #0B2319 !important;
+    font-size: 26px !important;
+    line-height: 1.22 !important;
+    font-weight: 900 !important;
+    letter-spacing: -0.5px !important;
+    margin-bottom: 12px !important;
     text-align: center !important;
   }
 
-  /* Live Mockup Mobile */
-  .mockup-header-bar {
-    padding: 10px 12px !important;
+  .hero-headline .gradient-text {
+    background: none !important;
+    -webkit-background-clip: unset !important;
+    -webkit-text-fill-color: #0B2319 !important;
+    color: #0B2319 !important;
   }
 
-  .mockup-search-preview {
-    font-size: 11px !important;
-    max-width: 180px !important;
+  .hero-subheadline {
+    color: #374151 !important;
+    font-size: 13.5px !important;
+    line-height: 1.55 !important;
+    max-width: 320px !important;
+    margin: 0 auto 20px auto !important;
+    font-weight: 500 !important;
   }
 
-  .m-table-header {
+  .hero-cta-btn {
+    background: #0B2319 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 9999px !important;
+    padding: 14px 30px !important;
+    font-size: 14px !important;
+    font-weight: 800 !important;
+    box-shadow: 0 6px 20px rgba(11, 35, 25, 0.3) !important;
+    width: auto !important;
+    min-width: 220px !important;
+    margin: 0 auto !important;
+  }
+
+  .hero-cta-btn svg {
+    color: #CBF343 !important;
+  }
+
+  /* Social Proof Bar (Clean 2x2 Grid) */
+  .hero-social-proof-bar {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    max-width: 340px !important;
+    margin: 22px auto 26px auto !important;
+  }
+
+  .hero-social-proof-bar .proof-item {
+    background: #FFFFFF !important;
+    border: 1.5px solid #DFE3D8 !important;
+    border-radius: 12px !important;
+    padding: 12px 10px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 2px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  }
+
+  .hero-social-proof-bar .proof-item strong {
+    font-size: 17px !important;
+    font-weight: 900 !important;
+    color: #0B2319 !important;
+  }
+
+  .hero-social-proof-bar .proof-item span {
+    font-size: 10.5px !important;
+    font-weight: 700 !important;
+    color: #4A5E54 !important;
+    text-align: center !important;
+  }
+
+  .hero-social-proof-bar .proof-divider {
     display: none !important;
   }
 
-  .m-table-row {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: 4px !important;
-    padding: 8px 10px !important;
+  /* Scraper Preview Mockup Card */
+  .mockup-rotating-beam-frame {
+    background: #DFE3D8 !important;
+    border-radius: 16px !important;
+    box-shadow: 0 8px 24px rgba(11, 35, 25, 0.08) !important;
+    padding: 1.5px !important;
   }
 
-  /* Stats Strip Mobile */
-  .stats-strip-section {
-    padding: 12px 16px 36px !important;
+  .mockup-window-frame {
+    background: #FFFFFF !important;
+    border-radius: 15px !important;
   }
 
-  .stats-strip-container {
-    padding: 18px 16px !important;
-    gap: 16px !important;
+  .mockup-header-bar {
+    background: #D4F65B !important;
+    color: #0B2319 !important;
+    border-bottom: 1px solid #C0E836 !important;
+    padding: 10px 14px !important;
+    font-weight: 800 !important;
+    border-top-left-radius: 15px !important;
+    border-top-right-radius: 15px !important;
   }
 
-  .stat-number {
-    font-size: 26px !important;
+  .mockup-search-preview {
+    background: rgba(255, 255, 255, 0.8) !important;
+    color: #0B2319 !important;
+    border: 1px solid rgba(11, 35, 25, 0.15) !important;
+    border-radius: 6px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
   }
 
-  /* Engines Section Mobile */
+  .mockup-live-status {
+    color: #0B2319 !important;
+    font-weight: 800 !important;
+  }
+
+  .mockup-chips-row {
+    background: #F8FAF6 !important;
+    border-bottom: 1px solid #DFE3D8 !important;
+    padding: 10px 12px !important;
+  }
+
+  .mockup-chip-btn {
+    background: #FFFFFF !important;
+    color: #374151 !important;
+    border: 1px solid #DFE3D8 !important;
+    border-radius: 6px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+  }
+
+  .mockup-chip-btn.active {
+    background: #0B2319 !important;
+    color: #FFFFFF !important;
+    border-color: #0B2319 !important;
+    font-weight: 700 !important;
+  }
+
+  .mockup-chip-btn.active .chip-dot {
+    background: #CBF343 !important;
+  }
+
+  .mockup-top-stats {
+    background: #FFFFFF !important;
+    border-bottom: 1px solid #DFE3D8 !important;
+  }
+
+  .m-stat .m-label {
+    color: #5A6D63 !important;
+    font-weight: 600 !important;
+  }
+
+  .m-stat .m-value {
+    color: #0B2319 !important;
+    font-weight: 800 !important;
+  }
+
+  .m-stat .m-value.emerald {
+    color: #0B2319 !important;
+    font-weight: 800 !important;
+  }
+
+  .mockup-table {
+    background: #FFFFFF !important;
+  }
+
+  .mockup-table th {
+    background: #F4F6F0 !important;
+    color: #4B5563 !important;
+    border-bottom: 1px solid #DFE3D8 !important;
+    font-weight: 700 !important;
+  }
+
+  .mockup-table td {
+    border-bottom: 1px solid #EEF1E8 !important;
+    color: #0B2319 !important;
+    font-weight: 600 !important;
+  }
+
+  .lead-badge {
+    background: #D4F65B !important;
+    color: #0B2319 !important;
+    font-weight: 800 !important;
+    border-radius: 4px !important;
+  }
+
+  .lead-tag {
+    background: #EEF5E0 !important;
+    color: #0B2319 !important;
+    font-weight: 700 !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     4. Common Section Headers (High Contrast Fix)
+     -------------------------------------------------------------------------- */
   .section-container {
-    padding: 40px 16px !important;
+    background: #F8F9F5 !important;
+    padding: 36px 16px !important;
   }
 
-  .section-header-center h2 {
-    font-size: 26px !important;
+  .section-header-center {
+    margin-bottom: 24px !important;
+    text-align: center !important;
+  }
+
+  .section-header-center .section-pill,
+  .section-badge-pill {
+    background: rgba(203, 243, 67, 0.32) !important;
+    border: 1.5px solid #BFE834 !important;
+    color: #0B2319 !important;
+    border-radius: 9999px !important;
+    font-weight: 900 !important;
+    font-size: 9px !important;
+    letter-spacing: 0.6px !important;
+    padding: 5px 12px !important;
+  }
+
+  .section-header-center h2,
+  .section-main-heading {
+    color: #0B2319 !important;
+    font-weight: 900 !important;
+    font-size: 22px !important;
+    line-height: 1.3 !important;
+    margin: 8px 0 10px 0 !important;
+    text-align: center !important;
+  }
+
+  .section-header-center p,
+  .section-subtitle-text {
+    color: #374151 !important;
+    font-size: 13.5px !important;
+    line-height: 1.55 !important;
+    font-weight: 500 !important;
+    text-align: center !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     5. 6 Specialized Growth Engines Section
+     -------------------------------------------------------------------------- */
+  .engines-tabs-bar {
+    background: #EEF1E8 !important;
+    border: 1px solid #DFE3D8 !important;
+    border-radius: 12px !important;
+    padding: 4px !important;
+  }
+
+  .engine-tab-btn {
+    color: #374151 !important;
+    font-weight: 700 !important;
+    font-size: 11.5px !important;
+  }
+
+  .engine-tab-btn.active {
+    background: #0B2319 !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 2px 6px rgba(11, 35, 25, 0.25) !important;
   }
 
   .engine-showcase-card {
+    background: #FFFFFF !important;
+    border: 1.5px solid #DFE3D8 !important;
+    box-shadow: 0 4px 16px rgba(11, 35, 25, 0.05) !important;
+    border-radius: 16px !important;
     padding: 20px 16px !important;
   }
 
-  .showcase-action-btns {
-    flex-direction: column !important;
-    width: 100% !important;
+  .engine-badge-row .engine-badge {
+    background: #EEF1E8 !important;
+    color: #0B2319 !important;
+    border: 1px solid #DFE3D8 !important;
+    font-weight: 800 !important;
+  }
+
+  .engine-metrics-tag {
+    background: rgba(203, 243, 67, 0.3) !important;
+    color: #0B2319 !important;
+    border: 1px solid #BFE834 !important;
+    font-weight: 800 !important;
+  }
+
+  .showcase-left h3 {
+    color: #0B2319 !important;
+    font-size: 19px !important;
+    font-weight: 900 !important;
+    margin: 10px 0 8px 0 !important;
+  }
+
+  .engine-tagline {
+    color: #374151 !important;
+    font-size: 13.5px !important;
+    line-height: 1.5 !important;
+    font-weight: 500 !important;
+  }
+
+  .engine-features-list li {
+    color: #1F2937 !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+  }
+
+  .engine-features-list li svg,
+  .feat-check {
+    color: #16A34A !important;
+    flex-shrink: 0;
   }
 
   .showcase-action-btns button {
-    width: 100% !important;
-    justify-content: center !important;
+    border-radius: 9999px !important;
+    font-weight: 800 !important;
   }
 
-  /* Workflow Dark Mobile */
-  .workflow-section-dark {
-    padding: 50px 16px !important;
+  .showcase-action-btns .btn-emerald-gradient,
+  .showcase-action-btns .btn-primary-gradient {
+    background: #0B2319 !important;
+    color: #FFFFFF !important;
   }
 
-  .workflow-grid {
-    grid-template-columns: 1fr !important;
-    gap: 16px !important;
+  .showcase-action-btns .btn-glass-subtle {
+    background: #EEF1E8 !important;
+    color: #0B2319 !important;
+    border: 1.5px solid #DFE3D8 !important;
   }
 
-  /* Comparison Table Mobile */
-  .comparison-mobile-scroll-tip {
-    display: flex !important;
+  .live-preview-box {
+    background: #F8FAF6 !important;
+    border: 1px solid #DFE3D8 !important;
+    border-radius: 12px !important;
+  }
+
+  .preview-top {
+    border-bottom: 1px solid #DFE3D8 !important;
+  }
+
+  .preview-title {
+    color: #0B2319 !important;
+    font-weight: 800 !important;
+  }
+
+  .sample-card {
+    background: #FFFFFF !important;
+    border: 1px solid #EEF1E8 !important;
+    border-radius: 10px !important;
+  }
+
+  .sample-name {
+    color: #0B2319 !important;
+    font-weight: 800 !important;
+  }
+
+  .sample-sub {
+    color: #4B5563 !important;
+    font-weight: 500 !important;
+  }
+
+  .sample-phone {
+    color: #0B2319 !important;
+    font-weight: 700 !important;
+  }
+
+  .sample-status-badge {
+    background: #EAF8B5 !important;
+    color: #0B2319 !important;
+    font-weight: 800 !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     6. How Contaque Puts Your Outreach on Autopilot (SOLID FOREST GREEN)
+     -------------------------------------------------------------------------- */
+  .workflow-section,
+  #how-it-works {
+    background: #0D3123 !important;
+    padding: 42px 16px !important;
+    margin: 24px 0 !important;
+  }
+
+  #how-it-works .section-pill {
+    background: rgba(203, 243, 67, 0.18) !important;
+    border: 1.5px solid #CBF343 !important;
+    color: #CBF343 !important;
+    font-weight: 900 !important;
+  }
+
+  #how-it-works h2 {
+    color: #FFFFFF !important;
+    font-weight: 900 !important;
+  }
+
+  #how-it-works p {
+    color: #B5D0C2 !important;
+  }
+
+  .workflow-step-card {
+    background: #123B2B !important;
+    border: 1.5px solid rgba(203, 243, 67, 0.25) !important;
+    border-radius: 16px !important;
+    padding: 22px 18px !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2) !important;
+  }
+
+  .step-number {
+    display: inline-flex !important;
     align-items: center !important;
-    gap: 6px !important;
-    font-size: 11.5px !important;
-    color: var(--lp-text-secondary) !important;
-    margin-bottom: 8px !important;
     justify-content: center !important;
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 50% !important;
+    background: #CBF343 !important;
+    color: #0A261B !important;
+    font-size: 18px !important;
+    font-weight: 900 !important;
+    margin-bottom: 12px !important;
+  }
+
+  .workflow-step-card h4 {
+    color: #FFFFFF !important;
+    font-size: 16px !important;
+    font-weight: 800 !important;
+    margin-bottom: 8px !important;
+  }
+
+  .workflow-step-card p {
+    color: #E2F0E8 !important;
+    font-size: 13.5px !important;
+    line-height: 1.55 !important;
+    font-weight: 400 !important;
+    margin-bottom: 14px !important;
+  }
+
+  .step-tag,
+  .workflow-meta-tag {
+    background: rgba(203, 243, 67, 0.15) !important;
+    color: #CBF343 !important;
+    border: 1px solid rgba(203, 243, 67, 0.35) !important;
+    border-radius: 9999px !important;
+    font-weight: 800 !important;
+    font-size: 11px !important;
+    padding: 4px 12px !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     7. Comparison Table (Contaque Highlighted in Soft Lime)
+     -------------------------------------------------------------------------- */
+  .comparison-section,
+  #comparison {
+    background: #F8F9F5 !important;
+    padding: 36px 16px !important;
+  }
+
+  .comparison-mobile-scroll-tip {
+    background: #EEF1E8 !important;
+    border: 1px solid #DFE3D8 !important;
+    color: #374151 !important;
+    font-weight: 700 !important;
+    border-radius: 9999px !important;
+    padding: 6px 14px !important;
+    margin-bottom: 14px !important;
   }
 
   .comparison-table-wrapper {
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
+    background: #FFFFFF !important;
+    border: 1.5px solid #DFE3D8 !important;
+    border-radius: 14px !important;
+    box-shadow: 0 4px 16px rgba(11, 35, 25, 0.05) !important;
   }
 
-  .comparison-table th,
+  .comparison-table th {
+    background: #F4F6F0 !important;
+    color: #0B2319 !important;
+    border-bottom: 1px solid #DFE3D8 !important;
+    font-weight: 800 !important;
+  }
+
+  .comparison-table th.highlight-col {
+    background: #EAF8B5 !important;
+    color: #0B2319 !important;
+    font-weight: 900 !important;
+  }
+
   .comparison-table td {
-    padding: 12px 14px !important;
-    font-size: 12.5px !important;
-    white-space: nowrap !important;
+    background: #FFFFFF !important;
+    color: #1F2937 !important;
+    border-bottom: 1px solid #EEF1E8 !important;
+    font-weight: 600 !important;
   }
 
-  /* Pricing Cards Mobile */
+  .comparison-table td.highlight-col {
+    background: #F5FDE3 !important;
+    color: #0B2319 !important;
+    font-weight: 700 !important;
+  }
+
+  .comparison-table td strong {
+    color: #0B2319 !important;
+    font-weight: 800 !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     8. Simple, Pay-As-You-Grow Pricing (100% High-Contrast Crystal-Clear Fix)
+     -------------------------------------------------------------------------- */
+  #pricing.section-container {
+    background: #F8F9F5 !important;
+  }
+
+  .pricing-header-center {
+    text-align: center !important;
+    margin-bottom: 24px !important;
+  }
+
   .pricing-main-heading {
-    font-size: 28px !important;
+    color: #0B2319 !important;
+    font-weight: 900 !important;
+    font-size: 24px !important;
+    margin: 8px 0 10px 0 !important;
+  }
+
+  .pricing-subtitle {
+    color: #374151 !important;
+    font-size: 13.5px !important;
+    font-weight: 500 !important;
+  }
+
+  .pricing-currency-toggle-wrapper {
+    background: #EEF1E8 !important;
+    border: 1.5px solid #DFE3D8 !important;
+    border-radius: 9999px !important;
+    padding: 4px 10px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin-top: 14px !important;
+  }
+
+  .currency-option-label {
+    color: #4B5563 !important;
+    font-weight: 700 !important;
+    font-size: 12px !important;
+  }
+
+  .currency-option-label.active {
+    color: #0B2319 !important;
+    font-weight: 900 !important;
+  }
+
+  .currency-pill-switch {
+    background: #0B2319 !important;
+    border-radius: 9999px !important;
+    padding: 2px !important;
+    width: 44px !important;
+    height: 24px !important;
+    border: none !important;
+  }
+
+  .currency-switch-slider {
+    background: #CBF343 !important;
+    color: #0B2319 !important;
+    font-weight: 900 !important;
+    border-radius: 50% !important;
   }
 
   .pricing-cards-grid {
     grid-template-columns: 1fr !important;
-    padding: 0 4px !important;
+    width: 100% !important;
+    gap: 18px !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
   }
 
+  /* Standard White Pricing Card (Free Plan & Value Pack) */
   .pricing-card {
-    padding: 24px 20px !important;
+    background: #FFFFFF !important;
+    border: 1.5px solid #DFE3D8 !important;
+    border-radius: 16px !important;
+    box-shadow: 0 4px 16px rgba(11, 35, 25, 0.06) !important;
+    padding: 22px 18px !important;
+    box-sizing: border-box !important;
   }
 
-  /* Final CTA Mobile */
+  .pricing-card .pricing-plan-name {
+    color: #0B2319 !important;
+    font-size: 19px !important;
+    font-weight: 900 !important;
+  }
+
+  .pricing-card .pricing-plan-icon {
+    font-size: 18px !important;
+  }
+
+  .pricing-card .pricing-card-badge-inline {
+    background: #EEF1E8 !important;
+    color: #0B2319 !important;
+    border: 1px solid #DFE3D8 !important;
+    font-weight: 800 !important;
+    font-size: 10px !important;
+    border-radius: 9999px !important;
+    padding: 3px 10px !important;
+  }
+
+  .pricing-card .price-number {
+    color: #0B2319 !important;
+    font-size: 30px !important;
+    font-weight: 900 !important;
+  }
+
+  .pricing-card .price-period {
+    color: #4B5563 !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+  }
+
+  .pricing-card .pricing-plan-tagline-inline {
+    color: #374151 !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+  }
+
+  /* Rates Breakdown Box */
+  .pricing-card .pricing-rates-box {
+    background: #F4F6F0 !important;
+    border: 1px solid #DFE3D8 !important;
+    border-radius: 10px !important;
+    padding: 10px 12px !important;
+    margin: 14px 0 !important;
+  }
+
+  .pricing-card .rates-box-title {
+    color: #5A6D63 !important;
+    font-weight: 800 !important;
+    font-size: 10px !important;
+    letter-spacing: 0.5px !important;
+    border-bottom: 1px solid #DFE3D8 !important;
+    padding-bottom: 6px !important;
+    margin-bottom: 6px !important;
+  }
+
+  .pricing-card .rates-box-title span {
+    color: #5A6D63 !important;
+  }
+
+  .pricing-card .rates-row-item {
+    border-bottom: 1px solid #EEF1E8 !important;
+    padding: 5px 0 !important;
+  }
+
+  .pricing-card .rates-engine-name {
+    color: #1F2937 !important;
+    font-weight: 600 !important;
+    font-size: 11.5px !important;
+  }
+
+  .pricing-card .rates-engine-price {
+    color: #0B2319 !important;
+    font-weight: 800 !important;
+    font-size: 12px !important;
+  }
+
+  /* Features List */
+  .pricing-card .features-wrap-title {
+    color: #0B2319 !important;
+    font-weight: 800 !important;
+    font-size: 12.5px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .pricing-card .pricing-features-checklist li {
+    color: #1F2937 !important;
+    font-weight: 600 !important;
+    font-size: 12.5px !important;
+  }
+
+  .pricing-card .pricing-features-checklist li span {
+    color: #1F2937 !important;
+  }
+
+  .pricing-card .pricing-action-btn {
+    background: #0B2319 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 9999px !important;
+    font-weight: 800 !important;
+    font-size: 13.5px !important;
+    padding: 13px !important;
+    width: 100% !important;
+    box-shadow: 0 4px 14px rgba(11, 35, 25, 0.2) !important;
+    cursor: pointer !important;
+  }
+
+  .pricing-card .pricing-action-btn span {
+    color: #FFFFFF !important;
+    font-weight: 800 !important;
+  }
+
+  .pricing-card .pricing-action-btn svg {
+    color: #CBF343 !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     VALUE PLUS CARD: Solid Deep Forest Green with Electric Lime Contrast
+     -------------------------------------------------------------------------- */
+  .pricing-card.plus-card {
+    background: #0D3123 !important;
+    border: 2px solid #CBF343 !important;
+    box-shadow: 0 10px 28px rgba(13, 49, 35, 0.3) !important;
+  }
+
+  .pricing-card.plus-card .pricing-plan-name {
+    color: #FFFFFF !important;
+    font-size: 20px !important;
+    font-weight: 900 !important;
+  }
+
+  .pricing-card.plus-card .pricing-card-badge-inline {
+    background: #CBF343 !important;
+    color: #0A261B !important;
+    border: none !important;
+    font-weight: 900 !important;
+  }
+
+  .pricing-card.plus-card .price-number {
+    color: #FFFFFF !important;
+    font-weight: 900 !important;
+  }
+
+  .pricing-card.plus-card .price-period {
+    color: #98BAA8 !important;
+    font-weight: 700 !important;
+  }
+
+  .pricing-card.plus-card .pricing-plan-tagline-inline {
+    color: #B5D0C2 !important;
+  }
+
+  .pricing-card.plus-card .pricing-rates-box {
+    background: #123C2B !important;
+    border: 1px solid rgba(203, 243, 67, 0.25) !important;
+  }
+
+  .pricing-card.plus-card .rates-box-title {
+    color: #98BAA8 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  }
+
+  .pricing-card.plus-card .rates-box-title span {
+    color: #98BAA8 !important;
+  }
+
+  .pricing-card.plus-card .rates-row-item {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  }
+
+  .pricing-card.plus-card .rates-engine-name {
+    color: #E2F0E8 !important;
+    font-weight: 600 !important;
+  }
+
+  .pricing-card.plus-card .rates-engine-price {
+    color: #CBF343 !important;
+    font-weight: 900 !important;
+  }
+
+  .pricing-card.plus-card .features-wrap-title {
+    color: #CBF343 !important;
+    font-weight: 900 !important;
+  }
+
+  .pricing-card.plus-card .pricing-features-checklist li {
+    color: #FFFFFF !important;
+    font-weight: 600 !important;
+  }
+
+  .pricing-card.plus-card .pricing-features-checklist li span {
+    color: #FFFFFF !important;
+  }
+
+  .pricing-card.plus-card .check-icon {
+    color: #CBF343 !important;
+  }
+
+  /* VALUE PLUS BUTTON (299 / $3): Vibrant Electric Lime Background with Deep Dark Green Text */
+  .pricing-card.plus-card .pricing-action-btn,
+  .pricing-action-btn.plus-btn {
+    background: #CBF343 !important;
+    color: #0A261B !important;
+    border: none !important;
+    border-radius: 9999px !important;
+    box-shadow: 0 4px 16px rgba(203, 243, 67, 0.45) !important;
+    font-weight: 900 !important;
+    cursor: pointer !important;
+  }
+
+  .pricing-card.plus-card .pricing-action-btn span,
+  .pricing-action-btn.plus-btn span {
+    color: #0A261B !important;
+    font-weight: 900 !important;
+  }
+
+  .pricing-card.plus-card .pricing-action-btn svg,
+  .pricing-action-btn.plus-btn svg {
+    color: #0A261B !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     VALUE PACK CARD: Solid White with Best Value Badge
+     -------------------------------------------------------------------------- */
+  .pricing-card.popular-card:not(.plus-card) .pricing-card-badge-inline {
+    background: #0B2319 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    font-weight: 900 !important;
+  }
+
+  .pricing-card.popular-card:not(.plus-card) .pricing-action-btn,
+  .pricing-action-btn.popular-btn:not(.plus-btn) {
+    background: #0B2319 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 9999px !important;
+  }
+
+  .pricing-card.popular-card:not(.plus-card) .pricing-action-btn span,
+  .pricing-action-btn.popular-btn:not(.plus-btn) span {
+    color: #FFFFFF !important;
+    font-weight: 800 !important;
+  }
+
+  .pricing-card.popular-card:not(.plus-card) .pricing-action-btn svg,
+  .pricing-action-btn.popular-btn:not(.plus-btn) svg {
+    color: #CBF343 !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     9. FAQ Accordion
+     -------------------------------------------------------------------------- */
+  .faq-section,
+  #faq {
+    background: #F8F9F5 !important;
+  }
+
+  .faq-accordion-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+
+  .faq-accordion-item {
+    background: #FFFFFF !important;
+    border: 1.5px solid #DFE3D8 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 2px 6px rgba(11, 35, 25, 0.04) !important;
+    padding: 16px !important;
+  }
+
+  .faq-question-row h4 {
+    color: #0B2319 !important;
+    font-weight: 800 !important;
+    font-size: 14.5px !important;
+    line-height: 1.35 !important;
+  }
+
+  .faq-toggle-icon {
+    color: #0B2319 !important;
+  }
+
+  .faq-answer-content p {
+    color: #374151 !important;
+    font-size: 13.5px !important;
+    line-height: 1.6 !important;
+    font-weight: 450 !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     10. Final Call To Action Banner (SOLID ELECTRIC LIME GREEN)
+     -------------------------------------------------------------------------- */
   .final-cta-section {
-    padding: 40px 16px !important;
+    margin: 24px 0 44px 0 !important;
+    padding: 0 16px !important;
   }
 
   .final-cta-card {
-    padding: 36px 18px !important;
-    border-radius: 16px !important;
+    background: #CBF343 !important;
+    border: 1.5px solid #BFE834 !important;
+    box-shadow: 0 10px 30px rgba(203, 243, 67, 0.35) !important;
+    border-radius: 20px !important;
+    padding: 38px 20px !important;
+    text-align: center !important;
+  }
+
+  .cta-spark-badge {
+    background: rgba(10, 38, 27, 0.12) !important;
+    color: #0A261B !important;
+    border: 1px solid rgba(10, 38, 27, 0.25) !important;
+    border-radius: 9999px !important;
+    padding: 4px 12px !important;
+    font-weight: 900 !important;
+    font-size: 9px !important;
+    letter-spacing: 0.6px !important;
   }
 
   .final-cta-card h2 {
+    color: #0A261B !important;
+    font-weight: 900 !important;
     font-size: 24px !important;
+    line-height: 1.25 !important;
+    margin: 12px 0 10px 0 !important;
   }
 
-  .final-cta-card .btn-primary-gradient {
-    width: 100% !important;
-    justify-content: center !important;
+  .final-cta-card p {
+    color: #163828 !important;
+    font-size: 13.5px !important;
+    line-height: 1.55 !important;
+    font-weight: 600 !important;
+    margin-bottom: 22px !important;
   }
 
-  /* Footer Mobile */
+  .final-cta-actions .btn-primary-gradient.big {
+    background: #0A261B !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 9999px !important;
+    font-weight: 900 !important;
+    font-size: 14px !important;
+    padding: 14px 28px !important;
+    box-shadow: 0 4px 14px rgba(10, 38, 27, 0.4) !important;
+  }
+
+  .final-cta-actions .btn-primary-gradient.big span {
+    color: #FFFFFF !important;
+  }
+
+  .final-cta-actions .btn-primary-gradient.big svg {
+    color: #CBF343 !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     11. Footer
+     -------------------------------------------------------------------------- */
   .landing-footer {
-    padding: 40px 16px 20px !important;
+    background: #EEF1E8 !important;
+    border-top: 1.5px solid #DFE3D8 !important;
+    color: #374151 !important;
   }
 
-  .footer-inner-v2 {
-    grid-template-columns: 1fr !important;
-    gap: 24px !important;
+  .footer-tagline-lead {
+    color: #0B2319 !important;
+    font-weight: 900 !important;
   }
 
-  .footer-subscribe-form {
-    flex-direction: column !important;
+  .footer-brand-desc {
+    color: #4A5E54 !important;
+    font-weight: 500 !important;
+  }
+
+  .feature-badge-item {
+    background: #FFFFFF !important;
+    border: 1px solid #DFE3D8 !important;
+    border-radius: 10px !important;
+  }
+
+  .feature-badge-icon {
+    color: #0B2319 !important;
+  }
+
+  .feature-badge-label {
+    color: #0B2319 !important;
+    font-weight: 700 !important;
+  }
+
+  .footer-col-title,
+  .footer-col-brand h3 {
+    color: #0B2319 !important;
+    font-weight: 900 !important;
+  }
+
+  .footer-links-list li a {
+    color: #374151 !important;
+    font-weight: 600 !important;
+  }
+
+  .footer-links-list li a:hover {
+    color: #0B2319 !important;
+  }
+
+  .footer-newsletter-box {
+    background: #FFFFFF !important;
+    border: 1.5px solid #DFE3D8 !important;
+    border-radius: 14px !important;
+  }
+
+  .newsletter-title {
+    color: #0B2319 !important;
+    font-weight: 800 !important;
+  }
+
+  .newsletter-subtitle {
+    color: #4B5563 !important;
+  }
+
+  .newsletter-input {
+    background: #F8FAF6 !important;
+    border: 1px solid #DFE3D8 !important;
+    color: #0B2319 !important;
+    border-radius: 9999px !important;
+  }
+
+  .newsletter-btn {
+    background: #0B2319 !important;
+    color: #FFFFFF !important;
+    border-radius: 9999px !important;
+    font-weight: 800 !important;
   }
 
   .footer-bottom-bar {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: 14px !important;
+    border-top: 1px solid #DFE3D8 !important;
+    color: #5A6D63 !important;
+    font-weight: 600 !important;
   }
 }
