@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 const mailer = require('../utils/mailer');
 const { isValidEmailAddress } = require('../utils/email_extractor');
 const { requireAuth } = require('../utils/auth');
@@ -61,11 +62,32 @@ router.post('/reset-failed', async (req, res) => {
   }
 });
 
+const uploadsDir = path.join(__dirname, '../uploads');
+try {
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+} catch (e) {
+  console.error('[Uploads Dir Init Error]:', e);
+}
+
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, path.join(__dirname, '../uploads/')),
+  destination: (req, file, cb) => {
+    try {
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+      cb(null, uploadsDir);
+    } catch (err) {
+      cb(err);
+    }
+  },
   filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname.replace(/\s+/g, '_'))
 });
-const upload = multer({ storage });
+const upload = multer({ 
+  storage,
+  limits: { fileSize: 15 * 1024 * 1024 }
+});
 
 // --- EMAIL ACCOUNTS & PLAN ENTITLEMENTS (User-Scoped) ---
 
@@ -216,13 +238,19 @@ router.get('/list', async (req, res) => {
   }
 });
 
-router.post('/upload', upload.single('attachment'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-  const isImage = req.file.mimetype.startsWith('image/');
-  res.json({ 
-    success: true, 
-    filename: req.file.filename,
-    type: isImage ? 'image' : 'pdf'
+router.post('/upload', (req, res) => {
+  upload.single('attachment')(req, res, (err) => {
+    if (err) {
+      console.error('[Upload Error]:', err);
+      return res.status(400).json({ error: err.message || 'File upload failed' });
+    }
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    const isImage = req.file.mimetype.startsWith('image/');
+    res.json({ 
+      success: true, 
+      filename: req.file.filename,
+      type: isImage ? 'image' : 'pdf'
+    });
   });
 });
 

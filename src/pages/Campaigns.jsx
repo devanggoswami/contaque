@@ -276,12 +276,23 @@ function Campaigns() {
           method: 'POST',
           body: formData
         });
-        const uploadData = await uploadRes.json();
-        if (uploadData.success) {
+        
+        let uploadData = {};
+        const uploadContentType = uploadRes.headers.get('content-type') || '';
+        if (uploadContentType.includes('application/json')) {
+          uploadData = await uploadRes.json().catch(() => ({}));
+        } else {
+          const text = await uploadRes.text().catch(() => '');
+          throw new Error(text.includes('Error') 
+            ? `Attachment upload failed: Server returned ${uploadRes.status}` 
+            : `Upload server returned unexpected response (${uploadRes.status})`);
+        }
+
+        if (uploadRes.ok && uploadData.success) {
           attachment_filename = uploadData.filename;
           attachment_type = uploadData.type;
         } else {
-          alert('Failed to upload file');
+          alert(uploadData.error || 'Failed to upload attachment file');
           setLoading(false);
           return;
         }
