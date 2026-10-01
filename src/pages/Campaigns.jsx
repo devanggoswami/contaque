@@ -33,6 +33,71 @@ const formatDateTime = (dateStr) => {
   return `${day}/${month}/${year} ${hours}:${minutes} ${ampm}`;
 };
 
+// Client-side image optimizer: dynamically shrinks high-res screenshots/photos
+// so they stay under 500KB, preventing HTTP 413 and speeding up delivery.
+async function compressImageIfNeeded(file) {
+  if (!file || !file.type || !file.type.startsWith('image/')) return file;
+  if (file.type === 'image/gif' || file.type === 'image/svg+xml') return file;
+
+  return new Promise((resolve) => {
+    try {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            let width = img.width;
+            let height = img.height;
+            const maxDim = 1600;
+
+            if (file.size < 600 * 1024 && width <= maxDim && height <= maxDim) {
+              return resolve(file);
+            }
+
+            if (width > height && width > maxDim) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else if (height > maxDim) {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            canvas.toBlob(
+              (blob) => {
+                if (!blob || blob.size >= file.size) {
+                  return resolve(file);
+                }
+                const cleanName = (file.name || 'image').replace(/\.[^.]+$/, '.jpg');
+                const compressedFile = new File([blob], cleanName, {
+                  type: 'image/jpeg',
+                  lastModified: Date.now()
+                });
+                resolve(compressedFile);
+              },
+              'image/jpeg',
+              0.82
+            );
+          } catch (err) {
+            resolve(file);
+          }
+        };
+        img.onerror = () => resolve(file);
+        img.src = e.target.result;
+      };
+      reader.onerror = () => resolve(file);
+      reader.readAsDataURL(file);
+    } catch (e) {
+      resolve(file);
+    }
+  });
+}
+
 function Campaigns() {
   const { authFetch, userPlan, user } = useAuth();
   const hasAccess = userPlan === 'plus' || userPlan === 'pack' || user?.role === 'Administrator' || user?.isAdmin;
@@ -270,8 +335,17 @@ function Campaigns() {
       let attachment_type = null;
 
       if (attachmentFile) {
+        if (attachmentFile.size > 25 * 1024 * 1024) {
+          alert('Attachment file is too large. Please select a file under 25MB.');
+          setLoading(false);
+          return;
+        }
+
+        // Optimize high-res screenshots/photos to lightweight JPEG under 500KB
+        const fileToUpload = await compressImageIfNeeded(attachmentFile);
+
         const formData = new FormData();
-        formData.append('attachment', attachmentFile);
+        formData.append('attachment', fileToUpload);
         const uploadRes = await authFetch(`${API_URL}/api/campaigns/upload`, {
           method: 'POST',
           body: formData
@@ -283,6 +357,11 @@ function Campaigns() {
           uploadData = await uploadRes.json().catch(() => ({}));
         } else {
           const text = await uploadRes.text().catch(() => '');
+          if (uploadRes.status === 413) {
+            alert('The uploaded file exceeds the web server payload limit (HTTP 413). Please choose a smaller file or compress your PDF before uploading.');
+            setLoading(false);
+            return;
+          }
           throw new Error(text.includes('Error') 
             ? `Attachment upload failed: Server returned ${uploadRes.status}` 
             : `Upload server returned unexpected response (${uploadRes.status})`);
