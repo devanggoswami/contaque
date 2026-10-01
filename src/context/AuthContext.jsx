@@ -166,7 +166,20 @@ export const AuthProvider = ({ children }) => {
       ...options.headers,
       ...(activeToken ? { 'Authorization': `Bearer ${activeToken}` } : {})
     };
-    return fetch(url, { ...options, headers });
+
+    let targetUrl = url;
+    if (typeof window !== 'undefined' && window.location) {
+      const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+      if (!isLocal) {
+        if (typeof targetUrl === 'string' && targetUrl.startsWith('http://')) {
+          targetUrl = targetUrl.replace('http://', 'https://');
+        } else if (typeof targetUrl === 'string' && targetUrl.startsWith('/') && window.location.protocol === 'http:') {
+          targetUrl = `https://${window.location.host}${targetUrl}`;
+        }
+      }
+    }
+
+    return fetch(targetUrl, { ...options, headers });
   }, [token]);
 
   const updateUserPlan = async (newPlan) => {

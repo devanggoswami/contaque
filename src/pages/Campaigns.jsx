@@ -298,9 +298,20 @@ function Campaigns() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      const data = await res.json();
-      if (data.error) {
-        alert(data.error);
+      
+      let data = {};
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        data = await res.json().catch(() => ({}));
+      } else {
+        const text = await res.text().catch(() => '');
+        throw new Error(text.includes('Cannot') || text.includes('Error') 
+          ? `Server returned HTTP ${res.status}. Please make sure you are accessing via https://contaque.mooo.com.` 
+          : `Server returned non-JSON response (${res.status})`);
+      }
+
+      if (!res.ok || data.error) {
+        alert(data.error || `Server error (${res.status}): ${res.statusText || 'Unable to create campaign'}`);
       } else {
         alert(`Campaign created successfully!\n\n• Sending from: ${data.senderEmail || 'Selected Gmail'}\n• Queued: ${data.queuedCount} unique recipients\n\nYou can start outreach from the Live Dashboard.`);
         setNewCampaign({ 
@@ -319,7 +330,8 @@ function Campaigns() {
         fetchData();
       }
     } catch (e) {
-      alert("Error creating campaign");
+      console.error('[Create Campaign Error]:', e);
+      alert(e.message || "Error creating campaign");
     }
     setLoading(false);
   };
