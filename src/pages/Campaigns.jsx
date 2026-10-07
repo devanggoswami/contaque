@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Mail, Send, Settings, UserPlus, Play, Pause, Trash2, 
   Activity, Download, FileSpreadsheet, FileText, CheckCircle2, 
@@ -1129,7 +1130,7 @@ function Campaigns() {
       )}
 
       {/* Confirmation Modal Before Launching Campaign */}
-      {showConfirmModal && (
+      {showConfirmModal && createPortal(
         <div className="campaign-confirm-overlay" onClick={() => setShowConfirmModal(false)}>
           <div className="campaign-confirm-modal" onClick={e => e.stopPropagation()}>
             <div className="confirm-modal-header">
@@ -1203,7 +1204,8 @@ function Campaigns() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
     </LockedFeatureGate>

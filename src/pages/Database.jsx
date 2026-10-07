@@ -1346,7 +1346,10 @@ function Database() {
     }
   };
 
+  const lastClickedJobIdRef = useRef(null);
+
   const handleSelectAll = (e) => {
+    lastClickedJobIdRef.current = null;
     if (e.target.checked) {
       setSelectedJobIds(filteredJobs.map(j => j.id));
     } else {
@@ -1354,13 +1357,32 @@ function Database() {
     }
   };
 
+  const toggleJobSelection = (id, isShift = false) => {
+    setSelectedJobIds(prev => {
+      const isCurrentlySelected = prev.includes(id);
+
+      if (isShift && lastClickedJobIdRef.current !== null && lastClickedJobIdRef.current !== id) {
+        const lastIndex = filteredJobs.findIndex(j => j.id === lastClickedJobIdRef.current);
+        const currentIndex = filteredJobs.findIndex(j => j.id === id);
+
+        if (lastIndex !== -1 && currentIndex !== -1) {
+          const start = Math.min(lastIndex, currentIndex);
+          const end = Math.max(lastIndex, currentIndex);
+          const rangeIds = filteredJobs.slice(start, end + 1).map(j => j.id);
+
+          lastClickedJobIdRef.current = id;
+          return Array.from(new Set([...prev, ...rangeIds]));
+        }
+      }
+
+      lastClickedJobIdRef.current = id;
+      return isCurrentlySelected ? prev.filter(jId => jId !== id) : [...prev, id];
+    });
+  };
+
   const handleSelectJob = (e, id) => {
-    e.stopPropagation();
-    if (e.target.checked) {
-      setSelectedJobIds(prev => [...prev, id]);
-    } else {
-      setSelectedJobIds(prev => prev.filter(jId => jId !== id));
-    }
+    if (e) e.stopPropagation();
+    toggleJobSelection(id, e?.shiftKey || false);
   };
 
   const getSourceBadge = (source) => {
@@ -1670,14 +1692,22 @@ function Database() {
                         const fetched = job.fetched_count || 0;
                         const pct = target > 0 ? Math.min(100, Math.round((fetched / target) * 100)) : 100;
                         const isRunning = job.status === 'IN_PROGRESS';
+                        const isSelected = selectedJobIds.includes(job.id);
                         return (
-                          <tr key={job.id} className={isRunning ? 'row-running' : ''}>
-                            <td>
+                          <tr 
+                            key={job.id} 
+                            className={`${isRunning ? 'row-running' : ''} ${isSelected ? 'row-selected' : ''}`}
+                            onClick={(e) => toggleJobSelection(job.id, e.shiftKey)}
+                          >
+                            <td className="selection-cell">
                               <input 
                                 type="checkbox" 
-                                checked={selectedJobIds.includes(job.id)}
-                                onChange={(e) => handleSelectJob(e, job.id)}
-                                onClick={e => e.stopPropagation()}
+                                checked={isSelected}
+                                onChange={() => {}}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleJobSelection(job.id, e.shiftKey);
+                                }}
                               />
                             </td>
                             <td>
@@ -1714,11 +1744,14 @@ function Database() {
                                 {new Date(job.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </td>
-                            <td className="text-right">
+                            <td className="text-right" onClick={(e) => e.stopPropagation()}>
                               <div className="table-actions-cell">
                                 <button 
                                   className="inspect-leads-btn" 
-                                  onClick={() => viewLeads(job)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    viewLeads(job);
+                                  }}
                                   disabled={job.fetched_count === 0}
                                   title="Inspect Extracted Contacts"
                                 >

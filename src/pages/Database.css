@@ -266,8 +266,29 @@
   border-bottom: none;
 }
 
-.modern-jobs-table tr:hover td {
+.modern-jobs-table tbody tr {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.modern-jobs-table tbody tr:hover td {
   background-color: var(--bg-card-subtle);
+}
+
+.modern-jobs-table tbody tr.row-selected td {
+  background-color: rgba(37, 99, 235, 0.08);
+}
+
+.modern-jobs-table tbody tr.row-selected:hover td {
+  background-color: rgba(37, 99, 235, 0.13);
+}
+
+.modern-jobs-table input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--primary, #2563EB);
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
 }
 
 .row-running td {
