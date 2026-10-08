@@ -1650,7 +1650,7 @@ function Database() {
             {loading && jobs.length === 0 ? (
               <div className="loading-state-box">
                 <div className="loading-spinner"></div>
-                <p>Accessing PostgreSQL database tables...</p>
+                <p>Hold tight, loading!</p>
               </div>
             ) : error ? (
               <div className="error-state-box">
