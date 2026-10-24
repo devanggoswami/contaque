@@ -351,6 +351,26 @@ function Database() {
     }
   };
 
+  const deleteLead = async (leadId) => {
+    if (!window.confirm("Are you sure you want to delete this lead from the database?")) return;
+    try {
+      const res = await authFetch(`${API_URL}/api/leads/${leadId}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        showToast("Lead permanently deleted from database");
+        setJobLeads(prev => prev.filter(l => l.id !== leadId));
+        setExtractedLeads(prev => prev.filter(l => l.id !== leadId));
+        fetchJobs(false);
+      } else {
+        showToast("Failed to delete lead");
+      }
+    } catch (err) {
+      console.error("Delete lead error:", err);
+      showToast("Error deleting lead");
+    }
+  };
+
   const copyToClipboard = (text, id) => {
     if (!text) return;
     navigator.clipboard.writeText(text);
@@ -2368,7 +2388,8 @@ function Database() {
                         <th>Website / Profile</th>
                         <th>Socials</th>
                         <th>Address / Location</th>
-                        <th width="80" className="text-center">Link</th>
+                        <th width="70" className="text-center">Link</th>
+                        <th width="60" className="text-center">Delete</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2495,6 +2516,19 @@ function Database() {
                                 </a>
                               ) : '-'}
                             </td>
+                            <td className="text-center">
+                              <button
+                                type="button"
+                                className="delete-lead-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteLead(lead.id);
+                                }}
+                                title="Delete Lead from Database"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </td>
                           </tr>
                         );
                       })}
@@ -2516,7 +2550,20 @@ function Database() {
                               <strong className="mobile-lead-name">{cleanName}</strong>
                               <span className="mobile-lead-cat">{lead.category || selectedJob.keyword}</span>
                             </div>
-                            <span className="mobile-lead-index">#{idx + 1}</span>
+                            <div className="mobile-lead-head-actions">
+                              <span className="mobile-lead-index">#{idx + 1}</span>
+                              <button
+                                type="button"
+                                className="delete-lead-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteLead(lead.id);
+                                }}
+                                title="Delete Lead"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
                           </div>
 
                           {/* Phone Row */}

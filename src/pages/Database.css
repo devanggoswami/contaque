@@ -488,6 +488,33 @@
   transform: scale(1.05);
 }
 
+.delete-lead-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.delete-lead-btn:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.25);
+  transform: scale(1.08);
+}
+
+.mobile-lead-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* Empty & Loading States */
 .empty-state-box, .loading-state-box, .error-state-box {
   padding: 60px 20px;

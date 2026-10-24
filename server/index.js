@@ -1165,7 +1165,7 @@ app.post('/api/generate', requireAuth, async (req, res) => {
                    SELECT $1::INTEGER, $10::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::TEXT
                    WHERE NOT EXISTS (
                      SELECT 1 FROM leads 
-                     WHERE user_id = $10 AND (place_id = $2 OR (source_link = $8 AND source_link != ''))
+                     WHERE job_id = $1 AND (place_id = $2 OR (source_link = $8 AND source_link != ''))
                    )
                    ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
                   [jobId, place.id, name, address, phone, website, category, sourceLink, emails, jobUserId]
@@ -1197,7 +1197,7 @@ app.post('/api/generate', requireAuth, async (req, res) => {
                  SELECT $1::INTEGER, $9::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT
                  WHERE NOT EXISTS (
                    SELECT 1 FROM leads 
-                   WHERE user_id = $9 AND (place_id = $2 OR (source_link = $8 AND source_link != ''))
+                   WHERE job_id = $1 AND (place_id = $2 OR (source_link = $8 AND source_link != ''))
                  )
                  ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
                 [jobId, item.place.id, item.name, item.address, item.phone, item.website, item.category, item.sourceLink, jobUserId]
@@ -1346,10 +1346,10 @@ app.post('/api/generate', requireAuth, async (req, res) => {
                    SELECT $1::INTEGER, $11::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::VARCHAR, $10::TEXT
                    WHERE NOT EXISTS (
                      SELECT 1 FROM leads 
-                     WHERE user_id = $11 AND (
+                     WHERE job_id = $1::INTEGER AND (
                        place_id = $2::VARCHAR OR 
                        (source_link = $8::TEXT AND source_link != '') OR
-                       (job_id = $1::INTEGER AND (mobile = $9::VARCHAR OR phone = $5::VARCHAR))
+                       (mobile = $9::VARCHAR OR phone = $5::VARCHAR)
                      )
                    )
                    ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
@@ -1665,10 +1665,10 @@ app.post('/api/generate', requireAuth, async (req, res) => {
                          $10::TEXT, $11::TEXT, $12::TEXT, $13::TEXT, $14::TEXT, $15::TEXT, $16::TEXT, $17::TEXT, $18::TEXT, $19::TEXT
                        WHERE NOT EXISTS (
                          SELECT 1 FROM leads 
-                         WHERE user_id = $20 AND (
+                         WHERE job_id = $1::INTEGER AND (
                            place_id = $2 OR 
                            (source_link = $8 AND source_link != '') OR
-                           (job_id = $1 AND $18::TEXT IS NOT NULL AND $18::TEXT != '' AND (mobile = $18 OR phone = $18))
+                           ($18::TEXT IS NOT NULL AND $18::TEXT != '' AND (mobile = $18 OR phone = $18))
                          )
                        )
                        ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
@@ -1787,7 +1787,7 @@ app.post('/api/generate', requireAuth, async (req, res) => {
                     const insertResult = await db.query(
                       `INSERT INTO leads (job_id, user_id, place_id, name, address, phone, website, category, source_link, mobile, whatsapp, max_messenger)
                        SELECT $1::INTEGER, $12::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::VARCHAR, $10::TEXT, $11::TEXT
-                       WHERE NOT EXISTS (SELECT 1 FROM leads WHERE user_id = $12 AND (place_id = $2::VARCHAR OR (source_link = $8::TEXT AND source_link != '')))
+                       WHERE NOT EXISTS (SELECT 1 FROM leads WHERE job_id = $1::INTEGER AND (place_id = $2::VARCHAR OR (source_link = $8::TEXT AND source_link != '')))
                        ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
                       [jobId, placeId, name, address, rawPhone, website, category, sourceLink, mobile, whatsapp, maxMessenger, jobUserId]
                     );
@@ -2107,7 +2107,8 @@ app.delete('/api/jobs/:id', requireAuth, async (req, res) => {
       return res.status(404).json({ error: "Job not found or access denied" });
     }
 
-    await db.query(`DELETE FROM leads WHERE job_id = $1 AND user_id = $2`, [id, userId]);
+    // Completely remove all leads associated with this job from the database
+    await db.query(`DELETE FROM leads WHERE job_id = $1`, [id]);
     const deleteResult = await db.query(`DELETE FROM jobs WHERE id = $1 AND user_id = $2 RETURNING id`, [id, userId]);
     if (deleteResult.rowCount === 0) {
       return res.status(404).json({ error: "Job not found" });
@@ -2116,6 +2117,89 @@ app.delete('/api/jobs/:id', requireAuth, async (req, res) => {
   } catch (error) {
     console.error("Job delete error:", error);
     res.status(500).json({ error: "Failed to delete job" });
+  }
+});
+
+// DELETE /api/leads/:id - Delete an individual lead (Strict Ownership Verification)
+app.delete('/api/leads/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // Verify ownership of the lead (lead belongs to user directly or via its job)
+    const leadCheck = await db.query(
+      `SELECT l.id, l.job_id FROM leads l 
+       LEFT JOIN jobs j ON l.job_id = j.id 
+       WHERE l.id = $1 AND (l.user_id = $2 OR j.user_id = $2)`,
+      [id, userId]
+    );
+
+    if (leadCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Lead not found or access denied" });
+    }
+
+    const jobId = leadCheck.rows[0].job_id;
+
+    // Delete the lead from database
+    await db.query(`DELETE FROM leads WHERE id = $1`, [id]);
+
+    // Recalculate and update job fetched_count
+    if (jobId) {
+      await db.query(
+        `UPDATE jobs 
+         SET fetched_count = (SELECT COUNT(*) FROM leads WHERE job_id = $1) 
+         WHERE id = $1`,
+        [jobId]
+      );
+    }
+
+    res.json({ success: true, message: "Lead permanently deleted from database", id, jobId });
+  } catch (error) {
+    console.error("Lead delete error:", error);
+    res.status(500).json({ error: "Failed to delete lead" });
+  }
+});
+
+// POST /api/leads/delete-batch - Delete multiple leads in bulk
+app.post('/api/leads/delete-batch', requireAuth, async (req, res) => {
+  try {
+    const { leadIds } = req.body;
+    const userId = req.user.id;
+
+    if (!Array.isArray(leadIds) || leadIds.length === 0) {
+      return res.status(400).json({ error: "No lead IDs provided" });
+    }
+
+    // Verify ownership and find affected jobs
+    const leadsToDelete = await db.query(
+      `SELECT l.id, l.job_id FROM leads l 
+       LEFT JOIN jobs j ON l.job_id = j.id 
+       WHERE l.id = ANY($1::int[]) AND (l.user_id = $2 OR j.user_id = $2)`,
+      [leadIds, userId]
+    );
+
+    if (leadsToDelete.rows.length === 0) {
+      return res.status(404).json({ error: "No matching leads found or access denied" });
+    }
+
+    const validIds = leadsToDelete.rows.map(r => r.id);
+    const affectedJobIds = [...new Set(leadsToDelete.rows.map(r => r.job_id).filter(Boolean))];
+
+    await db.query(`DELETE FROM leads WHERE id = ANY($1::int[])`, [validIds]);
+
+    for (const jId of affectedJobIds) {
+      await db.query(
+        `UPDATE jobs 
+         SET fetched_count = (SELECT COUNT(*) FROM leads WHERE job_id = $1) 
+         WHERE id = $1`,
+        [jId]
+      );
+    }
+
+    res.json({ success: true, deletedCount: validIds.length, affectedJobIds });
+  } catch (error) {
+    console.error("Batch lead delete error:", error);
+    res.status(500).json({ error: "Failed to delete leads" });
   }
 });
 
