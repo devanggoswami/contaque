@@ -375,6 +375,13 @@ const initDb = async () => {
       CREATE INDEX IF NOT EXISTS idx_admin_audit_admin_email ON admin_audit_logs(admin_email);
       CREATE INDEX IF NOT EXISTS idx_admin_audit_action ON admin_audit_logs(action);
       CREATE INDEX IF NOT EXISTS idx_admin_audit_created_at ON admin_audit_logs(created_at DESC);
+      ALTER TABLE admin_audit_logs ALTER COLUMN target_user_id DROP NOT NULL;
+      DO $$ BEGIN
+        IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'admin_audit_logs_target_user_id_fkey') THEN
+          ALTER TABLE admin_audit_logs DROP CONSTRAINT admin_audit_logs_target_user_id_fkey;
+          ALTER TABLE admin_audit_logs ADD CONSTRAINT admin_audit_logs_target_user_id_fkey FOREIGN KEY (target_user_id) REFERENCES users(id) ON DELETE SET NULL;
+        END IF;
+      END $$;
 
       -- Referral System Schema
       ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(50) UNIQUE;

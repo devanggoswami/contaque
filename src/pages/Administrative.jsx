@@ -3,7 +3,7 @@ import {
   CreditCard, DollarSign, CheckCircle2, AlertCircle, RefreshCw, 
   Info, ShieldCheck, Zap, Layers, ChevronRight, X, ArrowUpRight,
   Terminal, Database, Search, UserCheck, ShieldAlert, ArrowRight,
-  PlusCircle, MinusCircle, Clock, FileText, Check, AlertTriangle, User
+  PlusCircle, MinusCircle, Clock, FileText, Check, AlertTriangle, User, Trash2
 } from 'lucide-react';
 import { API_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
@@ -45,6 +45,14 @@ function Administrative() {
 
   // Diagnostic sub-tab for selected user
   const [userSubTab, setUserSubTab] = useState('audit'); // 'audit' | 'ledger' | 'orders'
+
+  // User Deletion state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [deleteErrorMsg, setDeleteErrorMsg] = useState('');
+  const [deleteSuccessToast, setDeleteSuccessToast] = useState('');
 
   const fetchAdminData = useCallback(async (manual = false) => {
     if (manual) setIsRefreshing(true);
@@ -200,6 +208,56 @@ function Administrative() {
       setWalletErrorMsg(err.message || 'Network error performing wallet adjustment.');
     } finally {
       setWalletSubmitting(false);
+    }
+  };
+
+  // Handle Permanent Customer Deletion
+  const handleDeleteUser = async (e) => {
+    e?.preventDefault();
+    if (!selectedUser?.user?.id) return;
+
+    const expectedConfirm = selectedUser.user.email.toLowerCase();
+    const inputConfirm = deleteConfirmText.trim().toLowerCase();
+    if (inputConfirm !== 'delete' && inputConfirm !== expectedConfirm) {
+      setDeleteErrorMsg(`Confirmation failed. Please type "DELETE" or "${selectedUser.user.email}" exactly.`);
+      return;
+    }
+
+    if (!deleteReason || deleteReason.trim().length < 3) {
+      setDeleteErrorMsg('Please provide a mandatory reason for deleting this customer account (min 3 chars).');
+      return;
+    }
+
+    setDeleteSubmitting(true);
+    setDeleteErrorMsg('');
+
+    try {
+      const res = await authFetch(`${API_URL}/api/admin/users/${selectedUser.user.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reason: deleteReason.trim(),
+          confirmText: deleteConfirmText.trim()
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const deletedEmail = selectedUser.user.email;
+        setShowDeleteModal(false);
+        setDeleteConfirmText('');
+        setDeleteReason('');
+        setSelectedUser(null);
+        setDeleteSuccessToast(`Customer account "${deletedEmail}" and all associated data have been permanently wiped.`);
+        // Refresh users search list
+        await handleSearchUsers(searchQuery);
+      } else {
+        setDeleteErrorMsg(data.error || 'Failed to delete customer account.');
+      }
+    } catch (err) {
+      setDeleteErrorMsg(err.message || 'Network error deleting customer account.');
+    } finally {
+      setDeleteSubmitting(false);
     }
   };
 
@@ -413,6 +471,13 @@ function Administrative() {
               </div>
             ) : selectedUser?.user ? (
               <div className="workspace-content animate-slide-up">
+                {deleteSuccessToast && (
+                  <div className="admin-toast-banner-success animate-fade-in">
+                    <span>{deleteSuccessToast}</span>
+                    <button type="button" onClick={() => setDeleteSuccessToast('')}><X size={16} /></button>
+                  </div>
+                )}
+
                 {/* User Summary Header Card */}
                 <div className="user-profile-hero-card">
                   <div className="profile-hero-left">
@@ -442,16 +507,33 @@ function Administrative() {
                     </div>
                   </div>
 
-                  <div className="profile-hero-balance-box">
-                    <span className="hero-balance-label">Current Prepaid Balance</span>
-                    <strong className="hero-balance-value">
-                      ₹{Number(selectedUser.user.wallet_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </strong>
-                    {selectedUser.user.plan_expires_at && (
-                      <span className="hero-plan-expiry">
-                        Plan Expires: {formatDateIST(selectedUser.user.plan_expires_at)}
-                      </span>
-                    )}
+                  <div className="profile-hero-right-col">
+                    <div className="profile-hero-balance-box">
+                      <span className="hero-balance-label">Current Prepaid Balance</span>
+                      <strong className="hero-balance-value">
+                        ₹{Number(selectedUser.user.wallet_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </strong>
+                      {selectedUser.user.plan_expires_at && (
+                        <span className="hero-plan-expiry">
+                          Plan Expires: {formatDateIST(selectedUser.user.plan_expires_at)}
+                        </span>
+                      )}
+                    </div>
+
+                    <button 
+                      type="button" 
+                      className="btn-delete-customer-hero"
+                      onClick={() => {
+                        setDeleteErrorMsg('');
+                        setDeleteConfirmText('');
+                        setDeleteReason('');
+                        setShowDeleteModal(true);
+                      }}
+                      title="Permanently Delete Account"
+                    >
+                      <Trash2 size={15} />
+                      <span>Delete Account</span>
+                    </button>
                   </div>
                 </div>
 
@@ -623,6 +705,38 @@ function Administrative() {
                         <span>{walletType === 'CREDIT' ? 'Add Funds to Wallet' : 'Deduct Funds from Wallet'}</span>
                       </button>
                     </form>
+                  </div>
+
+                  {/* Action Card 3: Danger Zone / Delete Account */}
+                  <div className="admin-action-card card-danger-zone">
+                    <div className="action-card-head">
+                      <div className="action-icon-wrap icon-red">
+                        <Trash2 size={18} />
+                      </div>
+                      <div>
+                        <h4 style={{ color: '#E11D48' }}>Danger Zone: Permanently Delete Account</h4>
+                        <p>Cascade delete all leads, campaigns, mail accounts, wallet ledgers, and transactions</p>
+                      </div>
+                    </div>
+
+                    <div className="danger-zone-body">
+                      <p className="danger-zone-warning">
+                        Permanently erase customer <strong>{selectedUser.user.email}</strong> (#ID: {selectedUser.user.id}). This wipes all associated database records atomically. No manual AWS database cleanup needed.
+                      </p>
+                      <button 
+                        type="button"
+                        className="btn-danger-outline"
+                        onClick={() => {
+                          setDeleteErrorMsg('');
+                          setDeleteConfirmText('');
+                          setDeleteReason('');
+                          setShowDeleteModal(true);
+                        }}
+                      >
+                        <Trash2 size={15} />
+                        <span>Delete Customer Account</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -1035,6 +1149,120 @@ function Administrative() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Delete Customer Confirmation Modal */}
+      {showDeleteModal && selectedUser?.user && (
+        <div className="admin-modal-overlay animate-fade-in" onClick={() => !deleteSubmitting && setShowDeleteModal(false)}>
+          <div className="delete-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="delete-modal-header">
+              <div className="delete-modal-icon-glow">
+                <Trash2 size={22} />
+              </div>
+              <div>
+                <h2>Delete Customer Account</h2>
+                <p>Irreversible cascade deletion from AWS PostgreSQL</p>
+              </div>
+              <button 
+                type="button"
+                className="modal-close-btn" 
+                disabled={deleteSubmitting}
+                onClick={() => setShowDeleteModal(false)}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="delete-modal-body">
+              <div className="delete-user-summary-card">
+                <div className="del-summary-row">
+                  <span className="del-lbl">Customer Name:</span>
+                  <span className="del-val">{selectedUser.user.name || 'Unnamed'}</span>
+                </div>
+                <div className="del-summary-row">
+                  <span className="del-lbl">Email Address:</span>
+                  <span className="del-val">{selectedUser.user.email}</span>
+                </div>
+                <div className="del-summary-row">
+                  <span className="del-lbl">User ID:</span>
+                  <span className="del-val">#{selectedUser.user.id}</span>
+                </div>
+                <div className="del-summary-row">
+                  <span className="del-lbl">Prepaid Balance:</span>
+                  <span className="del-val">₹{Number(selectedUser.user.wallet_balance || 0).toFixed(2)}</span>
+                </div>
+              </div>
+
+              <div className="delete-warning-banner">
+                <AlertTriangle size={20} />
+                <span>
+                  <strong>Warning:</strong> This will permanently delete this customer's account along with all leads, search jobs, email campaigns, connected SMTP accounts, and wallet history. This action cannot be undone.
+                </span>
+              </div>
+
+              {deleteErrorMsg && (
+                <div className="action-error-alert animate-fade-in">
+                  <AlertTriangle size={16} />
+                  <span>{deleteErrorMsg}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleDeleteUser} className="delete-modal-form">
+                <div className="form-field">
+                  <label>
+                    To confirm, type <strong>DELETE</strong> or <strong>{selectedUser.user.email}</strong> below:
+                  </label>
+                  <input 
+                    type="text" 
+                    className="admin-input confirm-input"
+                    placeholder={`Type DELETE or ${selectedUser.user.email}`}
+                    value={deleteConfirmText}
+                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                    disabled={deleteSubmitting}
+                    autoFocus
+                    required
+                  />
+                </div>
+
+                <div className="form-field">
+                  <label>Mandatory Audit Reason *</label>
+                  <input 
+                    type="text" 
+                    className="admin-input"
+                    placeholder="e.g. Customer requested deletion / Fraud prevention / Test cleanup"
+                    value={deleteReason}
+                    onChange={(e) => setDeleteReason(e.target.value)}
+                    disabled={deleteSubmitting}
+                    required
+                  />
+                </div>
+
+                <div className="delete-modal-actions">
+                  <button 
+                    type="button" 
+                    className="btn-cancel-modal"
+                    disabled={deleteSubmitting}
+                    onClick={() => setShowDeleteModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="btn-confirm-delete"
+                    disabled={
+                      deleteSubmitting || 
+                      (deleteConfirmText.trim().toLowerCase() !== 'delete' && 
+                       deleteConfirmText.trim().toLowerCase() !== selectedUser.user.email.toLowerCase()) ||
+                      deleteReason.trim().length < 3
+                    }
+                  >
+                    {deleteSubmitting ? <RefreshCw size={15} className="spinning" /> : <Trash2 size={15} />}
+                    <span>{deleteSubmitting ? 'Deleting Account...' : 'Permanently Delete User'}</span>
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

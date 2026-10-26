@@ -549,4 +549,119 @@ router.get('/audit-logs', requireAdmin, async (req, res) => {
   }
 });
 
+// ------------------------------------------------------------------------------
+// 6. DELETE /api/admin/users/:id - Permanently Delete a User Account and all data
+// ------------------------------------------------------------------------------
+router.delete('/users/:id', requireAdmin, async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    const userId = parseInt(req.params.id, 10);
+    const { reason } = req.body || {};
+
+    if (!userId || isNaN(userId)) {
+      return res.status(400).json({ error: 'Valid user ID is required.' });
+    }
+
+    // Safety guard 1: Admin cannot delete their own account
+    if (userId === req.admin.id) {
+      return res.status(403).json({ error: 'Action prohibited: You cannot delete the primary administrator account.' });
+    }
+
+    await client.query('BEGIN');
+
+    // Lock target user
+    const userRes = await client.query(
+      'SELECT id, name, email, role, plan, wallet_balance, created_at FROM users WHERE id = $1 FOR UPDATE',
+      [userId]
+    );
+
+    if (userRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: `User ID #${userId} not found.` });
+    }
+
+    const targetUser = userRes.rows[0];
+
+    // Safety guard 2: Cannot delete any other user with role === 'admin'
+    const adminEmail = (AUTH_USER || '').trim().toLowerCase();
+    if (targetUser.role === 'admin' || (targetUser.email && targetUser.email.trim().toLowerCase() === adminEmail)) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Action prohibited: Cannot delete an administrator account.' });
+    }
+
+    // Record audit log before deleting
+    try {
+      await client.query(`
+        INSERT INTO admin_audit_logs (
+          admin_id, admin_email, target_user_id, target_user_email, action,
+          previous_value, new_value, reason, metadata
+        ) VALUES ($1, $2, $3, $4, 'ACCOUNT_DELETED', $5, NULL, $6, $7)
+      `, [
+        req.admin.id,
+        req.admin.email,
+        targetUser.id,
+        targetUser.email,
+        JSON.stringify({
+          id: targetUser.id,
+          name: targetUser.name,
+          email: targetUser.email,
+          plan: targetUser.plan,
+          wallet_balance: targetUser.wallet_balance,
+          created_at: targetUser.created_at
+        }),
+        (reason || 'Manual account deletion by administrator via Admin Panel').trim(),
+        JSON.stringify({ deleted_at: new Date().toISOString() })
+      ]);
+    } catch (auditErr) {
+      console.warn('[Admin Audit Log Warning on User Delete]:', auditErr.message);
+    }
+
+    // Clean up dependent child records explicitly
+    // 1. Leads
+    await client.query(`DELETE FROM leads WHERE user_id = $1 OR job_id IN (SELECT id FROM jobs WHERE user_id = $1)`, [userId]);
+    // 2. Jobs
+    await client.query(`DELETE FROM jobs WHERE user_id = $1`, [userId]);
+    // 3. Email accounts, campaigns & queue
+    await client.query(`DELETE FROM email_queue WHERE campaign_id IN (SELECT id FROM campaigns WHERE user_id = $1)`, [userId]);
+    await client.query(`DELETE FROM campaigns WHERE user_id = $1`, [userId]);
+    // 4. Inbox messages and threads
+    await client.query(`DELETE FROM inbox_messages WHERE thread_id IN (SELECT id FROM inbox_threads WHERE user_id = $1)`, [userId]);
+    await client.query(`DELETE FROM inbox_threads WHERE user_id = $1`, [userId]);
+    await client.query(`DELETE FROM email_accounts WHERE user_id = $1`, [userId]);
+    // 5. Referrals
+    await client.query(`DELETE FROM referrals WHERE referrer_id = $1 OR referred_user_id = $1`, [userId]);
+    // 6. Support tickets
+    await client.query(`DELETE FROM support_tickets WHERE user_id = $1`, [userId]);
+    // 7. Payment orders and plan transactions
+    await client.query(`DELETE FROM plan_transactions WHERE user_id = $1`, [userId]);
+    await client.query(`DELETE FROM payment_orders WHERE user_id = $1`, [userId]);
+    // 8. Ledgers & idempotency
+    await client.query(`DELETE FROM wallet_ledger WHERE user_id = $1`, [userId]);
+    await client.query(`DELETE FROM wallet_ledger_usd WHERE user_id = $1`, [userId]);
+    await client.query(`DELETE FROM idempotency_keys WHERE user_id = $1`, [userId]);
+    // 9. Nullify any referred_by references in other users
+    await client.query(`UPDATE users SET referred_by = NULL WHERE referred_by = $1`, [userId]);
+
+    // Finally delete user from users table
+    await client.query(`DELETE FROM users WHERE id = $1`, [userId]);
+
+    await client.query('COMMIT');
+
+    console.log(`[Admin: User Deleted] Admin ${req.admin.email} permanently deleted account ${targetUser.email} (ID: #${targetUser.id}). Reason: ${reason || 'N/A'}`);
+
+    return res.json({
+      success: true,
+      message: `Account for ${targetUser.name || 'User'} (${targetUser.email}) and all associated data have been permanently deleted from database.`,
+      deletedUserId: targetUser.id,
+      deletedUserEmail: targetUser.email
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Admin user deletion error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to delete user account.' });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;
