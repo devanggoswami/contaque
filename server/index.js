@@ -1103,90 +1103,120 @@ app.post('/api/generate', requireAuth, async (req, res) => {
             }
           };
 
-          // Extract root brand name
+                    // Extract root brand name
           const getBrandKey = (name) => {
             if (!name) return '';
             const normalized = name.toLowerCase().split(' - ')[0].split(' | ')[0].split(' in ')[0].trim();
             return normalized.split(' ')[0] + (normalized.split(' ')[1] ? ' ' + normalized.split(' ')[1] : '');
           };
 
-          while (totalFetched < requestedCount) {
-            const requestBody = {
-              textQuery: `${keyword} in ${location}`,
-              pageSize: 20
-            };
+          const queryVariants = [
+            `${keyword} in ${location}`,
+            `${keyword} near ${location}`,
+            `best ${keyword} in ${location}`,
+            `${keyword} Central ${location}`,
+            `${keyword} North ${location}`,
+            `${keyword} South ${location}`,
+            `${keyword} West ${location}`,
+            `${keyword} East ${location}`
+          ];
 
-            if (nextPageToken) {
-              requestBody.pageToken = nextPageToken;
-            }
+          for (const currentQuery of queryVariants) {
+            if (totalFetched >= requestedCount) break;
+            let nextPageToken = null;
+            let pageIteration = 0;
 
-            const response = await axios.post(
-              'https://places.googleapis.com/v1/places:searchText',
-              requestBody,
-              {
-                headers: {
-                  'Content-Type': 'application/json',
-                  'X-Goog-Api-Key': GOOGLE_API_KEY,
-                  'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri,places.primaryType,places.googleMapsUri,nextPageToken'
-                }
-              }
-            );
+            while (totalFetched < requestedCount && pageIteration < 3) {
+              pageIteration++;
+              const requestBody = {
+                textQuery: currentQuery,
+                pageSize: 20
+              };
 
-            const places = response.data.places || [];
-            nextPageToken = response.data.nextPageToken;
-
-            if (places.length === 0) break;
-
-            for (const place of places) {
-              const name = place.displayName?.text || 'Unknown';
-              const address = place.formattedAddress || '';
-              const phone = place.nationalPhoneNumber || '';
-              const website = place.websiteUri || '';
-              const category = place.primaryType || '';
-              const sourceLink = place.googleMapsUri || '';
-
-              const domain = getRootDomain(website);
-              const brand = getBrandKey(name);
-
-              const domainCount = domain ? (seenDomains.get(domain) || 0) : 0;
-              const brandCount = brand ? (seenBrands.get(brand) || 0) : 0;
-
-              // Max 1 location per chain brand in primary pass to ensure high lead diversity
-              if (domainCount >= 1 || brandCount >= 1) {
-                secondaryQueue.push({ place, name, address, phone, website, category, sourceLink });
-                continue;
+              if (nextPageToken) {
+                requestBody.pageToken = nextPageToken;
               }
 
-              if (totalFetched < requestedCount) {
-                let emails = null;
-
-                const insertResult = await db.query(
-                  `INSERT INTO leads (job_id, user_id, place_id, name, address, phone, website, category, source_link, emails)
-                   SELECT $1::INTEGER, $10::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::TEXT
-                   WHERE NOT EXISTS (
-                     SELECT 1 FROM leads 
-                     WHERE job_id = $1 AND (place_id = $2 OR (source_link = $8 AND source_link != ''))
-                   )
-                   ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
-                  [jobId, place.id, name, address, phone, website, category, sourceLink, emails, jobUserId]
+              let places = [];
+              try {
+                const response = await axios.post(
+                  'https://places.googleapis.com/v1/places:searchText',
+                  requestBody,
+                  {
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'X-Goog-Api-Key': GOOGLE_API_KEY,
+                      'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri,places.primaryType,places.googleMapsUri,nextPageToken'
+                    }
+                  }
                 );
 
-                if (insertResult.rowCount > 0) {
-                  totalFetched++;
-                  if (domain) seenDomains.set(domain, domainCount + 1);
-                  if (brand) seenBrands.set(brand, brandCount + 1);
-                  
-                  // Fire-and-forget background enrichment for Email, Contacts & Socials
-                  enrichEmail(website, insertResult.rows[0].id, name, address).catch(() => {});
+                places = response.data.places || [];
+                nextPageToken = response.data.nextPageToken;
+              } catch (placesErr) {
+                console.error(`Job ${jobId} [maps] API error for "${currentQuery}":`, placesErr.message);
+                break;
+              }
+
+              if (places.length === 0) break;
+
+              for (const place of places) {
+                if (totalFetched >= requestedCount) break;
+
+                const name = place.displayName?.text || 'Unknown';
+                const address = place.formattedAddress || '';
+                const phone = place.nationalPhoneNumber || '';
+                const website = place.websiteUri || '';
+                const category = place.primaryType || '';
+                const sourceLink = place.googleMapsUri || '';
+
+                const domain = getRootDomain(website);
+                const brand = getBrandKey(name);
+
+                const domainCount = domain ? (seenDomains.get(domain) || 0) : 0;
+                const brandCount = brand ? (seenBrands.get(brand) || 0) : 0;
+
+                // Max 1 location per chain brand in primary pass to ensure high lead diversity
+                if (domainCount >= 1 || brandCount >= 1) {
+                  secondaryQueue.push({ place, name, address, phone, website, category, sourceLink });
+                  continue;
+                }
+
+                if (totalFetched < requestedCount) {
+                  let emails = null;
+
+                  const insertResult = await db.query(
+                    `INSERT INTO leads (job_id, user_id, place_id, name, address, phone, website, category, source_link, emails)
+                     SELECT $1::INTEGER, $10::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::TEXT
+                     WHERE NOT EXISTS (
+                       SELECT 1 FROM leads 
+                       WHERE user_id = $10 AND (
+                         place_id = $2 OR 
+                         (source_link = $8 AND source_link != '') OR
+                         ($5::VARCHAR IS NOT NULL AND $5::VARCHAR != '' AND (phone = $5 OR mobile = $5))
+                       )
+                     )
+                     ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
+                    [jobId, place.id, name, address, phone, website, category, sourceLink, emails, jobUserId]
+                  );
+
+                  if (insertResult.rowCount > 0) {
+                    totalFetched++;
+                    if (domain) seenDomains.set(domain, domainCount + 1);
+                    if (brand) seenBrands.set(brand, brandCount + 1);
+                    
+                    // Fire-and-forget background enrichment for Email, Contacts & Socials
+                    enrichEmail(website, insertResult.rows[0].id, name, address).catch(() => {});
+                  }
                 }
               }
-            }
 
-            // Small delay to respect rate limits
-            await new Promise(resolve => setTimeout(resolve, 800));
+              // Small delay to respect rate limits
+              await new Promise(resolve => setTimeout(resolve, 600));
 
-            if (!nextPageToken || totalFetched >= requestedCount) break;
-          }
+              if (!nextPageToken || totalFetched >= requestedCount) break;
+            } // end while pageIteration
+          } // end for queryVariants
 
           // If still under requested count and secondary branches exist, backfill from secondary queue
           if (totalFetched < requestedCount && secondaryQueue.length > 0) {
@@ -1197,7 +1227,11 @@ app.post('/api/generate', requireAuth, async (req, res) => {
                  SELECT $1::INTEGER, $9::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT
                  WHERE NOT EXISTS (
                    SELECT 1 FROM leads 
-                   WHERE job_id = $1 AND (place_id = $2 OR (source_link = $8 AND source_link != ''))
+                   WHERE user_id = $9 AND (
+                     place_id = $2 OR 
+                     (source_link = $8 AND source_link != '') OR
+                     ($5::VARCHAR IS NOT NULL AND $5::VARCHAR != '' AND (phone = $5 OR mobile = $5))
+                   )
                  )
                  ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
                 [jobId, item.place.id, item.name, item.address, item.phone, item.website, item.category, item.sourceLink, jobUserId]
@@ -1346,7 +1380,7 @@ app.post('/api/generate', requireAuth, async (req, res) => {
                    SELECT $1::INTEGER, $11::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::VARCHAR, $10::TEXT
                    WHERE NOT EXISTS (
                      SELECT 1 FROM leads 
-                     WHERE job_id = $1::INTEGER AND (
+                     WHERE user_id = $11::INTEGER AND (
                        place_id = $2::VARCHAR OR 
                        (source_link = $8::TEXT AND source_link != '') OR
                        (mobile = $9::VARCHAR OR phone = $5::VARCHAR)
@@ -1665,7 +1699,7 @@ app.post('/api/generate', requireAuth, async (req, res) => {
                          $10::TEXT, $11::TEXT, $12::TEXT, $13::TEXT, $14::TEXT, $15::TEXT, $16::TEXT, $17::TEXT, $18::TEXT, $19::TEXT
                        WHERE NOT EXISTS (
                          SELECT 1 FROM leads 
-                         WHERE job_id = $1::INTEGER AND (
+                         WHERE user_id = $20::INTEGER AND (
                            place_id = $2 OR 
                            (source_link = $8 AND source_link != '') OR
                            ($18::TEXT IS NOT NULL AND $18::TEXT != '' AND (mobile = $18 OR phone = $18))
@@ -1787,7 +1821,7 @@ app.post('/api/generate', requireAuth, async (req, res) => {
                     const insertResult = await db.query(
                       `INSERT INTO leads (job_id, user_id, place_id, name, address, phone, website, category, source_link, mobile, whatsapp, max_messenger)
                        SELECT $1::INTEGER, $12::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::VARCHAR, $10::TEXT, $11::TEXT
-                       WHERE NOT EXISTS (SELECT 1 FROM leads WHERE job_id = $1::INTEGER AND (place_id = $2::VARCHAR OR (source_link = $8::TEXT AND source_link != '')))
+                       WHERE NOT EXISTS (SELECT 1 FROM leads WHERE user_id = $12::INTEGER AND (place_id = $2::VARCHAR OR (source_link = $8::TEXT AND source_link != '')))
                        ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
                       [jobId, placeId, name, address, rawPhone, website, category, sourceLink, mobile, whatsapp, maxMessenger, jobUserId]
                     );
