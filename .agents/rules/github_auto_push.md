@@ -7,8 +7,8 @@ Whenever you make any code or configuration changes requested by the user, after
 2. Check/test that the change works and there are no obvious errors.
 3. Run `git status`.
 4. Commit all relevant changed files with a clear commit message.
-5. Push the commit to the current production branch (`master`).
-6. Confirm to the user that the push was successful and report the commit hash.
+5. Synchronize and push the commit to BOTH `master` and `main` branches on GitHub (`git branch -f main master`, then `git push origin master main` and `git push lead-os-origin master main`).
+6. Confirm to the user that the push was successful to both `master` and `main`, reporting the commit hash.
 
 ## Security & Secrets Protection:
 - NEVER commit `.env`, secrets, API keys, passwords, private credentials, or other sensitive files.
