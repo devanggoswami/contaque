@@ -9,6 +9,7 @@ const cheerio = require('cheerio');
 const db = require('./db');
 const { extractEmailFromText, extractSocialLinks, extractMobile, extractWhatsApp, normalizePhoneNumber, detectCountryCode, isRelevantToKeyword } = require('./utils/email_extractor');
 const { crawlWebsiteForWhatsApp } = require('./utils/whatsapp_crawler');
+const { crawlWebsiteForSocials } = require('./utils/social_crawler');
 const { enrichEmail } = require('./utils/email_enricher');
 const campaignsRouter = require('./routes/campaigns');
 const inboxRouter = require('./routes/inbox');
@@ -998,7 +999,7 @@ app.post('/api/generate', requireAuth, async (req, res) => {
     return res.status(400).json({ error: "Unsupported source." });
   }
 
-  if ((source === 'maps' || source === 'whatsapp') && (!GOOGLE_API_KEY || GOOGLE_API_KEY === 'your_google_places_api_key_here')) {
+  if ((source === 'maps' || source === 'whatsapp' || source === 'dorking') && (!GOOGLE_API_KEY || GOOGLE_API_KEY === 'your_google_places_api_key_here')) {
     return res.status(500).json({ error: "Google Places API key is missing on the server." });
   }
 
@@ -1405,8 +1406,176 @@ app.post('/api/generate', requireAuth, async (req, res) => {
             await new Promise(r => setTimeout(r, 400));
           }
           console.log(`Job ${jobId} [whatsapp] Finished crawl: ${totalFetched} verified WhatsApp leads inserted.`);
+        } else if (source === 'dorking') {
+          // === DEDICATED BUSINESS INDEX (SOCIAL PLATFORM RADAR) ===
+          // 1. Searches real verified businesses for the requested keyword & location
+          // 2. Crawls candidate business websites in parallel to extract official platform profile
+          // 3. STRICT FILTER: Saves ONLY leads that have the user's selected platform profile
+          // 4. Zero unrelated links - verified authentic social profile attached to every lead!
+          const targetPlatform = platform || 'linkedin.com';
+          const cleanPlatform = targetPlatform.replace(/^https?:\/\//i, '').replace(/^www\./i, '').toLowerCase();
+          console.log(`Job ${jobId} [dorking] Starting Social Radar for "${cleanPlatform}" - "${keyword}" in "${location}" (target: ${requestedCount})...`);
+
+          const seenWebsites = new Set();
+          const seenSocialLinks = new Set();
+          const queryVariants = [
+            `${keyword} in ${location}`,
+            `${keyword} near ${location}`,
+            `best ${keyword} in ${location}`,
+            `${keyword} Central ${location}`,
+            `${keyword} North ${location}`,
+            `${keyword} South ${location}`,
+            `${keyword} West ${location}`,
+            `${keyword} East ${location}`
+          ];
+
+          for (const currentQuery of queryVariants) {
+            if (totalFetched >= requestedCount) break;
+
+            let nextPageToken = null;
+            let pageIteration = 0;
+            const maxPages = 4;
+
+            while (totalFetched < requestedCount && pageIteration < maxPages) {
+              pageIteration++;
+              let places = [];
+
+              try {
+                const requestBody = {
+                  textQuery: currentQuery,
+                  pageSize: 20
+                };
+                if (nextPageToken) requestBody.pageToken = nextPageToken;
+
+                const response = await axios.post(
+                  'https://places.googleapis.com/v1/places:searchText',
+                  requestBody,
+                  {
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'X-Goog-Api-Key': GOOGLE_API_KEY,
+                      'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri,places.primaryType,places.googleMapsUri,nextPageToken'
+                    },
+                    timeout: 8000
+                  }
+                );
+
+                places = response.data.places || [];
+                nextPageToken = response.data.nextPageToken;
+              } catch (placesErr) {
+                console.error(`Job ${jobId} [dorking] Google Places API error:`, placesErr.message);
+                break;
+              }
+
+              if (places.length === 0) break;
+
+              // Filter places with websiteUri not inspected yet
+              const candidates = places.filter(p => {
+                if (!p.websiteUri) return false;
+                const cleanWeb = p.websiteUri.replace(/^https?:\/\/(www\.)?/i, '').split('/')[0].toLowerCase();
+                if (!cleanWeb || seenWebsites.has(cleanWeb)) return false;
+                seenWebsites.add(cleanWeb);
+                return true;
+              });
+
+              // Parallel crawl for verified platform profiles
+              const BATCH_SIZE = 10;
+              const crawlMap = new Map();
+
+              for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
+                const batch = candidates.slice(i, i + BATCH_SIZE);
+                const crawlResults = await Promise.all(
+                  batch.map(async (place) => {
+                    try {
+                      const socials = await crawlWebsiteForSocials(place.websiteUri, cleanPlatform, { timeoutMs: 2800 });
+                      return { place, socials };
+                    } catch {
+                      return { place, socials: null };
+                    }
+                  })
+                );
+
+                for (const r of crawlResults) {
+                  if (r.socials) crawlMap.set(r.place, r.socials);
+                }
+              }
+
+              for (const place of places) {
+                if (totalFetched >= requestedCount) break;
+
+                const socials = crawlMap.get(place);
+                // STRICT FILTER: If the requested platform profile wasn't found, REJECT.
+                if (!socials) continue;
+
+                let selectedPlatformLink = null;
+                if (cleanPlatform.includes('linkedin')) selectedPlatformLink = socials.linkedin;
+                else if (cleanPlatform.includes('instagram')) selectedPlatformLink = socials.instagram;
+                else if (cleanPlatform.includes('facebook')) selectedPlatformLink = socials.facebook;
+                else if (cleanPlatform.includes('twitter') || cleanPlatform.includes('x.com')) selectedPlatformLink = socials.twitter;
+                else if (cleanPlatform.includes('youtube')) selectedPlatformLink = socials.youtube;
+                else if (cleanPlatform.includes('tiktok')) selectedPlatformLink = socials.tiktok;
+                else if (cleanPlatform.includes('pinterest')) selectedPlatformLink = socials.pinterest;
+
+                if (!selectedPlatformLink) continue;
+
+                // Deduplicate platform link within job
+                if (seenSocialLinks.has(selectedPlatformLink)) continue;
+                seenSocialLinks.add(selectedPlatformLink);
+
+                const name = place.displayName?.text || 'Business';
+                const address = place.formattedAddress || location;
+                const rawPhone = place.nationalPhoneNumber || '';
+                const website = place.websiteUri || '';
+                const category = place.primaryType || keyword;
+                const sourceLink = selectedPlatformLink; // Profile link is the primary source_link
+
+                const placeId = place.id || `dork_${Buffer.from(name + selectedPlatformLink).toString('base64').substring(0, 80)}`;
+                const mobile = extractMobile(rawPhone) || null;
+                const whatsapp = mobile ? `https://wa.me/${mobile.replace(/\D/g, '')}` : null;
+
+                try {
+                  const insertResult = await db.query(
+                    `INSERT INTO leads (
+                       job_id, user_id, place_id, name, address, phone, website, category, source_link, emails,
+                       instagram, facebook, linkedin, twitter, youtube, tiktok, pinterest, telegram, mobile, whatsapp
+                     )
+                     SELECT 
+                       $1::INTEGER, $20::INTEGER, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::VARCHAR, $6::TEXT, $7::VARCHAR, $8::TEXT, $9::TEXT,
+                       $10::TEXT, $11::TEXT, $12::TEXT, $13::TEXT, $14::TEXT, $15::TEXT, $16::TEXT, $17::TEXT, $18::TEXT, $19::TEXT
+                     WHERE NOT EXISTS (
+                       SELECT 1 FROM leads 
+                       WHERE user_id = $20::INTEGER AND (
+                         place_id = $2 OR 
+                         (source_link = $8 AND source_link != '') OR
+                         ($18::TEXT IS NOT NULL AND $18::TEXT != '' AND (mobile = $18 OR phone = $18))
+                       )
+                     )
+                     ON CONFLICT (job_id, place_id) DO NOTHING RETURNING id`,
+                    [
+                      jobId, placeId, name, address, rawPhone, website, category, sourceLink, null,
+                      socials.instagram, socials.facebook, socials.linkedin, socials.twitter, socials.youtube,
+                      socials.tiktok, socials.pinterest, socials.telegram, mobile, whatsapp, jobUserId
+                    ]
+                  );
+
+                  if (insertResult.rowCount > 0) {
+                    totalFetched++;
+                    if (website) {
+                      enrichEmail(website, insertResult.rows[0].id, name, address).catch(() => {});
+                    }
+                  }
+                } catch (dbErr) {
+                  console.error(`Job ${jobId} [dorking] DB insert error:`, dbErr.message);
+                }
+              }
+
+              if (!nextPageToken || totalFetched >= requestedCount) break;
+              await new Promise(r => setTimeout(r, 400));
+            } // end while
+          } // end for queryVariants
+          console.log(`Job ${jobId} [dorking] Finished: ${totalFetched} verified ${cleanPlatform} leads inserted.`);
         } else {
-          // === YAHOO SEARCH SCRAPER FOR DORKING / YELLOWPAGES / YANDEX ===
+          // === YAHOO SEARCH SCRAPER FOR YELLOWPAGES / YANDEX ===
           // Yahoo respects site: operator (Bing/DDG do not), returns real results.
           // AUTO CITY SPLITTING: When a broad region/country is given, we break it
           // into multiple city-level sub-queries to maximize unique lead coverage.
@@ -1752,7 +1921,7 @@ app.post('/api/generate', requireAuth, async (req, res) => {
           // Intelligent Multi-Engine Fallback to Google Places if web search yielded fewer leads than requested
           // STRICT GUARD: WhatsApp Radar and Maps NEVER use this backfill.
           // WhatsApp Radar strictly returns ONLY genuine website-verified leads.
-          if (totalFetched < requestedCount && GOOGLE_API_KEY && source !== 'whatsapp' && source !== 'maps') {
+          if (totalFetched < requestedCount && GOOGLE_API_KEY && source !== 'whatsapp' && source !== 'maps' && source !== 'dorking') {
             console.log(`Job ${jobId} [${source}] Backfilling via verified directory places (${totalFetched}/${requestedCount})...`);
             try {
               const locLower = location.toLowerCase().trim();
