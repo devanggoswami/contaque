@@ -4,7 +4,7 @@ import {
   Database as DbIcon, CheckCircle2, Clock, XCircle, Eye, 
   Download, X, FileText, FileSpreadsheet, Search, RefreshCw, 
   Filter, Copy, Check, ExternalLink, Phone, Globe, MapPin, 
-  ChevronRight, Sparkles, AlertCircle, ArrowUpDown, Trash2,
+  ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight, Sparkles, AlertCircle, ArrowUpDown, Trash2,
   MessageCircle, MessageSquare, Mail, Share2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -153,6 +153,20 @@ const drawPdfSocialBadges = (doc, cell, rawLead) => {
   });
 };
 
+// Helper to generate smart pagination numbers (e.g. [1, 2, 3, '...', 10])
+const getPageNumbers = (current, total) => {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  if (current <= 4) {
+    return [1, 2, 3, 4, 5, '...', total];
+  }
+  if (current >= total - 3) {
+    return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
+  }
+  return [1, '...', current - 1, current, current + 1, '...', total];
+};
+
 function Database() {
   const { authFetch, refreshWallet } = useAuth();
   const [jobs, setJobs] = useState([]);
@@ -168,6 +182,10 @@ function Database() {
   const [sourceFilter, setSourceFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [autoPoll, setAutoPoll] = useState(true);
+
+  // Pagination state (default: 200 jobs per page)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(200);
 
   // Modal State
   const [selectedJob, setSelectedJob] = useState(null);
@@ -395,6 +413,20 @@ function Database() {
       return matchesSearch && matchesSource && matchesStatus;
     });
   }, [jobs, searchQuery, sourceFilter, statusFilter]);
+
+  // Reset to page 1 whenever filters, search, or page size change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, sourceFilter, statusFilter, pageSize]);
+
+  // Pagination calculations (200 jobs per page)
+  const totalPages = Math.max(1, Math.ceil(filteredJobs.length / pageSize));
+  const validCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+  const paginatedJobs = useMemo(() => {
+    const startIndex = (validCurrentPage - 1) * pageSize;
+    return filteredJobs.slice(startIndex, startIndex + pageSize);
+  }, [filteredJobs, validCurrentPage, pageSize]);
 
   // Filtered Leads in Modal
   const filteredModalLeads = useMemo(() => {
@@ -1371,9 +1403,11 @@ function Database() {
   const handleSelectAll = (e) => {
     lastClickedJobIdRef.current = null;
     if (e.target.checked) {
-      setSelectedJobIds(filteredJobs.map(j => j.id));
+      const pageIds = paginatedJobs.map(j => j.id);
+      setSelectedJobIds(prev => Array.from(new Set([...prev, ...pageIds])));
     } else {
-      setSelectedJobIds([]);
+      const pageIdSet = new Set(paginatedJobs.map(j => j.id));
+      setSelectedJobIds(prev => prev.filter(id => !pageIdSet.has(id)));
     }
   };
 
@@ -1382,13 +1416,13 @@ function Database() {
       const isCurrentlySelected = prev.includes(id);
 
       if (isShift && lastClickedJobIdRef.current !== null && lastClickedJobIdRef.current !== id) {
-        const lastIndex = filteredJobs.findIndex(j => j.id === lastClickedJobIdRef.current);
-        const currentIndex = filteredJobs.findIndex(j => j.id === id);
+        const lastIndex = paginatedJobs.findIndex(j => j.id === lastClickedJobIdRef.current);
+        const currentIndex = paginatedJobs.findIndex(j => j.id === id);
 
         if (lastIndex !== -1 && currentIndex !== -1) {
           const start = Math.min(lastIndex, currentIndex);
           const end = Math.max(lastIndex, currentIndex);
-          const rangeIds = filteredJobs.slice(start, end + 1).map(j => j.id);
+          const rangeIds = paginatedJobs.slice(start, end + 1).map(j => j.id);
 
           lastClickedJobIdRef.current = id;
           return Array.from(new Set([...prev, ...rangeIds]));
@@ -1694,7 +1728,7 @@ function Database() {
                           <input 
                             type="checkbox" 
                             onChange={handleSelectAll} 
-                            checked={filteredJobs.length > 0 && selectedJobIds.length === filteredJobs.length}
+                            checked={paginatedJobs.length > 0 && paginatedJobs.every(j => selectedJobIds.includes(j.id))}
                           />
                         </th>
                         <th width="70">Job ID</th>
@@ -1707,7 +1741,7 @@ function Database() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredJobs.map((job) => {
+                      {paginatedJobs.map((job) => {
                         const target = job.target_count || job.requested_count || job.fetched_count || 1;
                         const fetched = job.fetched_count || 0;
                         const pct = target > 0 ? Math.min(100, Math.round((fetched / target) * 100)) : 100;
@@ -1796,7 +1830,7 @@ function Database() {
 
                 {/* Mobile Cards View for Scraper Jobs */}
                 <div className="mobile-jobs-cards-list">
-                  {filteredJobs.map((job) => {
+                  {paginatedJobs.map((job) => {
                     const target = job.target_count || job.requested_count || job.fetched_count || 1;
                     const fetched = job.fetched_count || 0;
                     const pct = target > 0 ? Math.min(100, Math.round((fetched / target) * 100)) : 100;
@@ -1875,6 +1909,92 @@ function Database() {
                     );
                   })}
                 </div>
+
+                {/* Pagination Controls Bar */}
+                {filteredJobs.length > 0 && (
+                  <div className="db-pagination-bar">
+                    <div className="db-pagination-info">
+                      <span>
+                        Showing <strong>{Math.min(filteredJobs.length, (validCurrentPage - 1) * pageSize + 1)}</strong> - <strong>{Math.min(filteredJobs.length, validCurrentPage * pageSize)}</strong> of <strong>{filteredJobs.length}</strong> jobs
+                      </span>
+                      {filteredJobs.length !== jobs.length && (
+                        <span className="db-pagination-filtered-tag">
+                          (filtered from {jobs.length} total)
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="db-pagination-controls">
+                      <div className="db-page-size-selector">
+                        <label>Per page:</label>
+                        <select 
+                          value={pageSize} 
+                          onChange={(e) => {
+                            setPageSize(Number(e.target.value));
+                            setCurrentPage(1);
+                          }}
+                        >
+                          <option value={50}>50</option>
+                          <option value={100}>100</option>
+                          <option value={200}>200</option>
+                          <option value={500}>500</option>
+                          <option value={10000}>All ({filteredJobs.length})</option>
+                        </select>
+                      </div>
+
+                      <div className="db-pagination-buttons">
+                        <button 
+                          className="db-page-nav-btn" 
+                          disabled={validCurrentPage <= 1}
+                          onClick={() => setCurrentPage(1)}
+                          title="First Page"
+                        >
+                          <ChevronsLeft size={16} />
+                        </button>
+                        <button 
+                          className="db-page-nav-btn" 
+                          disabled={validCurrentPage <= 1}
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          title="Previous Page"
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+
+                        {/* Page number buttons */}
+                        {getPageNumbers(validCurrentPage, totalPages).map((p, idx) => (
+                          p === '...' ? (
+                            <span key={`ellipsis-${idx}`} className="db-page-ellipsis">...</span>
+                          ) : (
+                            <button
+                              key={p}
+                              className={`db-page-num-btn ${validCurrentPage === p ? 'active' : ''}`}
+                              onClick={() => setCurrentPage(p)}
+                            >
+                              {p}
+                            </button>
+                          )
+                        ))}
+
+                        <button 
+                          className="db-page-nav-btn" 
+                          disabled={validCurrentPage >= totalPages}
+                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                          title="Next Page"
+                        >
+                          <ChevronRight size={16} />
+                        </button>
+                        <button 
+                          className="db-page-nav-btn" 
+                          disabled={validCurrentPage >= totalPages}
+                          onClick={() => setCurrentPage(totalPages)}
+                          title="Last Page"
+                        >
+                          <ChevronsRight size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>

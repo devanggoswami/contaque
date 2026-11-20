@@ -2215,7 +2215,7 @@ app.get('/api/jobs', requireAuth, async (req, res) => {
              (SELECT count(*) FROM leads l WHERE l.job_id = j.id AND emails IS NOT NULL AND emails != '-' AND emails != 'None') as valid_emails_count 
       FROM jobs j 
       WHERE j.user_id = $1
-      ORDER BY j.created_at DESC LIMIT 50
+      ORDER BY j.created_at DESC ${req.query.limit && parseInt(req.query.limit, 10) > 0 ? `LIMIT ${parseInt(req.query.limit, 10)}` : ''}
     `, [userId]);
     res.json(jobs.rows);
   } catch (error) {

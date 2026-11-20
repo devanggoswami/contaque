@@ -1851,4 +1851,157 @@
   color: #334155 !important;
 }
 
+/* ==========================================================================
+   Database Records Pagination Bar
+   ========================================================================== */
+.db-pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: var(--bg-card, #ffffff);
+  border-top: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 0 0 12px 12px;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.db-pagination-info {
+  font-size: 13px;
+  color: var(--text-muted, #64748b);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.db-pagination-info strong {
+  color: var(--text-main, #0f172a);
+  font-weight: 700;
+}
+
+.db-pagination-filtered-tag {
+  font-size: 12px;
+  color: var(--text-muted, #94a3b8);
+  font-style: italic;
+}
+
+.db-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.db-page-size-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-muted, #64748b);
+  font-weight: 600;
+}
+
+.db-page-size-selector select {
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  background: var(--bg-card, #ffffff);
+  color: var(--text-main, #1e293b);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.db-page-size-selector select:focus {
+  border-color: var(--primary, #2563eb);
+}
+
+.db-pagination-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.db-page-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-card, #ffffff);
+  color: var(--text-main, #334155);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.db-page-nav-btn:hover:not(:disabled) {
+  background: var(--bg-hover, #f8fafc);
+  border-color: var(--primary, #2563eb);
+  color: var(--primary, #2563eb);
+}
+
+.db-page-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.db-page-num-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 7px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-card, #ffffff);
+  color: var(--text-main, #334155);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.db-page-num-btn:hover:not(.active) {
+  background: var(--bg-hover, #f8fafc);
+  border-color: #cbd5e1;
+}
+
+.db-page-num-btn.active {
+  background: var(--primary, #2563eb);
+  color: #ffffff;
+  border-color: var(--primary, #2563eb);
+  font-weight: 700;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+}
+
+.db-page-ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 32px;
+  font-size: 13px;
+  color: var(--text-muted, #94a3b8);
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .db-pagination-bar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 14px;
+  }
+  .db-pagination-info {
+    justify-content: center;
+  }
+  .db-pagination-controls {
+    justify-content: center;
+  }
+}
+
 
